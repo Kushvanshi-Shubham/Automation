@@ -14,7 +14,7 @@ from app.routers import (
     uploads,
     videos,
 )
-from app.websocket.progress import manager
+from app.services import progress as progress_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,11 +53,24 @@ async def health_check():
 
 @app.websocket("/ws/pipeline/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
-    # NOTE: progress events will flow via Redis pub/sub once the pipeline lands;
-    # this endpoint only manages subscriber connections.
-    await manager.connect(websocket, job_id)
+    """Forward Redis pub/sub progress events for this job to the browser.
+
+    Celery workers publish via app.services.progress.publish_progress; this
+    endpoint is a pure subscriber, so it works across processes/containers.
+    """
+    await websocket.accept()
+    client = progress_service.async_redis()
+    pubsub = client.pubsub()
+    await pubsub.subscribe(progress_service.channel_for(job_id))
     try:
-        while True:
-            await websocket.receive_text()
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                await websocket.send_text(message["data"])
     except WebSocketDisconnect:
-        manager.disconnect(websocket, job_id)
+        pass
+    except Exception:  # client went away mid-send or Redis dropped
+        logger.exception("websocket forwarding stopped for job %s", job_id)
+    finally:
+        await pubsub.unsubscribe()
+        await pubsub.aclose()
+        await client.aclose()

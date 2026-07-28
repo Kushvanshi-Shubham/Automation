@@ -1,6 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { API_BASE_URL } from "@/lib/api-client"
+
+// ws(s)://host derived from the API URL (strip protocol + trailing /api)
+const WS_BASE_URL = API_BASE_URL.replace(/^http/, "ws").replace(/\/api\/?$/, "")
 
 export interface PipelineState {
   status: "idle" | "running" | "completed" | "failed"
@@ -26,7 +30,7 @@ export function usePipeline(jobId: string | null) {
     let reconnectTimeout: ReturnType<typeof setTimeout>
     
     const connect = () => {
-      ws = new WebSocket(`ws://localhost:8000/ws/pipeline/${jobId}`)
+      ws = new WebSocket(`${WS_BASE_URL}/ws/pipeline/${jobId}`)
 
       ws.onopen = () => {
         setState((s) => ({ ...s, isConnected: true }))
