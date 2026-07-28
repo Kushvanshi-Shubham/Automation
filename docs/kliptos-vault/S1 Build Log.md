@@ -2,6 +2,11 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — Gemini live: full creator flow unlocked in browser
+- GEMINI_API_KEY wired and verified end-to-end through the API (8-segment script generated live). Model pinned to `gemini-flash-latest` rolling alias — `gemini-2.5-flash` is retired for new users (July 2026).
+- Complete flow now works in the browser: Topics → Create Short (Gemini writes script, free tier) → Studio edit → Generate Video (1 credit) → live progress → 9:16 preview player.
+- Pending keys: YOUTUBE_API_KEY (trending source). Pending owner: youtube.upload OAuth verification application.
+
 ## 2026-07-29 — 🎬 VIDEO PIPELINE LIVE (the core product works)
 - **Full render verified E2E through the production path**: `POST /pipeline/start` → 1 credit deducted via ledger (3→2) → Celery worker (solo pool on Windows) → edge-tts narration → real Pexels portrait clips → FFmpeg 1080×1920@30fps h264+aac → `/media/{id}/final.mp4` served over HTTP (verified 200)
 - Components: `pipeline/tts.py` (edge-tts, ffprobe-measured durations — TTS word-boundary events proved unreliable), `visuals/pexels.py` (portrait rendition picker, no-repeat clip ids), `assembler.py` (raw ffmpeg subprocess — **moviepy/pydub/whisper removed from requirements**, decision: leaner + faster), `runner.py` (stage orchestration, Redis progress, **auto-refund on failure**), credit costs per engine in `routers/pipeline.py`
