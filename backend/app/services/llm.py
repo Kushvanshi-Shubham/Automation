@@ -12,7 +12,9 @@ from app.config import settings
 
 logger = logging.getLogger("kliptos.llm")
 
-GEMINI_MODEL = "gemini-2.5-flash"
+# Rolling alias — always resolves to the current flash model, so we never
+# break when Google retires a specific version.
+GEMINI_MODEL = "gemini-flash-latest"
 OPENAI_MODEL = "gpt-4o"
 
 
