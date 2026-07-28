@@ -14,10 +14,10 @@
 - [[S1 Build Log]] — running log of the actual build
 
 ## Status
-- **Stage:** S1 — Engine MVP (started 2026-07-28)
-- **Working end-to-end (2026-07-29):** sign-in → trends (2 sources) → Gemini script → studio edit → 1-credit render (TTS+Pexels+FFmpeg) → live-progress preview. See [[S1 Build Log]].
-- **In progress:** captions burn-in + background music
-- **Remaining in S1:** YouTube upload/scheduling · Stripe+Razorpay billing · deploy
+- **Stage: 🏁 S1 ENGINE MVP — FEATURE-COMPLETE (2026-07-29, owner-approved: "loved it")**
+- Working: sign-in → trends (Google Trends + YouTube) → Gemini script → studio edit → 1-credit render with captions + music → live-progress preview → YouTube publish/schedule (test-mode). See [[S1 Build Log]].
+- **Next: deploy for friend-testing** (Railway + Vercel), then billing (Stripe/Razorpay) for real users
+- **S2+ backlog (owner review 2026-07-29):** categorized/region-wise trends + more platforms (Twitter/Snapchat/Insta) · multi-platform posting · BYO API keys w/ platform fee · model selection + prompt refinement · full UI revamp (owner designing logo)
 - **Gate to S2:** 100 activated users, ≥25 finish 3+ videos
 - **Urgent external item:** Google OAuth verification for `youtube.upload` scope — STILL NOT APPLIED (weeks of lead time)
 

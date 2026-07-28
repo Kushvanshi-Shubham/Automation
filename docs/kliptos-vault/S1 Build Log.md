@@ -2,6 +2,11 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — 🏁 S1 CLOSED (owner approved: "loved it")
+- Owner rendered a real Apex Legends short and approved the product. **Bug found & fixed at close:** dashboard home was still mock data, so rendered videos looked "lost" (they were persisted — just undiscoverable). Dashboard now shows real stats + the full video library (every video links to Studio or Preview by status; live-polls while rendering/uploading).
+- S2+ backlog captured in [[Roadmap]] (owner review): categorized/region trends + Twitter/Snapchat/Insta sources · multi-platform posting · BYO API keys w/ platform fee · model choice + prompt refinement · UI revamp (owner designing logo).
+- Next phase: **deploy for friend-testing** (Railway + Vercel), then billing.
+
 ## 2026-07-29 — YouTube upload & scheduling built
 - **Channel connect**: `GET /channels/connect` → Google consent (youtube.upload + readonly, offline, prompt=consent) → `GET /channels/callback` (identity via 10-min signed-state JWT) → tokens **Fernet-encrypted at rest** (test proves ciphertext ≠ plaintext), channel row upserted, redirect to Settings with success/error param
 - **Upload**: Celery task `youtube.upload` — resumable insert via google-api-python-client, auto token refresh from encrypted refresh token; statuses ready→publishing→published/scheduled/upload_failed. Scheduling = privacy:private + status.publishAt (YouTube flips it public itself)
