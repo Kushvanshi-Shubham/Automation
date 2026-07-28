@@ -1,15 +1,11 @@
-"""GPT-4o script generation for 60-second vertical shorts."""
-import json
+"""Script generation for 60-second vertical shorts (Gemini free-tier first, GPT-4o fallback)."""
 import logging
 
 from fastapi import HTTPException, status
-from openai import AsyncOpenAI, OpenAIError
 
-from app.config import settings
+from app.services.llm import generate_json
 
 logger = logging.getLogger("kliptos.script_gen")
-
-MODEL = "gpt-4o"
 
 SYSTEM_PROMPT = """You are a viral YouTube Shorts scriptwriter. You write tight, hook-driven,
 fact-checked scripts for 9:16 vertical videos narrated by a single voice.
@@ -34,15 +30,6 @@ Respond ONLY with JSON matching:
 }"""
 
 
-def _client() -> AsyncOpenAI:
-    if not settings.OPENAI_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Script generation is not configured (missing OpenAI key)",
-        )
-    return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-
-
 async def generate_script(
     topic: str,
     hook_hint: str | None = None,
@@ -56,23 +43,7 @@ async def generate_script(
         + (f"Hook inspiration (improve on it): {hook_hint}\n" if hook_hint else "")
         + "Write the script now."
     )
-    try:
-        resp = await _client().chat.completions.create(
-            model=MODEL,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.8,
-        )
-        data = json.loads(resp.choices[0].message.content)
-    except OpenAIError as exc:
-        logger.error("openai script generation failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Script generation failed upstream")
-    except (json.JSONDecodeError, KeyError, IndexError) as exc:
-        logger.error("openai returned unparseable script: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Script generation returned invalid data")
+    data = await generate_json(SYSTEM_PROMPT, user_prompt, temperature=0.8)
 
     segments = data.get("segments") or []
     if not segments:
@@ -89,33 +60,17 @@ async def regenerate_segment(
     segment_index: int,
     feedback: str,
 ) -> dict:
-    context = "\n".join(
-        f"[{i}] {s.get('text', '')}" for i, s in enumerate(full_script)
-    )
+    context = "\n".join(f"[{i}] {s.get('text', '')}" for i, s in enumerate(full_script))
     user_prompt = (
         f"Topic: {topic}\n"
         f"Current script segments:\n{context}\n\n"
         f"Rewrite ONLY segment [{segment_index}] applying this feedback: {feedback}\n"
         'Respond ONLY with JSON: {"text": "...", "visual_prompt": "...", "duration_estimate": 4.5}'
     )
-    try:
-        resp = await _client().chat.completions.create(
-            model=MODEL,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.9,
-        )
-        seg = json.loads(resp.choices[0].message.content)
-    except OpenAIError as exc:
-        logger.error("openai segment regen failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Segment regeneration failed upstream")
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Segment regeneration returned invalid data")
+    seg = await generate_json(SYSTEM_PROMPT, user_prompt, temperature=0.9)
+
     if "text" not in seg:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Segment regeneration returned no text")
     seg.setdefault("visual_prompt", full_script[segment_index].get("visual_prompt", ""))
-    seg.setdefault("duration_estimate", round(len(seg["text"].split()) / 2.5, 1))
+    seg.setdefault("duration_estimate", round(len(str(seg["text"]).split()) / 2.5, 1))
     return seg

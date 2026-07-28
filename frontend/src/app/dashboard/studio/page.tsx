@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
-import { Clock, Loader2, PenTool, RefreshCw, Save, Sparkles, TrendingUp } from "lucide-react"
+import { Clapperboard, Clock, Loader2, PenTool, RefreshCw, Save, Sparkles, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
@@ -58,6 +58,7 @@ function EmptyStudio() {
 
 function ScriptEditor({ videoId }: { videoId: string }) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [segments, setSegments] = useState<Segment[]>([])
   const [dirty, setDirty] = useState(false)
   const [regenIndex, setRegenIndex] = useState<number | null>(null)
@@ -96,6 +97,18 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     },
   })
 
+  const render = useMutation({
+    mutationFn: () =>
+      fetchApi("/pipeline/start", {
+        method: "POST",
+        body: JSON.stringify({ video_id: videoId, visual_engine: "pexels" }),
+      }),
+    onSuccess: (data: { job_id: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["credits"] })
+      router.push(`/dashboard/preview/${videoId}?job=${data.job_id}`)
+    },
+  })
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -130,15 +143,32 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             <Clock className="w-4 h-4" /> ~{Math.round(totalDuration)}s spoken · {segments.length} segments
           </p>
         </div>
-        <button
-          onClick={() => save.mutate()}
-          disabled={!dirty || save.isPending}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm disabled:opacity-50"
-        >
-          {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {dirty ? "Save Changes" : "Saved"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => save.mutate()}
+            disabled={!dirty || save.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 font-medium text-sm disabled:opacity-50 transition-colors"
+          >
+            {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {dirty ? "Save Changes" : "Saved"}
+          </button>
+          <button
+            onClick={() => render.mutate()}
+            disabled={render.isPending || dirty}
+            title={dirty ? "Save your changes first" : "Costs 1 credit (Pexels visuals)"}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm disabled:opacity-50"
+          >
+            {render.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
+            Generate Video · 1 credit
+          </button>
+        </div>
       </div>
+
+      {render.error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+          {(render.error as Error).message}
+        </div>
+      )}
 
       <div className="space-y-4">
         {segments.map((segment, i) => (

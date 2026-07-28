@@ -26,6 +26,7 @@ USER_AGENT = "Kliptos/1.0 (trend discovery; contact: admin@kliptos.app)"
 TRENDS_RSS_URL = "https://trends.google.com/trending/rss?geo={geo}"
 REDDIT_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 REDDIT_TOP_URL = "https://oauth.reddit.com/r/{sub}/top?t=day&limit={limit}"
+YOUTUBE_TRENDING_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 DEFAULT_SUBREDDITS = [
     "interestingasfuck",
@@ -149,6 +150,47 @@ async def fetch_reddit_trending(
     return items
 
 
+async def fetch_youtube_trending(
+    client: httpx.AsyncClient,
+    region: str = "US",
+    limit: int = 15,
+) -> list[dict]:
+    """Official YouTube Data API v3 mostPopular chart — needs a plain API key."""
+    if not settings.YOUTUBE_API_KEY:
+        logger.info("youtube source skipped: YOUTUBE_API_KEY not configured")
+        return []
+    resp = await client.get(
+        YOUTUBE_TRENDING_URL,
+        params={
+            "part": "snippet,statistics",
+            "chart": "mostPopular",
+            "regionCode": region,
+            "maxResults": limit,
+            "key": settings.YOUTUBE_API_KEY,
+        },
+    )
+    resp.raise_for_status()
+    items = []
+    for video in resp.json().get("items", []):
+        snippet = video.get("snippet", {})
+        title = (snippet.get("title") or "").strip()
+        if not title:
+            continue
+        views = int(video.get("statistics", {}).get("viewCount", 0))
+        keywords = _keywords_from_title(title)
+        category_tags = (snippet.get("tags") or [])[:2]
+        items.append(
+            {
+                "title": title,
+                "source": "youtube",
+                "score": round(min(99.0, 15.0 + 12.0 * math.log10(max(views, 1000))), 1),
+                "keywords": keywords + [t for t in category_tags if t not in keywords],
+                "hook_text": _hook_for(title),
+            }
+        )
+    return items
+
+
 async def harvest_topics(db: AsyncSession, geo: str = "US") -> dict:
     """Fetch all sources, dedupe against DB by content hash, insert new topics."""
     async with httpx.AsyncClient(timeout=15) as client:
@@ -164,6 +206,11 @@ async def harvest_topics(db: AsyncSession, geo: str = "US") -> dict:
         except Exception as exc:
             logger.warning("reddit fetch failed: %s", exc)
             errors["reddit"] = str(exc)
+        try:
+            results += await fetch_youtube_trending(client, region=geo)
+        except Exception as exc:
+            logger.warning("youtube fetch failed: %s", exc)
+            errors["youtube"] = str(exc)
 
     hashes = [content_hash(r["title"]) for r in results]
     existing = set(

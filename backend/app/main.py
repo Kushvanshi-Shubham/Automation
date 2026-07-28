@@ -1,7 +1,9 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers import (
@@ -44,6 +46,12 @@ app.include_router(videos.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
+
+
+# Rendered videos (local dev storage; object storage replaces this in prod).
+_media_dir = Path(settings.OUTPUT_DIR)
+_media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(_media_dir)), name="media")
 
 
 @app.get("/api/health")

@@ -24,15 +24,12 @@ celery[redis]>=5.4.0
 redis>=5.0.0
 
 # Pipeline
+# NOTE: assembly uses ffmpeg directly (subprocess) — moviepy/pydub/whisper
+# removed as unused; captions will come from edge-tts word boundaries.
 openai>=1.30.0
 edge-tts>=6.1.0
-pydub>=0.25.0
-moviepy>=2.0.0
 Pillow>=10.0.0
-openai-whisper>=20231117
 google-genai>=1.0.0
-praw>=7.7.0
-requests>=2.32.0
 aiohttp>=3.9.0
 
 # YouTube

@@ -16,12 +16,16 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/kliptos"
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    OUTPUT_DIR: str = "./output"
+
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24h; refresh flow lands with frontend session work
 
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
+    YOUTUBE_API_KEY: Optional[str] = None
     PEXELS_API_KEY: Optional[str] = None
     GOOGLE_CLOUD_PROJECT: Optional[str] = None
     HIGGSFIELD_API_KEY: Optional[str] = None

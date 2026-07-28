@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — 🎬 VIDEO PIPELINE LIVE (the core product works)
+- **Full render verified E2E through the production path**: `POST /pipeline/start` → 1 credit deducted via ledger (3→2) → Celery worker (solo pool on Windows) → edge-tts narration → real Pexels portrait clips → FFmpeg 1080×1920@30fps h264+aac → `/media/{id}/final.mp4` served over HTTP (verified 200)
+- Components: `pipeline/tts.py` (edge-tts, ffprobe-measured durations — TTS word-boundary events proved unreliable), `visuals/pexels.py` (portrait rendition picker, no-repeat clip ids), `assembler.py` (raw ffmpeg subprocess — **moviepy/pydub/whisper removed from requirements**, decision: leaner + faster), `runner.py` (stage orchestration, Redis progress, **auto-refund on failure**), credit costs per engine in `routers/pipeline.py`
+- UI loop closed: Studio "Generate Video · 1 credit" → Preview page with live WS progress bar → 9:16 player
+- **Gemini added as primary LLM** (free tier) with OpenAI fallback (`services/llm.py`); script_gen now provider-agnostic. Awaiting GEMINI_API_KEY from owner.
+- **YouTube Trending source added** to harvester (needs YOUTUBE_API_KEY). Instagram trends rejected (no public API; ToS) — Insta returns later as a *posting* target via Graph API.
+- Gotchas: celery_app needs `include=["app.pipeline.tasks"]` or tasks silently discard; ffmpeg PATH requires new shell after winget install; Windows Celery needs `--pool=solo`
+- 22 backend tests green; frontend build green
+
 ## 2026-07-28 — Script Studio shipped (GPT-4o)
 - `app/services/script_gen.py`: GPT-4o JSON-mode script generation (hook-first segments with visual prompts, ~2.5 wps duration model) + per-segment regeneration with feedback
 - Endpoints: POST `/scripts/generate` (topic_id or custom_prompt → creates `script_ready` Video), GET/PUT `/scripts/{id}`, POST `/scripts/{id}/regenerate-segment` — all ownership-checked; 20 tests green

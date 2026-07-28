@@ -68,8 +68,8 @@ export default function TopicsPage() {
 
       <div className="flex items-center gap-2 mb-8 bg-zinc-900 p-1.5 rounded-xl border border-white/5 w-fit">
         <FilterButton active={filter === "all"} onClick={() => setFilter("all")} icon={Flame} label="All Trending" color="text-rose-400" />
-        <FilterButton active={filter === "reddit"} onClick={() => setFilter("reddit")} icon={Search} label="Reddit" color="text-orange-500" />
         <FilterButton active={filter === "trends"} onClick={() => setFilter("trends")} icon={TrendingIcon} label="Google Trends" color="text-blue-400" />
+        <FilterButton active={filter === "youtube"} onClick={() => setFilter("youtube")} icon={Search} label="YouTube" color="text-rose-500" />
       </div>
 
       {error && (
@@ -116,7 +116,11 @@ export default function TopicsPage() {
             <div className="p-6 flex-1">
               <div className="flex justify-between items-start mb-4">
                 <div className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${
-                  topic.source === "reddit" ? "bg-orange-500/10 text-orange-500 border border-orange-500/20" : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                  topic.source === "youtube"
+                    ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                    : topic.source === "reddit"
+                      ? "bg-orange-500/10 text-orange-500 border border-orange-500/20"
+                      : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                 }`}>
                   {topic.source ?? "unknown"}
                 </div>
