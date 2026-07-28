@@ -7,8 +7,15 @@ Auth end-to-end (Google via NextAuth ↔ FastAPI JWT) · Alembic · credit syste
 **Gate → S2:** 100 activated users, ≥25 finish 3+ videos
 Build order: monorepo merge → foundation fixes → auth → OpenAPI client → Redis pub/sub → pipeline stages (E2E test each)
 
-## S2 — Premium visuals (weeks 9–12)
-Hybrid Veo hero clips (8–10 cr) · ElevenLabs voices · scheduling · basic analytics
+## S2 — Testable + Better (CURRENT, defined 2026-07-29)
+Ordered by priority:
+1. **Deploy for friend-testing** — Render or Railway (API+worker+Postgres+Redis+volume) + Vercel; rotate all secrets; prod OAuth redirect URIs; add friends as Google test users
+2. **UI revamp** — full design pass (owner delivering logo); fix landing-page pricing truth
+3. **Trend discovery v2** — region + category filters for existing sources (YT API supports regionCode + videoCategoryId natively); Twitter/Snapchat source research; compliant Insta signal research
+4. **Studio power features** — model selection (Gemini/GPT), user-editable generation prompt, tone presets
+5. **BYO API keys** — users store their own encrypted LLM keys, platform fee per render applies
+6. **Billing** — Stripe (US) + Razorpay (India), credit packs + subscriptions
+7. Premium visuals (hybrid Veo hero clips 8–10 cr) + ElevenLabs voices — once billing exists
 **Gate → S3:** ≥30 paying subscribers, gross margin ≥60%
 
 ## S3 — Media kit + marketplace lite (weeks 13–20)

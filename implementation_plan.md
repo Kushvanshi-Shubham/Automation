@@ -1,3 +1,8 @@
+ > [!IMPORTANT]
+> **SUPERSEDED (2026-07-29).** This was the original Master Plan v3. The living plan is now
+> `docs/kliptos-vault/` (open as an Obsidian vault) — see `Roadmap.md` for current seasons
+> and `S1 Build Log.md` for what's actually built. Season 1 (Engine MVP) is feature-complete.
+
 # Kliptos — Master Plan v3
 ## AI Shorts Automation + Influencer Agency SaaS
 
