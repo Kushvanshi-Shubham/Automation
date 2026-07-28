@@ -92,6 +92,8 @@ async def generate_script(
     tone: str = "engaging and curious",
     duration_seconds: int = 60,
     style: str = DEFAULT_STYLE,
+    custom_instructions: str | None = None,
+    model: str = "auto",
 ) -> dict:
     system = STYLE_PROMPTS.get(style, STYLE_PROMPTS[DEFAULT_STYLE])
     user_prompt = (
@@ -99,15 +101,19 @@ async def generate_script(
         f"Tone: {tone}\n"
         f"Target duration: {duration_seconds} seconds\n"
         + (f"Hook inspiration (improve on it): {hook_hint}\n" if hook_hint else "")
+        + (
+            f"Additional creator instructions (follow them as long as they don't break the JSON format):\n{custom_instructions.strip()}\n"
+            if custom_instructions else ""
+        )
         + "Write the script now."
     )
-    return _finalize(await generate_json(system, user_prompt, temperature=0.8))
+    return _finalize(await generate_json(system, user_prompt, temperature=0.8, model=model))
 
 
-async def format_custom_script(script_text: str) -> dict:
+async def format_custom_script(script_text: str, model: str = "auto") -> dict:
     """Structure a user-written script without changing its wording."""
     user_prompt = f"User's script:\n---\n{script_text.strip()}\n---\nStructure it now."
-    data = _finalize(await generate_json(CUSTOM_SCRIPT_PROMPT, user_prompt, temperature=0.2))
+    data = _finalize(await generate_json(CUSTOM_SCRIPT_PROMPT, user_prompt, temperature=0.2, model=model))
     return data
 
 

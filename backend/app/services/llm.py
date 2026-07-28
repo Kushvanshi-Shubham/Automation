@@ -51,13 +51,37 @@ async def _openai_json(system: str, user: str, temperature: float) -> dict:
     return json.loads(resp.choices[0].message.content)
 
 
-async def generate_json(system: str, user: str, temperature: float = 0.8) -> dict:
-    """Try each configured provider in order; raise 502/503 if all fail."""
-    providers = []
+VALID_MODELS = {"auto", "gemini", "openai"}
+
+
+def available_models() -> list[dict]:
+    """Model choices the UI can offer, based on configured keys."""
+    models = [{"key": "auto", "label": "Auto (best available)"}]
     if settings.GEMINI_API_KEY:
-        providers.append(("gemini", _gemini_json))
+        models.append({"key": "gemini", "label": f"Gemini ({GEMINI_MODEL})"})
     if settings.OPENAI_API_KEY:
-        providers.append(("openai", _openai_json))
+        models.append({"key": "openai", "label": f"OpenAI ({OPENAI_MODEL})"})
+    return models
+
+
+async def generate_json(system: str, user: str, temperature: float = 0.8, model: str = "auto") -> dict:
+    """Run against the requested provider ('gemini'/'openai'), or try each
+    configured provider in order for 'auto'. Raises 502/503 on failure."""
+    all_providers = []
+    if settings.GEMINI_API_KEY:
+        all_providers.append(("gemini", _gemini_json))
+    if settings.OPENAI_API_KEY:
+        all_providers.append(("openai", _openai_json))
+
+    if model != "auto":
+        providers = [(n, f) for n, f in all_providers if n == model]
+        if not providers:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Model '{model}' is not configured on this server",
+            )
+    else:
+        providers = all_providers
 
     if not providers:
         raise HTTPException(

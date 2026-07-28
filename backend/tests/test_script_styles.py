@@ -17,8 +17,8 @@ def test_unknown_style_rejected(client, auth_headers):
 def test_style_forwarded_to_generator(client, auth_headers, monkeypatch):
     captured = {}
 
-    async def fake_generate(topic, hook_hint=None, tone="engaging and curious", duration_seconds=60, style="viral_story"):
-        captured["style"] = style
+    async def fake_generate(topic, **kwargs):
+        captured["style"] = kwargs.get("style")
         return dict(FAKE)
 
     monkeypatch.setattr("app.routers.scripts.script_gen.generate_script", fake_generate)
@@ -34,7 +34,7 @@ def test_style_forwarded_to_generator(client, auth_headers, monkeypatch):
 def test_custom_script_path(client, auth_headers, monkeypatch):
     captured = {}
 
-    async def fake_format(script_text):
+    async def fake_format(script_text, **kwargs):
         captured["text"] = script_text
         return dict(FAKE)
 

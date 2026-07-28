@@ -43,19 +43,46 @@ const STYLES = [
   { value: "commentary", label: "🎙️ Commentary", desc: "Opinionated take, invites comments" },
 ]
 
+const TONE_PRESETS = [
+  "engaging and curious",
+  "hype and energetic",
+  "dramatic and suspenseful",
+  "funny and meme-y",
+  "calm and professional",
+]
+
 function EmptyStudio() {
   const router = useRouter()
   const [mode, setMode] = useState<"idea" | "own">("idea")
   const [prompt, setPrompt] = useState("")
   const [ownScript, setOwnScript] = useState("")
   const [style, setStyle] = useState("viral_story")
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [model, setModel] = useState("auto")
+  const [tone, setTone] = useState(TONE_PRESETS[0])
+  const [customTone, setCustomTone] = useState("")
+  const [instructions, setInstructions] = useState("")
+
+  const { data: models } = useQuery<{ items: { key: string; label: string }[] }>({
+    queryKey: ["llm-models"],
+    queryFn: () => fetchApi("/scripts/models"),
+    staleTime: Infinity,
+  })
 
   const create = useMutation({
     mutationFn: () =>
       fetchApi("/scripts/generate", {
         method: "POST",
         body: JSON.stringify(
-          mode === "own" ? { custom_script: ownScript } : { custom_prompt: prompt, style }
+          mode === "own"
+            ? { custom_script: ownScript, model }
+            : {
+                custom_prompt: prompt,
+                style,
+                model,
+                tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
+                custom_instructions: instructions.trim() || undefined,
+              }
         ),
       }),
     onSuccess: (data: { video_id: string }) => router.push(`/dashboard/studio?video=${data.video_id}`),
@@ -138,6 +165,72 @@ function EmptyStudio() {
             />
           </div>
         )}
+
+        {/* Advanced options */}
+        <div className="border-t border-white/5 pt-4">
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-300 uppercase tracking-wider transition-colors"
+          >
+            ⚙️ Advanced options {showAdvanced ? "▲" : "▼"}
+          </button>
+
+          {showAdvanced && (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-1.5">AI model</label>
+                  <select
+                    value={model}
+                    onChange={e => setModel(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+                  >
+                    {(models?.items ?? [{ key: "auto", label: "Auto (best available)" }]).map(m => (
+                      <option key={m.key} value={m.key}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {mode === "idea" && (
+                  <div>
+                    <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-1.5">Tone</label>
+                    <select
+                      value={tone}
+                      onChange={e => setTone(e.target.value)}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50 capitalize"
+                    >
+                      {TONE_PRESETS.map(t => <option key={t} value={t}>{t}</option>)}
+                      <option value="__custom__">Custom…</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {mode === "idea" && tone === "__custom__" && (
+                <input
+                  value={customTone}
+                  onChange={e => setCustomTone(e.target.value)}
+                  placeholder="Describe the tone, e.g. 'sarcastic but warm'"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+                />
+              )}
+
+              {mode === "idea" && (
+                <div>
+                  <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-1.5">
+                    Custom instructions <span className="text-zinc-600 normal-case">(optional, {600 - instructions.length} left)</span>
+                  </label>
+                  <textarea
+                    value={instructions}
+                    onChange={e => setInstructions(e.target.value.slice(0, 600))}
+                    rows={3}
+                    placeholder="e.g. Always end with 'follow for part 2'. Never use the word 'insane'. Mention my channel GamerX once."
+                    className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-violet-500/50 resize-none"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {create.error && <p className="text-xs text-rose-400">{(create.error as Error).message}</p>}
 

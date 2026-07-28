@@ -10,8 +10,15 @@ from app.models.user import User
 from app.models.video import Video
 from app.schemas.script import ScriptGenerateRequest, ScriptResponse, ScriptRegenerateRequest, ScriptUpdateRequest
 from app.services import script_gen
+from app.services.llm import VALID_MODELS, available_models
 
 router = APIRouter(prefix="/scripts", tags=["Scripts"], dependencies=[Depends(get_current_user)])
+
+
+@router.get("/models")
+async def list_models():
+    """LLM choices available on this server (for the studio model picker)."""
+    return {"items": available_models()}
 
 
 async def _get_owned_video(video_id: UUID, db: AsyncSession, user: User) -> Video:
@@ -30,6 +37,8 @@ async def generate_script(
     """Generate a script from a topic, a custom prompt, or the user's own script text."""
     if req.style not in script_gen.STYLE_PROMPTS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
+    if req.model not in VALID_MODELS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown model")
 
     hook_hint = None
     if req.custom_script:
@@ -39,7 +48,7 @@ async def generate_script(
                 detail="Your script is too short — write at least a few sentences",
             )
         subject = "user-written script"
-        script = await script_gen.format_custom_script(req.custom_script)
+        script = await script_gen.format_custom_script(req.custom_script, model=req.model)
     else:
         if req.topic_id is not None:
             topic = await db.get(Topic, req.topic_id)
@@ -62,6 +71,8 @@ async def generate_script(
             tone=req.tone,
             duration_seconds=req.duration_seconds,
             style=req.style,
+            custom_instructions=req.custom_instructions,
+            model=req.model,
         )
 
     video = Video(

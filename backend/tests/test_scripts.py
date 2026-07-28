@@ -11,7 +11,7 @@ FAKE_SCRIPT = {
 
 
 def _mock_generate(monkeypatch):
-    async def fake_generate(topic, hook_hint=None, tone="engaging and curious", duration_seconds=60, style="viral_story"):
+    async def fake_generate(topic, **kwargs):
         return dict(FAKE_SCRIPT)
 
     monkeypatch.setattr("app.routers.scripts.script_gen.generate_script", fake_generate)

@@ -31,7 +31,7 @@ def test_pipeline_start_unknown_video_404(client, auth_headers):
 
 
 def test_pipeline_start_rejects_unavailable_engine(client, auth_headers, monkeypatch):
-    async def fake_generate(topic, hook_hint=None, tone="engaging and curious", duration_seconds=60, style="viral_story"):
+    async def fake_generate(topic, **kwargs):
         return {
             "title": "t", "description": "d", "tags": [],
             "segments": [{"text": "hello world", "visual_prompt": "x", "duration_estimate": 2.0}],

@@ -12,6 +12,10 @@ class ScriptGenerateRequest(BaseModel):
     style: str = "viral_story"
     tone: str = "engaging and curious"
     duration_seconds: int = Field(default=60, ge=15, le=180)
+    # auto | gemini | openai
+    model: str = "auto"
+    # Extra creator guidance appended to the generation prompt
+    custom_instructions: Optional[str] = Field(default=None, max_length=600)
 
 
 class ScriptSegment(BaseModel):

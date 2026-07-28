@@ -2,6 +2,13 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — S2 #3 shipped: studio power features
+- **Model selection**: `model` param end-to-end (`auto`/`gemini`/`openai`); `GET /scripts/models` returns server-configured choices for the UI picker; explicit-but-unconfigured model → clean 503
+- **Custom instructions** (≤600 chars) appended to the generation prompt — live-verified: "End with exactly: follow Kliptos for part two" produced exactly that
+- **Tone presets** in UI (engaging/hype/dramatic/funny/calm + custom free-text)
+- Studio creation form gained a collapsible ⚙️ Advanced panel (model, tone, instructions)
+- 45 backend tests green; frontend build green
+
 ## 2026-07-29 — S2 #2 shipped: niche clustering for trends
 - `Topic.category` (migration 0002, indexed) + shared niche registry (`services/niches.py`): gaming, entertainment, music, sports, tech, education, news, comedy
 - YouTube harvest now pulls the overall chart + one chart PER NICHE via native `videoCategoryId` (1 quota unit each; niche-first ordering so dedupe keeps the specific niche; unsupported categories skipped gracefully)
