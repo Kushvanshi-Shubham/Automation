@@ -14,6 +14,7 @@ from app.models.channel import Channel
 from app.models.user import User
 from app.models.video import Video
 from app.schemas.video import VideoResponse
+from app.services.youtube import YT_CATEGORIES
 
 router = APIRouter(prefix="/uploads", tags=["Uploads"], dependencies=[Depends(get_current_user)])
 
@@ -23,11 +24,19 @@ ALLOWED_PRIVACY = {"public", "unlisted", "private"}
 class PublishRequest(BaseModel):
     channel_id: UUID
     privacy: str = "unlisted"
+    category_id: str = "24"
 
 
 class ScheduleRequest(BaseModel):
     channel_id: UUID
     publish_at: datetime
+    category_id: str = "24"
+
+
+@router.get("/categories")
+async def list_yt_categories():
+    """Assignable YouTube categories for the publish form."""
+    return {"items": [{"id": k, "label": v} for k, v in YT_CATEGORIES.items()]}
 
 
 async def _validate(video_id: UUID, channel_id: UUID, db: AsyncSession, user: User) -> tuple[Video, Channel]:
@@ -63,10 +72,12 @@ async def publish_video(
     """Upload to YouTube now."""
     if req.privacy not in ALLOWED_PRIVACY:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid privacy value")
+    if req.category_id not in YT_CATEGORIES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid category")
     video, channel = await _validate(video_id, req.channel_id, db, current_user)
 
     from app.pipeline.upload_tasks import upload_video_task
-    upload_video_task.delay(str(video.id), str(channel.id), req.privacy, None)
+    upload_video_task.delay(str(video.id), str(channel.id), req.privacy, None, req.category_id)
     return {"status": "publishing"}
 
 
@@ -83,10 +94,12 @@ async def schedule_video(
         publish_at = publish_at.replace(tzinfo=timezone.utc)
     if publish_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="publish_at must be in the future")
+    if req.category_id not in YT_CATEGORIES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid category")
     video, channel = await _validate(video_id, req.channel_id, db, current_user)
 
     from app.pipeline.upload_tasks import upload_video_task
-    upload_video_task.delay(str(video.id), str(channel.id), "private", publish_at.isoformat())
+    upload_video_task.delay(str(video.id), str(channel.id), "private", publish_at.isoformat(), req.category_id)
     return {"status": "scheduling"}
 
 

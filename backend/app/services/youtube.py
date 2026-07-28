@@ -122,6 +122,22 @@ def _credentials(channel):
     )
 
 
+# Assignable YouTube video categories (subset that accepts uploads)
+YT_CATEGORIES = {
+    "1": "Film & Animation",
+    "10": "Music",
+    "17": "Sports",
+    "20": "Gaming",
+    "22": "People & Blogs",
+    "23": "Comedy",
+    "24": "Entertainment",
+    "25": "News & Politics",
+    "26": "Howto & Style",
+    "27": "Education",
+    "28": "Science & Technology",
+}
+
+
 def upload_video_file(
     channel,
     file_path: Path,
@@ -130,6 +146,7 @@ def upload_video_file(
     tags: list[str] | None,
     privacy: str = "unlisted",
     publish_at: str | None = None,
+    category_id: str = "24",
 ) -> str:
     """Resumable upload; returns the YouTube video id.
 
@@ -152,7 +169,7 @@ def upload_video_file(
             "title": (title or "Untitled Short")[:95],
             "description": (description or "")[:4900],
             "tags": (tags or [])[:30],
-            "categoryId": "24",  # Entertainment
+            "categoryId": category_id if category_id in YT_CATEGORIES else "24",
         },
         "status": status,
     }

@@ -2,6 +2,11 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — S2 #4 shipped: publish metadata editor
+- Preview publish panel is now a full editor: **title (95-char counter) · description · tags (comma-separated, max 30) · YouTube category (11 assignable categories via `GET /uploads/categories`) · privacy · schedule** — all prefilled from AI values, saved via PUT metadata then dispatched to upload in one click
+- Backend: `category_id` flows through publish/schedule → Celery task → YouTube snippet (validated against assignable list, safe fallback to Entertainment)
+- 48 backend tests green; frontend build green
+
 ## 2026-07-29 — S2 #3 shipped: studio power features
 - **Model selection**: `model` param end-to-end (`auto`/`gemini`/`openai`); `GET /scripts/models` returns server-configured choices for the UI picker; explicit-but-unconfigured model → clean 503
 - **Custom instructions** (≤600 chars) appended to the generation prompt — live-verified: "End with exactly: follow Kliptos for part two" produced exactly that

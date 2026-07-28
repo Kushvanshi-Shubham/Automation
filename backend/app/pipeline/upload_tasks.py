@@ -15,7 +15,7 @@ from app.services import youtube
 logger = logging.getLogger("kliptos.upload")
 
 
-async def _run(video_id: str, channel_id: str, privacy: str, publish_at: str | None) -> dict:
+async def _run(video_id: str, channel_id: str, privacy: str, publish_at: str | None, category_id: str = "24") -> dict:
     async with AsyncSessionLocal() as db:
         video = await db.get(Video, UUID(video_id))
         channel = await db.get(Channel, UUID(channel_id))
@@ -36,6 +36,7 @@ async def _run(video_id: str, channel_id: str, privacy: str, publish_at: str | N
             video.tags,
             privacy,
             publish_at,
+            category_id,
         )
     except Exception as exc:
         logger.exception("upload failed for video %s", video_id)
@@ -61,7 +62,8 @@ async def _run(video_id: str, channel_id: str, privacy: str, publish_at: str | N
 
 
 @celery_app.task(bind=True, name="youtube.upload")
-def upload_video_task(self, video_id: str, channel_id: str, privacy: str = "unlisted", publish_at: str | None = None):
+def upload_video_task(self, video_id: str, channel_id: str, privacy: str = "unlisted",
+                      publish_at: str | None = None, category_id: str = "24"):
     from app.pipeline.tasks import _with_fresh_pool
 
-    return asyncio.run(_with_fresh_pool(_run(video_id, channel_id, privacy, publish_at)))
+    return asyncio.run(_with_fresh_pool(_run(video_id, channel_id, privacy, publish_at, category_id)))

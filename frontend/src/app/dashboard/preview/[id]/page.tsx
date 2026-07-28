@@ -16,6 +16,7 @@ interface VideoData {
   status: string
   title: string | null
   description: string | null
+  tags: string[] | null
   video_url: string | null
   thumbnail_url: string | null
   youtube_video_id: string | null
@@ -133,7 +134,7 @@ function PreviewContent() {
           </Link>
         </div>
 
-        {video.status === "ready" && <PublishPanel videoId={video.id} />}
+        {video.status === "ready" && <PublishPanel video={video} />}
         {video.status === "publishing" && (
           <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Uploading to YouTube…
@@ -169,27 +170,51 @@ function PreviewContent() {
   )
 }
 
-function PublishPanel({ videoId }: { videoId: string }) {
+function PublishPanel({ video }: { video: VideoData }) {
   const queryClient = useQueryClient()
+  const videoId = video.id
+
   const { data: channels } = useQuery<Channel[]>({
     queryKey: ["channels"],
     queryFn: () => fetchApi("/channels"),
   })
+  const { data: categories } = useQuery<{ items: { id: string; label: string }[] }>({
+    queryKey: ["yt-categories"],
+    queryFn: () => fetchApi("/uploads/categories"),
+    staleTime: Infinity,
+  })
+
   const [channelId, setChannelId] = useState("")
   const [privacy, setPrivacy] = useState("unlisted")
   const [scheduleAt, setScheduleAt] = useState("")
+  const [categoryId, setCategoryId] = useState("24")
+
+  // Editable metadata, prefilled from the AI-generated values.
+  const [title, setTitle] = useState(video.title ?? "")
+  const [description, setDescription] = useState(video.description ?? "")
+  const [tagsText, setTagsText] = useState((video.tags ?? []).join(", "))
 
   const publish = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
+      const tags = tagsText.split(",").map(t => t.trim().replace(/^#/, "")).filter(Boolean).slice(0, 30)
+      // 1) persist edited metadata, 2) dispatch upload
+      await fetchApi(`/videos/${videoId}/metadata`, {
+        method: "PUT",
+        body: JSON.stringify({ title: title.trim() || null, description, tags }),
+      })
       if (scheduleAt) {
         return fetchApi(`/uploads/${videoId}/schedule`, {
           method: "POST",
-          body: JSON.stringify({ channel_id: channelId, publish_at: new Date(scheduleAt).toISOString() }),
+          body: JSON.stringify({
+            channel_id: channelId,
+            publish_at: new Date(scheduleAt).toISOString(),
+            category_id: categoryId,
+          }),
         })
       }
       return fetchApi(`/uploads/${videoId}/publish`, {
         method: "POST",
-        body: JSON.stringify({ channel_id: channelId, privacy }),
+        body: JSON.stringify({ channel_id: channelId, privacy, category_id: categoryId }),
       })
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["video", videoId] }),
@@ -212,7 +237,37 @@ function PublishPanel({ videoId }: { videoId: string }) {
         <Tv className="w-4 h-4 text-rose-500" /> Publish to YouTube
       </h3>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Metadata editor */}
+      <div>
+        <label className="text-xs text-zinc-500 block mb-1.5">
+          Title <span className="text-zinc-600">({95 - title.length} left)</span>
+        </label>
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value.slice(0, 95))}
+          className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-zinc-500 block mb-1.5">Description</label>
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value.slice(0, 4900))}
+          rows={4}
+          className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-violet-500/50 resize-none"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-zinc-500 block mb-1.5">Tags <span className="text-zinc-600">(comma-separated, max 30)</span></label>
+        <input
+          value={tagsText}
+          onChange={e => setTagsText(e.target.value)}
+          placeholder="apex legends, gaming, shorts"
+          className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <select
           value={channelId}
           onChange={e => setChannelId(e.target.value)}
@@ -221,6 +276,15 @@ function PublishPanel({ videoId }: { videoId: string }) {
           <option value="">Select channel…</option>
           {channels.map(c => (
             <option key={c.id} value={c.id}>{c.channel_name ?? "Unnamed channel"}</option>
+          ))}
+        </select>
+        <select
+          value={categoryId}
+          onChange={e => setCategoryId(e.target.value)}
+          className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+        >
+          {(categories?.items ?? [{ id: "24", label: "Entertainment" }]).map(c => (
+            <option key={c.id} value={c.id}>{c.label}</option>
           ))}
         </select>
         <select
@@ -251,11 +315,11 @@ function PublishPanel({ videoId }: { videoId: string }) {
 
       <button
         onClick={() => publish.mutate()}
-        disabled={!channelId || publish.isPending}
+        disabled={!channelId || !title.trim() || publish.isPending}
         className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {publish.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tv className="w-4 h-4" />}
-        {scheduleAt ? "Schedule Upload" : "Publish Now"}
+        {scheduleAt ? "Save & Schedule" : "Save & Publish Now"}
       </button>
     </div>
   )
