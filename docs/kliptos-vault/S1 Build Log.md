@@ -2,6 +2,13 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-28 — Script Studio shipped (GPT-4o)
+- `app/services/script_gen.py`: GPT-4o JSON-mode script generation (hook-first segments with visual prompts, ~2.5 wps duration model) + per-segment regeneration with feedback
+- Endpoints: POST `/scripts/generate` (topic_id or custom_prompt → creates `script_ready` Video), GET/PUT `/scripts/{id}`, POST `/scripts/{id}/regenerate-segment` — all ownership-checked; 20 tests green
+- Studio page: segment editor (narration + visual prompt), save, per-segment AI regenerate with feedback input; Topics "Create Short" → generates → routes to studio
+- OPENAI + PEXELS keys wired. ⚠️ Live GPT-4o call blocked: OpenAI account has `insufficient_quota` — owner must add billing credits. Error path verified graceful (502 + log).
+- **Decision: Reddit source stays OFF** — Reddit's Data API policy requires written approval for commercial use; Kliptos is commercial. Alternative: YouTube Trending as second source once YouTube API key exists. Code stays dormant behind missing creds.
+
 ## 2026-07-28 — Topic Harvester live (first pipeline feature)
 - `app/services/harvester.py`: Google Trends RSS (no key needed, **live-verified: 10 real topics harvested**) + Reddit via app-only OAuth (skips cleanly until `REDDIT_CLIENT_ID/SECRET` provided — Reddit 403-blocks unauthenticated server calls since the 2023 API lockdown)
 - Dedupe by sha256 content hash (cross-run and within-run); log-scaled 0–100 scores; template hooks (LLM hooks come with script studio)

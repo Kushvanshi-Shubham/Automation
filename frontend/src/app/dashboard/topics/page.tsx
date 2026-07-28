@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Search, Flame, TrendingUp as TrendingIcon, RefreshCw, Zap, Inbox } from "lucide-react"
+import { Search, Flame, TrendingUp as TrendingIcon, RefreshCw, Zap, Inbox, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { fetchApi } from "@/lib/api-client"
 
@@ -19,6 +20,17 @@ interface Topic {
 export default function TopicsPage() {
   const [filter, setFilter] = useState("all")
   const queryClient = useQueryClient()
+  const router = useRouter()
+  const [creatingId, setCreatingId] = useState<string | null>(null)
+
+  const createShort = useMutation({
+    mutationFn: (topicId: string) =>
+      fetchApi("/scripts/generate", { method: "POST", body: JSON.stringify({ topic_id: topicId }) }),
+    onSuccess: (data: { video_id: string }) => {
+      router.push(`/dashboard/studio?video=${data.video_id}`)
+    },
+    onSettled: () => setCreatingId(null),
+  })
 
   const { data, isLoading, error } = useQuery<{ items: Topic[] }>({
     queryKey: ["topics"],
@@ -134,8 +146,16 @@ export default function TopicsPage() {
             </div>
 
             <div className="p-4 border-t border-white/5 bg-zinc-950/50">
-              <button className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-sm font-medium flex items-center justify-center gap-2 group-hover:bg-violet-600 group-hover:border-violet-500 group-hover:text-white">
-                <Zap className="w-4 h-4" /> Create Short
+              <button
+                onClick={() => { setCreatingId(topic.id); createShort.mutate(topic.id) }}
+                disabled={createShort.isPending}
+                className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-sm font-medium flex items-center justify-center gap-2 group-hover:bg-violet-600 group-hover:border-violet-500 group-hover:text-white disabled:opacity-60"
+              >
+                {creatingId === topic.id ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Writing script…</>
+                ) : (
+                  <><Zap className="w-4 h-4" /> Create Short</>
+                )}
               </button>
             </div>
           </motion.div>

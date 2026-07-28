@@ -13,5 +13,6 @@
 | 9 | 2026-07-28 | **OneFlancer deferred to S3/S4** | Different customer than faceless creators; marketplace cold-start needs manual seeding first |
 | 10 | 2026-07-28 | **India + US launch, localized pricing** (Pro ₹499/$19), Razorpay + Stripe | $19 non-viable in India; UPI is the payment rail |
 | 11 | 2026-07-28 | **S1 visuals = Pexels + edge-tts only** | Ship revenue-capable product in ~8 wks at survivable cost |
+| 12 | 2026-07-28 | **Reddit trend source disabled until written commercial approval from Reddit** | Reddit Data API policy prohibits unapproved commercial use; Kliptos is commercial. Google Trends carries S1; YouTube Trending to be added as second source. Code dormant behind missing creds. |
 
 Links: [[Home]] · [[Roadmap]] · [[S1 Build Log]]
