@@ -1,0 +1,183 @@
+"""Topic harvester: pulls trending topics from Google Trends and Reddit.
+
+Both sources work WITHOUT credentials:
+- Google Trends: public RSS feed
+- Reddit: public JSON API (rate-limited; praw + creds can replace later)
+
+Hooks are template-generated for now; LLM-written hooks land with the
+script-studio milestone (needs OPENAI_API_KEY).
+"""
+import hashlib
+import logging
+import math
+import re
+import xml.etree.ElementTree as ET
+
+import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.models.topic import Topic
+
+logger = logging.getLogger("kliptos.harvester")
+
+USER_AGENT = "Kliptos/1.0 (trend discovery; contact: admin@kliptos.app)"
+TRENDS_RSS_URL = "https://trends.google.com/trending/rss?geo={geo}"
+REDDIT_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
+REDDIT_TOP_URL = "https://oauth.reddit.com/r/{sub}/top?t=day&limit={limit}"
+
+DEFAULT_SUBREDDITS = [
+    "interestingasfuck",
+    "todayilearned",
+    "Damnthatsinteresting",
+    "technology",
+    "space",
+]
+
+_HT_NS = "{https://trends.google.com/trending/rss}"
+
+
+def content_hash(title: str) -> str:
+    return hashlib.sha256(title.strip().lower().encode()).hexdigest()
+
+
+def _keywords_from_title(title: str, limit: int = 4) -> list[str]:
+    words = re.findall(r"[A-Za-z][A-Za-z0-9'-]{3,}", title)
+    seen: list[str] = []
+    for w in words:
+        cap = w[0].upper() + w[1:]
+        if cap not in seen:
+            seen.append(cap)
+        if len(seen) >= limit:
+            break
+    return seen
+
+
+def _hook_for(title: str) -> str:
+    return f"Everyone is talking about {title} right now — here's what most people missed."
+
+
+def _score_from_traffic(traffic_text: str) -> float:
+    """'200+' / '1,000+' → log-scaled 0–100."""
+    digits = re.sub(r"[^\d]", "", traffic_text or "")
+    traffic = int(digits) if digits else 100
+    return round(min(99.0, 35.0 + 12.0 * math.log10(max(traffic, 10))), 1)
+
+
+def _score_from_upvotes(ups: int) -> float:
+    return round(min(99.0, 20.0 + 16.0 * math.log10(max(ups, 10))), 1)
+
+
+async def fetch_google_trends(client: httpx.AsyncClient, geo: str = "US") -> list[dict]:
+    resp = await client.get(TRENDS_RSS_URL.format(geo=geo), headers={"User-Agent": USER_AGENT})
+    resp.raise_for_status()
+    root = ET.fromstring(resp.text)
+    items = []
+    for item in root.iter("item"):
+        title = (item.findtext("title") or "").strip()
+        if not title:
+            continue
+        traffic = item.findtext(f"{_HT_NS}approx_traffic") or ""
+        items.append(
+            {
+                "title": title,
+                "source": "trends",
+                "score": _score_from_traffic(traffic),
+                "keywords": _keywords_from_title(title),
+                "hook_text": _hook_for(title),
+            }
+        )
+    return items
+
+
+async def _reddit_app_token(client: httpx.AsyncClient) -> str | None:
+    """App-only OAuth token (client_credentials). Reddit blocks unauthenticated
+    JSON API calls from servers, so credentials are required for this source."""
+    if not (settings.REDDIT_CLIENT_ID and settings.REDDIT_CLIENT_SECRET):
+        return None
+    resp = await client.post(
+        REDDIT_TOKEN_URL,
+        auth=(settings.REDDIT_CLIENT_ID, settings.REDDIT_CLIENT_SECRET),
+        data={"grant_type": "client_credentials"},
+        headers={"User-Agent": settings.REDDIT_USER_AGENT or USER_AGENT},
+    )
+    resp.raise_for_status()
+    return resp.json().get("access_token")
+
+
+async def fetch_reddit_trending(
+    client: httpx.AsyncClient,
+    subreddits: list[str] | None = None,
+    limit_per_sub: int = 8,
+) -> list[dict]:
+    token = await _reddit_app_token(client)
+    if token is None:
+        logger.info("reddit source skipped: REDDIT_CLIENT_ID/SECRET not configured")
+        return []
+    headers = {
+        "User-Agent": settings.REDDIT_USER_AGENT or USER_AGENT,
+        "Authorization": f"Bearer {token}",
+    }
+    items = []
+    for sub in subreddits or DEFAULT_SUBREDDITS:
+        try:
+            resp = await client.get(
+                REDDIT_TOP_URL.format(sub=sub, limit=limit_per_sub),
+                headers=headers,
+                follow_redirects=True,
+            )
+            resp.raise_for_status()
+            posts = resp.json().get("data", {}).get("children", [])
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("reddit fetch failed for r/%s: %s", sub, exc)
+            continue
+        for post in posts:
+            data = post.get("data", {})
+            title = (data.get("title") or "").strip()
+            if not title or data.get("over_18"):
+                continue
+            items.append(
+                {
+                    "title": title,
+                    "source": "reddit",
+                    "score": _score_from_upvotes(int(data.get("ups", 0))),
+                    "keywords": _keywords_from_title(title) + [sub],
+                    "hook_text": _hook_for(title),
+                }
+            )
+    return items
+
+
+async def harvest_topics(db: AsyncSession, geo: str = "US") -> dict:
+    """Fetch all sources, dedupe against DB by content hash, insert new topics."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        results: list[dict] = []
+        errors: dict[str, str] = {}
+        try:
+            results += await fetch_google_trends(client, geo)
+        except Exception as exc:
+            logger.warning("google trends fetch failed: %s", exc)
+            errors["trends"] = str(exc)
+        try:
+            results += await fetch_reddit_trending(client)
+        except Exception as exc:
+            logger.warning("reddit fetch failed: %s", exc)
+            errors["reddit"] = str(exc)
+
+    hashes = [content_hash(r["title"]) for r in results]
+    existing = set(
+        (await db.execute(select(Topic.content_hash).where(Topic.content_hash.in_(hashes)))).scalars()
+    )
+
+    added = 0
+    seen_this_run: set[str] = set()
+    for r, h in zip(results, hashes):
+        if h in existing or h in seen_this_run:
+            continue
+        seen_this_run.add(h)
+        db.add(Topic(content_hash=h, **r))
+        added += 1
+
+    await db.commit()
+    return {"fetched": len(results), "added": added, "errors": errors}

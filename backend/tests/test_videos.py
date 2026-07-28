@@ -10,7 +10,7 @@ def test_get_missing_video_404(client, auth_headers):
 
 
 def test_unbuilt_features_return_501_not_fake_success(client, auth_headers):
-    resp = client.post("/api/topics/refresh", headers=auth_headers)
+    resp = client.post("/api/topics/custom?prompt=test", headers=auth_headers)
     assert resp.status_code == 501
     resp = client.post(
         "/api/pipeline/start",
