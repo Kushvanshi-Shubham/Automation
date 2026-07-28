@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+﻿from pydantic import BaseModel, EmailStr, ConfigDict
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -21,8 +21,8 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str]
     credit_balance: int
     plan: str
+    role: str
+    country: Optional[str] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

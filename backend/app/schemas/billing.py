@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from typing import List, Optional
 from datetime import datetime
@@ -17,6 +17,4 @@ class CreditLedgerResponse(BaseModel):
     type: str
     description: Optional[str]
     created_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

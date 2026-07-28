@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -14,15 +14,13 @@ class VideoResponse(BaseModel):
     scheduled_at: Optional[datetime]
     published_at: Optional[datetime]
     created_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class VideoListResponse(BaseModel):
     items: List[VideoResponse]
     total: int
 
 class VideoMetadataUpdate(BaseModel):
-    title: Optional[str]
-    description: Optional[str]
-    tags: Optional[List[str]]
+    title: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = None

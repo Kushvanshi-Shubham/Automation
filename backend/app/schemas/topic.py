@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from typing import List, Optional
 from datetime import datetime
@@ -11,9 +11,7 @@ class TopicResponse(BaseModel):
     score: Optional[float]
     hook_text: Optional[str]
     discovered_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TopicListResponse(BaseModel):
     items: List[TopicResponse]

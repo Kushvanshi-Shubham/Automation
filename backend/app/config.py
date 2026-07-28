@@ -1,11 +1,24 @@
-from pydantic_settings import BaseSettings
+import json
 from typing import List, Optional
 
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
+
+
 class Settings(BaseSettings):
+    # Required — the app must refuse to boot without real secrets.
+    SECRET_KEY: str
+    # Fernet key (base64, 32 bytes) used to encrypt OAuth tokens at rest.
+    TOKEN_ENCRYPTION_KEY: str
+
+    ENVIRONMENT: str = "development"
+
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/kliptos"
     REDIS_URL: str = "redis://localhost:6379/0"
-    SECRET_KEY: str = "secret"
-    
+
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24h; refresh flow lands with frontend session work
+
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
@@ -13,26 +26,47 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_PROJECT: Optional[str] = None
     HIGGSFIELD_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
-    
+
     REDDIT_CLIENT_ID: Optional[str] = None
     REDDIT_CLIENT_SECRET: Optional[str] = None
     REDDIT_USER_AGENT: Optional[str] = None
-    
+
     YOUTUBE_CLIENT_ID: Optional[str] = None
     YOUTUBE_CLIENT_SECRET: Optional[str] = None
-    
+
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
-    
+    RAZORPAY_KEY_ID: Optional[str] = None
+    RAZORPAY_KEY_SECRET: Optional[str] = None
+
     S3_BUCKET_NAME: Optional[str] = None
     S3_REGION: Optional[str] = None
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
-    
+
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
-    
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        # Accept JSON list ('["http://a"]') or comma-separated string ('http://a,http://b').
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                return json.loads(v)
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def reject_placeholder_secret(cls, v):
+        if v in {"secret", "changeme", "your-secret-key-change-this-in-production"} or len(v) < 32:
+            raise ValueError("SECRET_KEY must be a random string of at least 32 characters")
+        return v
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
 
 settings = Settings()

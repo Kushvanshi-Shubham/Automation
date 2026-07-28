@@ -1,21 +1,28 @@
-from fastapi import APIRouter, Depends
-from app.schemas.pipeline import PipelineStartRequest, PipelineStatusResponse
 from uuid import UUID
-from typing import Any
 
-router = APIRouter(prefix="/pipeline", tags=["Pipeline"])
+from fastapi import APIRouter, Depends, HTTPException, status
 
-@router.post("/start", response_model=PipelineStatusResponse)
-async def start_pipeline(req: PipelineStartRequest) -> Any:
-    """Start the video generation pipeline."""
-    return {"job_id": "00000000-0000-0000-0000-000000000000", "status": "queued", "progress": {}, "error_message": None}
+from app.middleware.auth import get_current_user
+from app.schemas.pipeline import PipelineStartRequest
 
-@router.get("/{job_id}", response_model=PipelineStatusResponse)
-async def get_pipeline_status(job_id: UUID) -> Any:
-    """Get pipeline job status."""
-    return {"job_id": job_id, "status": "running", "progress": {}, "error_message": None}
+router = APIRouter(prefix="/pipeline", tags=["Pipeline"], dependencies=[Depends(get_current_user)])
+
+_not_ready = HTTPException(
+    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+    detail="Video pipeline lands in the pipeline milestone of S1",
+)
+
+
+@router.post("/start")
+async def start_pipeline(req: PipelineStartRequest):
+    raise _not_ready
+
+
+@router.get("/{job_id}")
+async def get_pipeline_status(job_id: UUID):
+    raise _not_ready
+
 
 @router.post("/{job_id}/cancel")
-async def cancel_pipeline(job_id: UUID) -> Any:
-    """Cancel a running pipeline job."""
-    return {"status": "cancelled"}
+async def cancel_pipeline(job_id: UUID):
+    raise _not_ready
