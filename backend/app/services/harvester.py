@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.topic import Topic
+from app.services.niches import GENERAL, NICHES, normalize
 
 logger = logging.getLogger("kliptos.harvester")
 
@@ -150,25 +151,22 @@ async def fetch_reddit_trending(
     return items
 
 
-async def fetch_youtube_trending(
+async def _fetch_youtube_chart(
     client: httpx.AsyncClient,
-    region: str = "US",
-    limit: int = 15,
+    region: str,
+    limit: int,
+    category_key: str | None = None,
 ) -> list[dict]:
-    """Official YouTube Data API v3 mostPopular chart — needs a plain API key."""
-    if not settings.YOUTUBE_API_KEY:
-        logger.info("youtube source skipped: YOUTUBE_API_KEY not configured")
-        return []
-    resp = await client.get(
-        YOUTUBE_TRENDING_URL,
-        params={
-            "part": "snippet,statistics",
-            "chart": "mostPopular",
-            "regionCode": region,
-            "maxResults": limit,
-            "key": settings.YOUTUBE_API_KEY,
-        },
-    )
+    params = {
+        "part": "snippet,statistics",
+        "chart": "mostPopular",
+        "regionCode": region,
+        "maxResults": limit,
+        "key": settings.YOUTUBE_API_KEY,
+    }
+    if category_key:
+        params["videoCategoryId"] = NICHES[category_key]["yt_category_id"]
+    resp = await client.get(YOUTUBE_TRENDING_URL, params=params)
     resp.raise_for_status()
     items = []
     for video in resp.json().get("items", []):
@@ -183,12 +181,64 @@ async def fetch_youtube_trending(
             {
                 "title": title,
                 "source": "youtube",
+                "category": category_key or GENERAL,
                 "score": round(min(99.0, 15.0 + 12.0 * math.log10(max(views, 1000))), 1),
                 "keywords": keywords + [t for t in category_tags if t not in keywords],
                 "hook_text": _hook_for(title),
             }
         )
     return items
+
+
+async def fetch_youtube_trending(
+    client: httpx.AsyncClient,
+    region: str = "US",
+    limit: int = 15,
+) -> list[dict]:
+    """Overall chart + one chart per niche (videoCategoryId). Each call costs
+    1 quota unit. Categories without chart support in the region are skipped."""
+    if not settings.YOUTUBE_API_KEY:
+        logger.info("youtube source skipped: YOUTUBE_API_KEY not configured")
+        return []
+    # Niche charts FIRST: dedupe keeps the first occurrence, so a video that is
+    # also on the overall chart retains its specific niche.
+    items: list[dict] = []
+    for key in NICHES:
+        try:
+            items += await _fetch_youtube_chart(client, region, 8, category_key=key)
+        except httpx.HTTPStatusError as exc:
+            # 400 = category has no mostPopular chart here — expected for some
+            logger.info("youtube niche %s skipped: HTTP %s", key, exc.response.status_code)
+    items += await _fetch_youtube_chart(client, region, limit)
+    return items
+
+
+async def classify_titles(titles: list[str]) -> list[str]:
+    """LLM-classify uncategorized titles into niches; 'general' on any failure."""
+    if not titles:
+        return []
+    from app.services.llm import generate_json
+
+    allowed = ", ".join(sorted(NICHES))
+    numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(titles))
+    try:
+        data = await generate_json(
+            system=(
+                "You classify video topics into exactly one category each. "
+                f"Allowed categories: {allowed}, general. "
+                'Respond ONLY with JSON: {"categories": ["gaming", ...]} — one entry per input, same order.'
+            ),
+            user=f"Classify these {len(titles)} topics:\n{numbered}",
+            temperature=0.0,
+        )
+        cats = data.get("categories", [])
+    except Exception as exc:
+        logger.warning("classification failed, defaulting to general: %s", exc)
+        return [GENERAL] * len(titles)
+    result = [normalize(c) for c in cats]
+    # pad/trim defensively — LLM may miscount
+    result += [GENERAL] * (len(titles) - len(result))
+    return result[: len(titles)]
 
 
 async def harvest_topics(db: AsyncSession, geo: str = "US") -> dict:
@@ -211,6 +261,13 @@ async def harvest_topics(db: AsyncSession, geo: str = "US") -> dict:
         except Exception as exc:
             logger.warning("youtube fetch failed: %s", exc)
             errors["youtube"] = str(exc)
+
+    # LLM-classify items that arrived without a category (Trends RSS, Reddit).
+    unclassified = [r for r in results if not r.get("category")]
+    if unclassified:
+        categories = await classify_titles([r["title"] for r in unclassified])
+        for r, cat in zip(unclassified, categories):
+            r["category"] = cat
 
     hashes = [content_hash(r["title"]) for r in results]
     existing = set(

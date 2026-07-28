@@ -9,6 +9,8 @@ class Topic(Base):
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     title = Column(String, nullable=False)
     source = Column(String, nullable=True)
+    # niche key from app.services.niches (e.g. "gaming"), "general" if unknown
+    category = Column(String, nullable=True, index=True)
     keywords = Column(JSON, nullable=True)
     score = Column(Float, nullable=True)
     hook_text = Column(String, nullable=True)

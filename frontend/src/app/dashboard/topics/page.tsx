@@ -11,14 +11,21 @@ interface Topic {
   id: string
   title: string
   source: string | null
+  category: string | null
   keywords: string[] | null
   score: number | null
   hook_text: string | null
   discovered_at: string | null
 }
 
+interface Niche {
+  key: string
+  label: string
+}
+
 export default function TopicsPage() {
   const [filter, setFilter] = useState("all")
+  const [niche, setNiche] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const router = useRouter()
   const [creatingId, setCreatingId] = useState<string | null>(null)
@@ -33,9 +40,15 @@ export default function TopicsPage() {
     onSettled: () => setCreatingId(null),
   })
 
+  const { data: niches } = useQuery<{ items: Niche[] }>({
+    queryKey: ["niches"],
+    queryFn: () => fetchApi("/topics/niches"),
+    staleTime: Infinity,
+  })
+
   const { data, isLoading, error } = useQuery<{ items: Topic[] }>({
-    queryKey: ["topics"],
-    queryFn: () => fetchApi("/topics"),
+    queryKey: ["topics", niche],
+    queryFn: () => fetchApi(niche ? `/topics?category=${niche}` : "/topics"),
     staleTime: 60_000,
   })
 
@@ -78,8 +91,17 @@ export default function TopicsPage() {
         </div>
       </div>
 
+      {/* Niche chips */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <NicheChip active={niche === null} label="🌐 All niches" onClick={() => setNiche(null)} />
+        {(niches?.items ?? []).map(n => (
+          <NicheChip key={n.key} active={niche === n.key} label={n.label} onClick={() => setNiche(n.key)} />
+        ))}
+        <NicheChip active={niche === "general"} label="Other" onClick={() => setNiche("general")} />
+      </div>
+
       <div className="flex items-center gap-2 mb-8 bg-zinc-900 p-1.5 rounded-xl border border-white/5 w-fit">
-        <FilterButton active={filter === "all"} onClick={() => setFilter("all")} icon={Flame} label="All Trending" color="text-rose-400" />
+        <FilterButton active={filter === "all"} onClick={() => setFilter("all")} icon={Flame} label="All Sources" color="text-rose-400" />
         <FilterButton active={filter === "trends"} onClick={() => setFilter("trends")} icon={TrendingIcon} label="Google Trends" color="text-blue-400" />
         <FilterButton active={filter === "youtube"} onClick={() => setFilter("youtube")} icon={Search} label="YouTube" color="text-rose-500" />
       </div>
@@ -136,8 +158,15 @@ export default function TopicsPage() {
                 }`}>
                   {topic.source ?? "unknown"}
                 </div>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-xs font-medium">
-                  <Flame className="w-3.5 h-3.5 text-rose-400" /> Score: {topic.score ?? "—"}
+                <div className="flex items-center gap-2">
+                  {topic.category && topic.category !== "general" && (
+                    <span className="px-2 py-1 rounded-md bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-medium capitalize">
+                      {topic.category}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-xs font-medium">
+                    <Flame className="w-3.5 h-3.5 text-rose-400" /> Score: {topic.score ?? "—"}
+                  </div>
                 </div>
               </div>
 
@@ -178,6 +207,21 @@ export default function TopicsPage() {
         ))}
       </div>
     </div>
+  )
+}
+
+function NicheChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all ${
+        active
+          ? "bg-violet-600 border-violet-500 text-white"
+          : "bg-zinc-900 border-white/10 text-zinc-400 hover:text-white hover:border-white/25"
+      }`}
+    >
+      {label}
+    </button>
   )
 }
 

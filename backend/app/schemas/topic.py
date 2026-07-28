@@ -7,6 +7,7 @@ class TopicResponse(BaseModel):
     id: UUID
     title: str
     source: Optional[str]
+    category: Optional[str] = None
     keywords: Optional[List[str]]
     score: Optional[float]
     hook_text: Optional[str]

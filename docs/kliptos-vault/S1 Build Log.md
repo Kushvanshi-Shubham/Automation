@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — S2 #2 shipped: niche clustering for trends
+- `Topic.category` (migration 0002, indexed) + shared niche registry (`services/niches.py`): gaming, entertainment, music, sports, tech, education, news, comedy
+- YouTube harvest now pulls the overall chart + one chart PER NICHE via native `videoCategoryId` (1 quota unit each; niche-first ordering so dedupe keeps the specific niche; unsupported categories skipped gracefully)
+- Google Trends items are LLM-classified into niches at harvest time (temperature 0, defensive pad/trim, `general` fallback when no LLM)
+- `GET /topics?category=x` + `GET /topics/niches` (server-driven chips); Topics page: niche chip row + category badge on cards
+- Live-verified: 79 fetched / 56 added, zero errors; distribution across 8 niches; gaming filter returns only gaming; 38 pre-migration topics backfilled
+- 40 backend tests green; frontend build green
+
 ## 2026-07-29 — S2 #1 shipped: script creation modes + bring-your-own-script
 - **4 styles**: Viral Story (default) · News/Update (facts-first, uncertainty phrased as reported) · Educational (one concept + analogy) · Commentary (opinionated, invites comments). Style picker on Topics toolbar + Studio creation form.
 - **BYO script**: paste your own narration — LLM ONLY segments it + adds visual prompts; wording preserved exactly (live-verified word-for-word).
