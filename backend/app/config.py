@@ -1,8 +1,8 @@
 import json
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
 
 
 class Settings(BaseSettings):
@@ -44,7 +44,8 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
 
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # NoDecode: accept plain comma-separated strings, not just JSON lists.
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = ["http://localhost:3000"]
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

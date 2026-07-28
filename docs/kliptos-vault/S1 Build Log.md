@@ -2,6 +2,16 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-28 — Repo consolidation + local infra live
+- **Monorepo pushed to GitHub** (`Kushvanshi-Shubham/Automation`) incl. docs + this vault; old `frontend` repo **archived** (delete pending `delete_repo` scope from owner)
+- **Local stack installed and verified on this machine:**
+  - FFmpeg 8.1 (winget) ✅
+  - PostgreSQL 16.14 as Windows service, `kliptos` DB created, **Alembic migration applied — 6 tables live** ✅
+  - Redis 5.0.14 (tporadowski Windows port) as service `Redis`, PONG ✅ — Memurai MSI failed twice (SFXCA temp-dir bug, error 1603)
+  - Live API smoke test on real Postgres: `/api/health` OK; 401s enforced with no token; authed `/auth/me`, `/billing/credits`, `/videos` all return real DB data ✅
+- Config fix: `CORS_ORIGINS` now `NoDecode` + validator (accepts comma-separated env values); `.env` files must be BOM-free (PowerShell `Out-File` gotcha)
+- Server start: `cd backend; .venv\Scripts\python -m uvicorn app.main:app --port 8000`
+
 ## 2026-07-28 — Auth milestone shipped (commits 3da7243, 73090f1)
 **Backend** (11 tests green):
 - Monorepo merge done; hardened config (SECRET_KEY required + placeholder rejection, Fernet TOKEN_ENCRYPTION_KEY)
