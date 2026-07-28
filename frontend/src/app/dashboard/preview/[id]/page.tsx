@@ -1,11 +1,11 @@
 "use client"
 
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
-import { AlertCircle, Clapperboard, Clock, Loader2 } from "lucide-react"
+import { AlertCircle, Clapperboard, Clock, Loader2, Tv } from "lucide-react"
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
-import { Suspense, useEffect } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { API_BASE_URL, fetchApi } from "@/lib/api-client"
 import { usePipeline } from "@/hooks/use-pipeline"
 
@@ -18,6 +18,11 @@ interface VideoData {
   description: string | null
   video_url: string | null
   thumbnail_url: string | null
+}
+
+interface Channel {
+  id: string
+  channel_name: string | null
 }
 
 export default function PreviewPage() {
@@ -37,6 +42,8 @@ function PreviewContent() {
   const { data: video, isLoading, error } = useQuery<VideoData>({
     queryKey: ["video", id],
     queryFn: () => fetchApi(`/videos/${id}`),
+    refetchInterval: q =>
+      ["publishing", "rendering"].includes(q.state.data?.status ?? "") ? 4000 : false,
   })
 
   const isRendering = video?.status === "rendering" || video?.status === "script_ready"
@@ -123,15 +130,122 @@ function PreviewContent() {
           >
             Edit Script
           </Link>
-          <button
-            disabled
-            title="YouTube publishing lands in the next milestone"
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white opacity-50 cursor-not-allowed"
-          >
-            Publish to YouTube (soon)
-          </button>
         </div>
+
+        {video.status === "ready" && <PublishPanel videoId={video.id} />}
+        {video.status === "publishing" && (
+          <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Uploading to YouTube…
+          </div>
+        )}
+        {video.status === "published" && (
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center gap-2">
+            <Tv className="w-4 h-4" /> Published to YouTube 🎉
+          </div>
+        )}
+        {video.status === "scheduled" && (
+          <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-sm flex items-center gap-2">
+            <Clock className="w-4 h-4" /> Scheduled — YouTube will make it public automatically.
+          </div>
+        )}
+        {video.status === "upload_failed" && (
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+            Upload failed. Check your channel connection in Settings and try again.
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+function PublishPanel({ videoId }: { videoId: string }) {
+  const queryClient = useQueryClient()
+  const { data: channels } = useQuery<Channel[]>({
+    queryKey: ["channels"],
+    queryFn: () => fetchApi("/channels"),
+  })
+  const [channelId, setChannelId] = useState("")
+  const [privacy, setPrivacy] = useState("unlisted")
+  const [scheduleAt, setScheduleAt] = useState("")
+
+  const publish = useMutation({
+    mutationFn: () => {
+      if (scheduleAt) {
+        return fetchApi(`/uploads/${videoId}/schedule`, {
+          method: "POST",
+          body: JSON.stringify({ channel_id: channelId, publish_at: new Date(scheduleAt).toISOString() }),
+        })
+      }
+      return fetchApi(`/uploads/${videoId}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ channel_id: channelId, privacy }),
+      })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["video", videoId] }),
+  })
+
+  if (!channels || channels.length === 0) {
+    return (
+      <div className="p-4 rounded-xl bg-zinc-900 border border-white/5 text-sm text-zinc-400">
+        <Link href="/dashboard/settings" className="text-violet-400 hover:text-violet-300 font-medium">
+          Connect a YouTube channel
+        </Link>{" "}
+        to publish this short.
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-5 rounded-2xl bg-zinc-900 border border-white/5 space-y-4">
+      <h3 className="font-semibold text-sm flex items-center gap-2">
+        <Tv className="w-4 h-4 text-rose-500" /> Publish to YouTube
+      </h3>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <select
+          value={channelId}
+          onChange={e => setChannelId(e.target.value)}
+          className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+        >
+          <option value="">Select channel…</option>
+          {channels.map(c => (
+            <option key={c.id} value={c.id}>{c.channel_name ?? "Unnamed channel"}</option>
+          ))}
+        </select>
+        <select
+          value={privacy}
+          onChange={e => setPrivacy(e.target.value)}
+          disabled={!!scheduleAt}
+          className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50 disabled:opacity-50"
+        >
+          <option value="unlisted">Unlisted</option>
+          <option value="public">Public</option>
+          <option value="private">Private</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-xs text-zinc-500 block mb-1.5">Schedule (optional — goes public automatically)</label>
+        <input
+          type="datetime-local"
+          value={scheduleAt}
+          onChange={e => setScheduleAt(e.target.value)}
+          className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+        />
+      </div>
+
+      {publish.error && (
+        <p className="text-xs text-rose-400">{(publish.error as Error).message}</p>
+      )}
+
+      <button
+        onClick={() => publish.mutate()}
+        disabled={!channelId || publish.isPending}
+        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {publish.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tv className="w-4 h-4" />}
+        {scheduleAt ? "Schedule Upload" : "Publish Now"}
+      </button>
     </div>
   )
 }

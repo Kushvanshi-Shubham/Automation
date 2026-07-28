@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     OUTPUT_DIR: str = "./output"
+    FRONTEND_URL: str = "http://localhost:3000"
+    # Backend's own public origin (OAuth redirect target for channel connect).
+    API_PUBLIC_URL: str = "http://localhost:8000"
 
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24h; refresh flow lands with frontend session work

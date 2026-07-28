@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — YouTube upload & scheduling built
+- **Channel connect**: `GET /channels/connect` → Google consent (youtube.upload + readonly, offline, prompt=consent) → `GET /channels/callback` (identity via 10-min signed-state JWT) → tokens **Fernet-encrypted at rest** (test proves ciphertext ≠ plaintext), channel row upserted, redirect to Settings with success/error param
+- **Upload**: Celery task `youtube.upload` — resumable insert via google-api-python-client, auto token refresh from encrypted refresh token; statuses ready→publishing→published/scheduled/upload_failed. Scheduling = privacy:private + status.publishAt (YouTube flips it public itself)
+- **UI**: Settings page (connect/disconnect channels, callback banners), Preview publish panel (channel + privacy + optional schedule datetime; polls while publishing), Upload Manager page (lifecycle list)
+- lucide-react dropped brand icons — no `Youtube` icon; using `Tv`
+- 32 backend tests green; frontend build green
+- ⚠️ **Owner action to test**: add `http://localhost:8000/api/channels/callback` to the OAuth client's Authorized redirect URIs in Google Cloud Console, then Settings → Connect Channel. Upload works for your own account (test-user) even before scope verification.
+
 ## 2026-07-29 — Captions + background music shipped
 - **Word-timed burned-in captions**: edge-tts word boundaries (requires explicit `boundary="WordBoundary"` in v7 — root cause of the earlier zero-duration bug) → 2-3 word cues breaking on punctuation, stretched to eliminate flicker → ASS subtitles burned per segment via ffmpeg (cwd trick avoids Windows path escaping). Visually verified via extracted frames: bold white uppercase w/ outline, lower-middle, correct sync.
 - **Background music**: `backend/assets/music/` library (mp3s gitignored — each env seeds its own), random track mixed at 12% under narration, `-shortest` mux. CC-BY tracks auto-append attribution to the video description (verified in DB). FreePD is dead (site closed) — seeded with 2 Kevin MacLeod CC-BY tracks from incompetech.

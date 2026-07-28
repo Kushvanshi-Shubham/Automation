@@ -7,6 +7,7 @@ os.environ["SECRET_KEY"] = "test-secret-key-0123456789abcdef0123456789abcdef"
 os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_kliptos.db"
 os.environ["GOOGLE_CLIENT_ID"] = "test-client-id.apps.googleusercontent.com"
+os.environ["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
 # Isolate tests from real API keys that may exist in backend/.env
 for _key in ("YOUTUBE_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY", "PEXELS_API_KEY",
              "REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET"):

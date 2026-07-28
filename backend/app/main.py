@@ -10,6 +10,7 @@ from app.routers import (
     analytics,
     auth,
     billing,
+    channels,
     pipeline,
     scripts,
     topics,
@@ -46,6 +47,7 @@ app.include_router(videos.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
+app.include_router(channels.router, prefix="/api")
 
 
 # Rendered videos (local dev storage; object storage replaces this in prod).

@@ -6,7 +6,7 @@ celery_app = Celery(
     "kliptos_pipeline",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.pipeline.tasks"],
+    include=["app.pipeline.tasks", "app.pipeline.upload_tasks"],
 )
 
 celery_app.conf.update(
