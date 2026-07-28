@@ -62,4 +62,6 @@ async def _run(video_id: str, channel_id: str, privacy: str, publish_at: str | N
 
 @celery_app.task(bind=True, name="youtube.upload")
 def upload_video_task(self, video_id: str, channel_id: str, privacy: str = "unlisted", publish_at: str | None = None):
-    return asyncio.run(_run(video_id, channel_id, privacy, publish_at))
+    from app.pipeline.tasks import _with_fresh_pool
+
+    return asyncio.run(_with_fresh_pool(_run(video_id, channel_id, privacy, publish_at)))

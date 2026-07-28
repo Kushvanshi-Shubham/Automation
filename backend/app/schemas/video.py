@@ -11,6 +11,7 @@ class VideoResponse(BaseModel):
     tags: Optional[List[str]]
     video_url: Optional[str]
     thumbnail_url: Optional[str]
+    youtube_video_id: Optional[str] = None
     scheduled_at: Optional[datetime]
     published_at: Optional[datetime]
     created_at: Optional[datetime]

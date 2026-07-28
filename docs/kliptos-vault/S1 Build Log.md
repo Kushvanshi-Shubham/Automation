@@ -2,6 +2,12 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — 🚀 FIRST REAL YOUTUBE PUBLISH (owner's channel)
+- Owner's Apex Legends short published (unlisted): youtube.com/watch?v=-k8I2BSiPwQ — the complete product loop (trend → script → render → YouTube) is proven live.
+- **Bug fixed**: owner's first Publish click silently died — Windows/asyncpg event-loop bug (Celery reuses the module-level engine's pooled connections across asyncio.run loops; 2nd task in a worker got a dead socket). Fix: `engine.dispose(close=False)` at every task start.
+- Feedback UX: preview now shows "Watch on YouTube →" link (youtube_video_id added to VideoResponse).
+- S2 roadmap addition (owner): publish metadata editor — title/description/hashtags/category/quality/thumbnail before upload.
+
 ## 2026-07-29 — 🏁 S1 CLOSED (owner approved: "loved it")
 - Owner rendered a real Apex Legends short and approved the product. **Bug found & fixed at close:** dashboard home was still mock data, so rendered videos looked "lost" (they were persisted — just undiscoverable). Dashboard now shows real stats + the full video library (every video links to Studio or Preview by status; live-polls while rendering/uploading).
 - S2+ backlog captured in [[Roadmap]] (owner review): categorized/region trends + Twitter/Snapchat/Insta sources · multi-platform posting · BYO API keys w/ platform fee · model choice + prompt refinement · UI revamp (owner designing logo).

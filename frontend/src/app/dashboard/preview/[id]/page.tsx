@@ -18,6 +18,7 @@ interface VideoData {
   description: string | null
   video_url: string | null
   thumbnail_url: string | null
+  youtube_video_id: string | null
 }
 
 interface Channel {
@@ -139,8 +140,18 @@ function PreviewContent() {
           </div>
         )}
         {video.status === "published" && (
-          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center gap-2">
-            <Tv className="w-4 h-4" /> Published to YouTube 🎉
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2"><Tv className="w-4 h-4" /> Published to YouTube 🎉</span>
+            {video.youtube_video_id && (
+              <a
+                href={`https://www.youtube.com/watch?v=${video.youtube_video_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 font-medium transition-colors"
+              >
+                Watch on YouTube →
+              </a>
+            )}
           </div>
         )}
         {video.status === "scheduled" && (

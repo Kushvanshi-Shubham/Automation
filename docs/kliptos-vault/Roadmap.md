@@ -13,6 +13,7 @@ Ordered by priority:
 2. **UI revamp** — full design pass (owner delivering logo); fix landing-page pricing truth
 3. **Trend discovery v2** — region + category filters for existing sources (YT API supports regionCode + videoCategoryId natively); Twitter/Snapchat source research; compliant Insta signal research
 4. **Studio power features** — model selection (Gemini/GPT), user-editable generation prompt, tone presets
+4b. **Publish metadata editor** (owner request 2026-07-29) — edit title/description/hashtags, category, quality/resolution options, thumbnail choice BEFORE upload (currently auto-filled from script gen with no editing UI)
 5. **BYO API keys** — users store their own encrypted LLM keys, platform fee per render applies
 6. **Billing** — Stripe (US) + Razorpay (India), credit packs + subscriptions
 7. Premium visuals (hybrid Veo hero clips 8–10 cr) + ElevenLabs voices — once billing exists
