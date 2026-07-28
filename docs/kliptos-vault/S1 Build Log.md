@@ -2,6 +2,10 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — YouTube Trending source live
+- YOUTUBE_API_KEY wired; live harvest: 24 topics (14 YouTube trending + 10 Google Trends), zero errors. Both S1 trend sources operational.
+- All S1 keys now in place except billing (Stripe/Razorpay). Remaining owner action: youtube.upload OAuth verification.
+
 ## 2026-07-29 — Gemini live: full creator flow unlocked in browser
 - GEMINI_API_KEY wired and verified end-to-end through the API (8-segment script generated live). Model pinned to `gemini-flash-latest` rolling alias — `gemini-2.5-flash` is retired for new users (July 2026).
 - Complete flow now works in the browser: Topics → Create Short (Gemini writes script, free tier) → Studio edit → Generate Video (1 credit) → live progress → 9:16 preview player.
