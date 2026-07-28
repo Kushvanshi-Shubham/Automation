@@ -22,10 +22,11 @@ export default function TopicsPage() {
   const queryClient = useQueryClient()
   const router = useRouter()
   const [creatingId, setCreatingId] = useState<string | null>(null)
+  const [style, setStyle] = useState("viral_story")
 
   const createShort = useMutation({
     mutationFn: (topicId: string) =>
-      fetchApi("/scripts/generate", { method: "POST", body: JSON.stringify({ topic_id: topicId }) }),
+      fetchApi("/scripts/generate", { method: "POST", body: JSON.stringify({ topic_id: topicId, style }) }),
     onSuccess: (data: { video_id: string }) => {
       router.push(`/dashboard/studio?video=${data.video_id}`)
     },
@@ -55,6 +56,17 @@ export default function TopicsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <select
+            value={style}
+            onChange={e => setStyle(e.target.value)}
+            title="Script style used when you hit Create Short"
+            className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
+          >
+            <option value="viral_story">🎬 Viral Story</option>
+            <option value="news_update">📰 News / Update</option>
+            <option value="educational">🎓 Educational</option>
+            <option value="commentary">🎙️ Commentary</option>
+          </select>
           <button
             onClick={() => refresh.mutate()}
             disabled={refresh.isPending}

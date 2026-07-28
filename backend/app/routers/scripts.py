@@ -27,30 +27,42 @@ async def generate_script(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Generate a script from a harvested topic or a custom prompt; creates a draft video."""
-    hook_hint = None
-    if req.topic_id is not None:
-        topic = await db.get(Topic, req.topic_id)
-        if topic is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
-        subject = topic.title
-        hook_hint = topic.hook_text
-    elif req.custom_prompt:
-        subject = req.custom_prompt.strip()
-        if len(subject) < 10:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Custom prompt too short")
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Provide topic_id or custom_prompt",
-        )
+    """Generate a script from a topic, a custom prompt, or the user's own script text."""
+    if req.style not in script_gen.STYLE_PROMPTS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
 
-    script = await script_gen.generate_script(
-        topic=subject,
-        hook_hint=hook_hint,
-        tone=req.tone,
-        duration_seconds=req.duration_seconds,
-    )
+    hook_hint = None
+    if req.custom_script:
+        if len(req.custom_script.strip()) < 40:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Your script is too short — write at least a few sentences",
+            )
+        subject = "user-written script"
+        script = await script_gen.format_custom_script(req.custom_script)
+    else:
+        if req.topic_id is not None:
+            topic = await db.get(Topic, req.topic_id)
+            if topic is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
+            subject = topic.title
+            hook_hint = topic.hook_text
+        elif req.custom_prompt:
+            subject = req.custom_prompt.strip()
+            if len(subject) < 10:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Custom prompt too short")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Provide topic_id, custom_prompt, or custom_script",
+            )
+        script = await script_gen.generate_script(
+            topic=subject,
+            hook_hint=hook_hint,
+            tone=req.tone,
+            duration_seconds=req.duration_seconds,
+            style=req.style,
+        )
 
     video = Video(
         user_id=current_user.id,
@@ -61,6 +73,7 @@ async def generate_script(
         script_data={
             "subject": subject,
             "tone": req.tone,
+            "style": "custom" if req.custom_script else req.style,
             "segments": script["segments"],
             "total_duration": script["total_duration"],
         },

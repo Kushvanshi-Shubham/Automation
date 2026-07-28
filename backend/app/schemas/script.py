@@ -6,6 +6,10 @@ from uuid import UUID
 class ScriptGenerateRequest(BaseModel):
     topic_id: Optional[UUID] = None
     custom_prompt: Optional[str] = None
+    # Bring-your-own-script: wording preserved, only segmented + visual-prompted.
+    custom_script: Optional[str] = None
+    # viral_story | news_update | educational | commentary
+    style: str = "viral_story"
     tone: str = "engaging and curious"
     duration_seconds: int = Field(default=60, ge=15, le=180)
 

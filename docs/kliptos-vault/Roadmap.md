@@ -7,16 +7,20 @@ Auth end-to-end (Google via NextAuth ↔ FastAPI JWT) · Alembic · credit syste
 **Gate → S2:** 100 activated users, ≥25 finish 3+ videos
 Build order: monorepo merge → foundation fixes → auth → OpenAPI client → Redis pub/sub → pipeline stages (E2E test each)
 
-## S2 — Testable + Better (CURRENT, defined 2026-07-29)
+## S2 — Functionality First (re-prioritized 2026-07-29 evening: deploy POSTPONED by owner)
 Ordered by priority:
-1. **Deploy for friend-testing** — Render or Railway (API+worker+Postgres+Redis+volume) + Vercel; rotate all secrets; prod OAuth redirect URIs; add friends as Google test users
-2. **UI revamp** — full design pass (owner delivering logo); fix landing-page pricing truth
-3. **Trend discovery v2** — region + category filters for existing sources (YT API supports regionCode + videoCategoryId natively); Twitter/Snapchat source research; compliant Insta signal research
+1. **Script creation modes** — before generating, user picks intent: Viral Story (current default) · News/Update (e.g., "Apex Legends patch explained") · Educational/Explainer · Commentary/Opinion · **Bring-Your-Own-Script** (paste your script, we only segment it + add visual prompts, wording preserved). Foundation for later: story SERIES ("continue the story" — episode catalog per storyline).
+2. **Niche clustering for trends** — user picks their niche (Gaming / Education / Memes / Tech / …) and sees only relevant trends instead of one big cluster. YT API natively supports videoCategoryId + regionCode; Google Trends RSS is uncategorized (LLM-classify at harvest time); per-user default niche on profile.
+3. **New trend sources — honest feasibility (researched):**
+   - **X/Twitter**: official API paid tiers only (Basic ~$200/mo, no trends on free) — defer until revenue or find budget
+   - **Instagram**: NO public trends API; scraping = Meta ToS violation. Compliant path: Instagram oEmbed/hashtag via Graph API needs app review + business account; alternative signal = manually curated + LLM-expanded "audio/reel trends" feeds. Research item, not a quick win.
+   - **Snapchat**: no public trends API at all — lowest priority.
+   - Realistic order: YT category feeds (free, now) → Insta compliant research → X when budget allows → Snapchat last.
 4. **Studio power features** — model selection (Gemini/GPT), user-editable generation prompt, tone presets
-4b. **Publish metadata editor** (owner request 2026-07-29) — edit title/description/hashtags, category, quality/resolution options, thumbnail choice BEFORE upload (currently auto-filled from script gen with no editing UI)
+4b. **Publish metadata editor** — edit title/description/hashtags, category, quality, thumbnail BEFORE upload
 5. **BYO API keys** — users store their own encrypted LLM keys, platform fee per render applies
-6. **Billing** — Stripe (US) + Razorpay (India), credit packs + subscriptions
-7. Premium visuals (hybrid Veo hero clips 8–10 cr) + ElevenLabs voices — once billing exists
+6. **UI revamp** (owner: "later, functionality first"; logo in progress)
+7. **Deploy for friend-testing** (postponed by owner until features feel right) → then **Billing** (Stripe/Razorpay) → premium visuals (Veo hybrid, ElevenLabs)
 **Gate → S3:** ≥30 paying subscribers, gross margin ≥60%
 
 ## S3 — Media kit + marketplace lite (weeks 13–20)

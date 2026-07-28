@@ -36,22 +36,120 @@ function StudioContent() {
   return <ScriptEditor videoId={videoId} />
 }
 
+const STYLES = [
+  { value: "viral_story", label: "🎬 Viral Story", desc: "Hook-driven storytelling (default)" },
+  { value: "news_update", label: "📰 News / Update", desc: "Patch notes, releases, results — facts first" },
+  { value: "educational", label: "🎓 Educational", desc: "Explain one concept with an analogy" },
+  { value: "commentary", label: "🎙️ Commentary", desc: "Opinionated take, invites comments" },
+]
+
 function EmptyStudio() {
+  const router = useRouter()
+  const [mode, setMode] = useState<"idea" | "own">("idea")
+  const [prompt, setPrompt] = useState("")
+  const [ownScript, setOwnScript] = useState("")
+  const [style, setStyle] = useState("viral_story")
+
+  const create = useMutation({
+    mutationFn: () =>
+      fetchApi("/scripts/generate", {
+        method: "POST",
+        body: JSON.stringify(
+          mode === "own" ? { custom_script: ownScript } : { custom_prompt: prompt, style }
+        ),
+      }),
+    onSuccess: (data: { video_id: string }) => router.push(`/dashboard/studio?video=${data.video_id}`),
+  })
+
+  const canSubmit = mode === "own" ? ownScript.trim().length >= 40 : prompt.trim().length >= 10
+
   return (
-    <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-      <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center mb-4">
-        <PenTool className="w-8 h-8 text-zinc-500" />
+    <div className="max-w-2xl mx-auto space-y-6 pb-12">
+      <div className="text-center pt-4">
+        <h1 className="text-3xl font-bold mb-2">Script Studio</h1>
+        <p className="text-zinc-400">
+          Start from an idea, or{" "}
+          <Link href="/dashboard/topics" className="text-violet-400 hover:text-violet-300">
+            pick a trending topic
+          </Link>
+          .
+        </p>
       </div>
-      <h1 className="text-2xl font-bold mb-2">Script Studio</h1>
-      <p className="text-zinc-400 mb-6 max-w-md">
-        Pick a trending topic and hit &quot;Create Short&quot; — the AI writes your script and it opens here for editing.
-      </p>
-      <Link
-        href="/dashboard/topics"
-        className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm"
-      >
-        <TrendingUp className="w-4 h-4" /> Browse Trending Topics
-      </Link>
+
+      <div className="flex items-center gap-2 bg-zinc-900 p-1.5 rounded-xl border border-white/5 w-fit mx-auto">
+        <button
+          onClick={() => setMode("idea")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === "idea" ? "bg-white/10 text-white" : "text-zinc-400 hover:text-zinc-200"}`}
+        >
+          <PenTool className="w-4 h-4 inline mr-1.5" />AI writes it
+        </button>
+        <button
+          onClick={() => setMode("own")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === "own" ? "bg-white/10 text-white" : "text-zinc-400 hover:text-zinc-200"}`}
+        >
+          ✍️ I have my own script
+        </button>
+      </div>
+
+      <div className="rounded-2xl bg-zinc-900 border border-white/5 p-6 space-y-5">
+        {mode === "idea" ? (
+          <>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">What&apos;s the video about?</label>
+              <textarea
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                rows={3}
+                placeholder="e.g. Apex Legends new season — everything that changed"
+                className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-violet-500/50 resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">Video style</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {STYLES.map(s => (
+                  <button
+                    key={s.value}
+                    onClick={() => setStyle(s.value)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      style === s.value
+                        ? "bg-violet-500/10 border-violet-500/40"
+                        : "bg-black/20 border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <p className="text-sm font-medium">{s.label}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">{s.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div>
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">
+              Paste your script — your wording stays exactly as written
+            </label>
+            <textarea
+              value={ownScript}
+              onChange={e => setOwnScript(e.target.value)}
+              rows={10}
+              placeholder="Write or paste your full narration here. We only split it into segments and pick matching visuals — not a single word gets changed."
+              className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-violet-500/50 resize-none"
+            />
+          </div>
+        )}
+
+        {create.error && <p className="text-xs text-rose-400">{(create.error as Error).message}</p>}
+
+        <button
+          onClick={() => create.mutate()}
+          disabled={!canSubmit || create.isPending}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {create.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {create.isPending ? "Working…" : mode === "own" ? "Structure My Script" : "Generate Script"}
+        </button>
+      </div>
     </div>
   )
 }

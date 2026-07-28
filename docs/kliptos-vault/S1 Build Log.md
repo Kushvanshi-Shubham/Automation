@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — S2 #1 shipped: script creation modes + bring-your-own-script
+- **4 styles**: Viral Story (default) · News/Update (facts-first, uncertainty phrased as reported) · Educational (one concept + analogy) · Commentary (opinionated, invites comments). Style picker on Topics toolbar + Studio creation form.
+- **BYO script**: paste your own narration — LLM ONLY segments it + adds visual prompts; wording preserved exactly (live-verified word-for-word).
+- Studio empty state is now a full creation form (AI-writes-it vs I-have-my-own toggle, style cards).
+- Live-tested: news_update produced a proper patch-notes-style hook for Apex S27.
+- 36 backend tests green; frontend build green.
+- Foundation noted for later: story SERIES (episode catalog, "continue the story") builds on the style system.
+
 ## 2026-07-29 — 🚀 FIRST REAL YOUTUBE PUBLISH (owner's channel)
 - Owner's Apex Legends short published (unlisted): youtube.com/watch?v=-k8I2BSiPwQ — the complete product loop (trend → script → render → YouTube) is proven live.
 - **Bug fixed**: owner's first Publish click silently died — Windows/asyncpg event-loop bug (Celery reuses the module-level engine's pooled connections across asyncio.run loops; 2nd task in a worker got a dead socket). Fix: `engine.dispose(close=False)` at every task start.
