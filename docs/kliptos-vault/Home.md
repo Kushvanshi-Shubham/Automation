@@ -14,12 +14,12 @@
 - [[S1 Build Log]] — running log of the actual build
 
 ## Status
-- **Stage: 🏁 S1 ENGINE MVP — FEATURE-COMPLETE (2026-07-29, owner-approved: "loved it")**
-- Working: sign-in → trends (Google Trends + YouTube) → Gemini script → studio edit → 1-credit render with captions + music → live-progress preview → YouTube publish/schedule (test-mode). See [[S1 Build Log]].
-- **Next: deploy for friend-testing** (Railway + Vercel), then billing (Stripe/Razorpay) for real users
-- **S2+ backlog (owner review 2026-07-29):** categorized/region-wise trends + more platforms (Twitter/Snapchat/Insta) · multi-platform posting · BYO API keys w/ platform fee · model selection + prompt refinement · full UI revamp (owner designing logo)
-- **Gate to S2:** 100 activated users, ≥25 finish 3+ videos
+- **Stage: S2 in progress — 4 features shipped 2026-07-29** (S1 complete + first real YouTube publish proven)
+- Working end-to-end: sign-in → niche-clustered trends (chips: gaming/tech/music/…) → script in 4 styles or your own script (wording preserved) → model/tone/instructions controls → 1-credit render with captions + music → edit title/tags/category → publish/schedule to YouTube
+- **Remaining S2:** BYO API keys · auto-thumbnails (quick win) · UI revamp (logo pending) · billing · deploy (owner will say when)
+- **Gate to S3:** ≥30 paying subscribers, gross margin ≥60%
 - **Urgent external item:** Google OAuth verification for `youtube.upload` scope — STILL NOT APPLIED (weeks of lead time)
+- Restart everything: `.\scripts\dev.ps1` (see `docs/RUNBOOK.md`)
 
 ## Source documents
 - Full codebase audit: `../PROJECT_AUDIT.md`
