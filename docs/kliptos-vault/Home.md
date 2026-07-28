@@ -15,8 +15,11 @@
 
 ## Status
 - **Stage:** S1 — Engine MVP (started 2026-07-28)
+- **Working end-to-end (2026-07-29):** sign-in → trends (2 sources) → Gemini script → studio edit → 1-credit render (TTS+Pexels+FFmpeg) → live-progress preview. See [[S1 Build Log]].
+- **In progress:** captions burn-in + background music
+- **Remaining in S1:** YouTube upload/scheduling · Stripe+Razorpay billing · deploy
 - **Gate to S2:** 100 activated users, ≥25 finish 3+ videos
-- **Urgent external item:** Google OAuth verification for `youtube.upload` scope — apply ASAP (weeks of lead time)
+- **Urgent external item:** Google OAuth verification for `youtube.upload` scope — STILL NOT APPLIED (weeks of lead time)
 
 ## Source documents
 - Full codebase audit: `../PROJECT_AUDIT.md`

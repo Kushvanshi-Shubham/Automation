@@ -16,29 +16,61 @@ logger = logging.getLogger("kliptos.assembler")
 VF = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p"
 
 
-def _run(args: list[str]) -> None:
+def _run(args: list[str], cwd: Path | None = None) -> None:
     proc = subprocess.run(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *args],
         capture_output=True,
         text=True,
         timeout=600,
+        cwd=str(cwd) if cwd else None,
     )
     if proc.returncode != 0:
         logger.error("ffmpeg failed: %s", proc.stderr[-2000:])
         raise RuntimeError(f"ffmpeg failed: {proc.stderr[-500:]}")
 
 
-def render_segment(clip_path: Path, audio_path: Path, duration: float, out_path: Path) -> None:
-    """Video looped/trimmed to narration duration, 9:16, with segment audio."""
+def render_segment(
+    clip_path: Path,
+    audio_path: Path,
+    duration: float,
+    out_path: Path,
+    ass_path: Path | None = None,
+) -> None:
+    """Video looped/trimmed to narration duration, 9:16, with segment audio
+    and optional burned-in captions."""
+    vf = VF
+    if ass_path is not None:
+        # Run with cwd = the ASS file's directory and reference it by bare
+        # filename — sidesteps Windows drive-letter escaping in filter args.
+        vf = f"{VF},ass={ass_path.name}"
+    _run(
+        [
+            "-stream_loop", "-1",
+            "-i", str(clip_path),
+            "-i", str(audio_path),
+            "-t", f"{duration + 0.15:.2f}",  # small tail so audio never clips
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+            str(out_path),
+        ],
+        cwd=ass_path.parent if ass_path is not None else None,
+    )
+
+
+def mix_music(video_path: Path, music_path: Path, out_path: Path, music_volume: float = 0.12) -> None:
+    """Loop background music under the narration, ducked to music_volume."""
     _run([
+        "-i", str(video_path),
         "-stream_loop", "-1",
-        "-i", str(clip_path),
-        "-i", str(audio_path),
-        "-t", f"{duration + 0.15:.2f}",  # small tail so audio never clips
-        "-map", "0:v:0", "-map", "1:a:0",
-        "-vf", VF,
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-        "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+        "-i", str(music_path),
+        "-filter_complex",
+        f"[1:a]volume={music_volume}[m];[0:a][m]amix=inputs=2:duration=first:dropout_transition=2[a]",
+        "-map", "0:v", "-map", "[a]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "128k",
+        "-shortest",
         str(out_path),
     ])
 

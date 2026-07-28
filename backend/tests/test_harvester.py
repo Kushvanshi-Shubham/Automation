@@ -39,8 +39,12 @@ def test_refresh_endpoint_dedupes(client, auth_headers, monkeypatch):
     async def fake_reddit(client_, subreddits=None, limit_per_sub=8):
         return [t for t in fake_batch if t["source"] == "reddit"]
 
+    async def fake_youtube(client_, region="US", limit=15):
+        return []
+
     monkeypatch.setattr("app.services.harvester.fetch_google_trends", fake_trends)
     monkeypatch.setattr("app.services.harvester.fetch_reddit_trending", fake_reddit)
+    monkeypatch.setattr("app.services.harvester.fetch_youtube_trending", fake_youtube)
 
     first = client.post("/api/topics/refresh", headers=auth_headers).json()
     assert first["fetched"] == 3

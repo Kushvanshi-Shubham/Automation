@@ -2,6 +2,12 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-29 — Captions + background music shipped
+- **Word-timed burned-in captions**: edge-tts word boundaries (requires explicit `boundary="WordBoundary"` in v7 — root cause of the earlier zero-duration bug) → 2-3 word cues breaking on punctuation, stretched to eliminate flicker → ASS subtitles burned per segment via ffmpeg (cwd trick avoids Windows path escaping). Visually verified via extracted frames: bold white uppercase w/ outline, lower-middle, correct sync.
+- **Background music**: `backend/assets/music/` library (mp3s gitignored — each env seeds its own), random track mixed at 12% under narration, `-shortest` mux. CC-BY tracks auto-append attribution to the video description (verified in DB). FreePD is dead (site closed) — seeded with 2 Kevin MacLeod CC-BY tracks from incompetech.
+- Tests isolated from real API keys in backend/.env (conftest clears them); 26 tests green.
+- Next: YouTube upload & scheduling.
+
 ## 2026-07-29 — YouTube Trending source live
 - YOUTUBE_API_KEY wired; live harvest: 24 topics (14 YouTube trending + 10 Google Trends), zero errors. Both S1 trend sources operational.
 - All S1 keys now in place except billing (Stripe/Razorpay). Remaining owner action: youtube.upload OAuth verification.

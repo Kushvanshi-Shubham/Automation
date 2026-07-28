@@ -4,6 +4,7 @@ Runs inside a Celery worker via asyncio.run (see tasks.py) but is plain async
 code, so tests and manual runs can call it directly.
 """
 import logging
+import random
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -18,11 +19,32 @@ from app.models.credit import CreditLedger
 from app.models.pipeline_job import PipelineJob
 from app.models.user import User
 from app.models.video import Video
-from app.pipeline import assembler, tts
+from app.pipeline import assembler, captions, tts
 from app.pipeline.visuals import pexels
 from app.services.progress import publish_progress
 
 logger = logging.getLogger("kliptos.runner")
+
+MUSIC_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "music"
+
+
+def _pick_music() -> Path | None:
+    if not MUSIC_DIR.is_dir():
+        return None
+    tracks = sorted(MUSIC_DIR.glob("*.mp3"))
+    return random.choice(tracks) if tracks else None
+
+
+def _music_attribution(track: Path) -> str | None:
+    """CC-BY tracks (naming convention <title>_kevin_macleod_ccby.mp3) must be credited."""
+    stem = track.stem
+    if stem.endswith("_kevin_macleod_ccby"):
+        title = stem.removesuffix("_kevin_macleod_ccby").replace("_", " ").title()
+        return (
+            f'Music: "{title}" Kevin MacLeod (incompetech.com), '
+            "Licensed under Creative Commons: By Attribution 4.0"
+        )
+    return None
 
 
 def _publish(job_id: str, status: str, stage: str, percent: float, error: str | None = None):
@@ -71,25 +93,47 @@ async def run(job_id: str) -> dict:
                 clips.append(clip_path)
                 _publish(job_key, "running", "visuals", 35 + (i + 1) / len(segments) * 25)
 
-        # Stage 3: assembly
+        # Stage 3: assembly (with burned-in captions)
         _publish(job_key, "running", "assembly", 65)
         rendered = []
         for i, (seg_audio, clip) in enumerate(zip(voiced, clips)):
             seg_out = workdir / f"final_{i:02d}.mp4"
-            assembler.render_segment(clip, Path(seg_audio["audio_path"]), seg_audio["duration"], seg_out)
+            ass_path = captions.build_segment_captions(
+                words=seg_audio.get("words") or [],
+                text=segments[i]["text"],
+                duration=seg_audio["duration"],
+                out_path=workdir / f"cap_{i:02d}.ass",
+            )
+            assembler.render_segment(
+                clip, Path(seg_audio["audio_path"]), seg_audio["duration"], seg_out, ass_path=ass_path
+            )
             rendered.append(seg_out)
-            _publish(job_key, "running", "assembly", 65 + (i + 1) / len(segments) * 25)
+            _publish(job_key, "running", "assembly", 65 + (i + 1) / len(segments) * 20)
 
+        concat_path = workdir / "concat_full.mp4"
+        assembler.concat_segments(rendered, concat_path, workdir)
+
+        # Stage 4: background music (skipped when the library is empty)
         final_path = out_dir / "final.mp4"
-        assembler.concat_segments(rendered, final_path, workdir)
+        music = _pick_music()
+        attribution = None
+        if music is not None:
+            _publish(job_key, "running", "music", 90)
+            assembler.mix_music(concat_path, music, final_path)
+            attribution = _music_attribution(music)
+            logger.info("mixed music track: %s", music.name)
+        else:
+            shutil.move(str(concat_path), str(final_path))
         duration = assembler.probe_duration(final_path)
 
-        # Stage 4: persist
+        # Stage 5: persist
         async with AsyncSessionLocal() as db:
             job = await db.get(PipelineJob, job_uuid)
             video = await db.get(Video, job.video_id)
             video.status = "ready"
             video.video_url = f"/media/{video.id}/final.mp4"
+            if attribution and attribution not in (video.description or ""):
+                video.description = f"{video.description or ''}\n\n{attribution}".strip()
             job.status = "completed"
             job.completed_at = datetime.now(timezone.utc)
             job.progress = {"stage": "completed", "percent": 100, "duration": duration}
