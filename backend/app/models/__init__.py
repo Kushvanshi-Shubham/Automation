@@ -1,4 +1,5 @@
 from app.database import Base
+from app.models.api_key import UserApiKey
 from app.models.user import User
 from app.models.channel import Channel
 from app.models.video import Video

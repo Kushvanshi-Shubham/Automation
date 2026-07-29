@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-30 — S2 #5 shipped: BYO API keys
+- `user_api_keys` table (migration 0003), Fernet-encrypted, unique per user+provider
+- `PUT/GET/DELETE /settings/api-keys`: keys are **live-validated against the provider before saving** (bogus key → 422 with friendly message), listed masked only — plaintext never returned
+- Generation path: user's own key takes precedence over platform key per provider; a user key makes a provider available even when the platform has none; `GET /scripts/models` marks BYO entries "— your key" (`own: true`)
+- Settings UI: "Your AI API Keys" section (password input, save w/ validation, masked chip, remove)
+- Platform-fee-per-BYO-render: deferred to the billing milestone (needs credit pricing hooks)
+- Live-verified E2E: real key saved via API → models showed "your key" → generation ran on the user key (one Google-side 503 transient mid-test, succeeded on retry)
+- 55 backend tests green; frontend build green
+
 ## 2026-07-29 — S2 #4 shipped: publish metadata editor
 - Preview publish panel is now a full editor: **title (95-char counter) · description · tags (comma-separated, max 30) · YouTube category (11 assignable categories via `GET /uploads/categories`) · privacy · schedule** — all prefilled from AI values, saved via PUT metadata then dispatched to upload in one click
 - Backend: `category_id` flows through publish/schedule → Celery task → YouTube snippet (validated against assignable list, safe fallback to Entertainment)

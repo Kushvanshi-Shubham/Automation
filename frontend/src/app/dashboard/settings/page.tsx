@@ -1,9 +1,9 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2, Loader2, Trash2, Tv } from "lucide-react"
+import { CheckCircle2, KeyRound, Loader2, Trash2, Tv } from "lucide-react"
 import { useSearchParams } from "next/navigation"
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 import { fetchApi } from "@/lib/api-client"
 
 interface Channel {
@@ -109,6 +109,116 @@ function SettingsContent() {
           ))}
         </div>
       </section>
+
+      <ApiKeysSection />
     </div>
+  )
+}
+
+const PROVIDERS = [
+  { key: "gemini", label: "Gemini", hint: "aistudio.google.com — free tier available" },
+  { key: "openai", label: "OpenAI", hint: "platform.openai.com — paid account" },
+]
+
+function ApiKeysSection() {
+  const queryClient = useQueryClient()
+  const { data } = useQuery<{ items: { provider: string; masked: string }[] }>({
+    queryKey: ["api-keys"],
+    queryFn: () => fetchApi("/settings/api-keys"),
+  })
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [savingProvider, setSavingProvider] = useState<string | null>(null)
+
+  const save = useMutation({
+    mutationFn: ({ provider, key }: { provider: string; key: string }) =>
+      fetchApi("/settings/api-keys", { method: "PUT", body: JSON.stringify({ provider, key }) }),
+    onSuccess: (_d, vars) => {
+      setDrafts(prev => ({ ...prev, [vars.provider]: "" }))
+      queryClient.invalidateQueries({ queryKey: ["api-keys"] })
+      queryClient.invalidateQueries({ queryKey: ["llm-models"] })
+    },
+    onSettled: () => setSavingProvider(null),
+  })
+
+  const remove = useMutation({
+    mutationFn: (provider: string) => fetchApi(`/settings/api-keys/${provider}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["api-keys"] })
+      queryClient.invalidateQueries({ queryKey: ["llm-models"] })
+    },
+  })
+
+  const saved = new Map((data?.items ?? []).map(i => [i.provider, i.masked]))
+
+  return (
+    <section className="rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden">
+      <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+          <KeyRound className="w-5 h-5 text-violet-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold">Your AI API Keys</h2>
+          <p className="text-xs text-zinc-500">
+            Bring your own keys — scripts generate on your quota. Keys are encrypted and never shown again.
+          </p>
+        </div>
+      </div>
+
+      <div className="divide-y divide-white/5">
+        {PROVIDERS.map(p => {
+          const masked = saved.get(p.key)
+          return (
+            <div key={p.key} className="px-6 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{p.label}</p>
+                  <p className="text-xs text-zinc-500">{p.hint}</p>
+                </div>
+
+                {masked ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
+                      {masked} ✓
+                    </span>
+                    <button
+                      onClick={() => remove.mutate(p.key)}
+                      disabled={remove.isPending}
+                      className="p-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      title="Remove key"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1 max-w-sm">
+                    <input
+                      type="password"
+                      value={drafts[p.key] ?? ""}
+                      onChange={e => setDrafts(prev => ({ ...prev, [p.key]: e.target.value }))}
+                      placeholder={`Paste your ${p.label} key`}
+                      className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500/50"
+                    />
+                    <button
+                      onClick={() => { setSavingProvider(p.key); save.mutate({ provider: p.key, key: drafts[p.key] ?? "" }) }}
+                      disabled={(drafts[p.key] ?? "").length < 10 || savingProvider === p.key}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {savingProvider === p.key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {save.error && (
+        <div className="px-6 pb-4">
+          <p className="text-xs text-rose-400">{(save.error as Error).message}</p>
+        </div>
+      )}
+    </section>
   )
 }

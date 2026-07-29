@@ -35,10 +35,12 @@ def test_unconfigured_model_503(client, auth_headers):
 def test_model_and_instructions_forwarded(client, auth_headers, monkeypatch):
     captured = {}
 
-    async def fake_generate(topic, hook_hint=None, tone="engaging and curious",
-                            duration_seconds=60, style="viral_story",
-                            custom_instructions=None, model="auto"):
-        captured.update(model=model, instructions=custom_instructions, tone=tone)
+    async def fake_generate(topic, **kwargs):
+        captured.update(
+            model=kwargs.get("model"),
+            instructions=kwargs.get("custom_instructions"),
+            tone=kwargs.get("tone"),
+        )
         return dict(FAKE)
 
     monkeypatch.setattr("app.routers.scripts.script_gen.generate_script", fake_generate)

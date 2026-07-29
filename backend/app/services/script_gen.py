@@ -94,6 +94,7 @@ async def generate_script(
     style: str = DEFAULT_STYLE,
     custom_instructions: str | None = None,
     model: str = "auto",
+    user_keys: dict[str, str] | None = None,
 ) -> dict:
     system = STYLE_PROMPTS.get(style, STYLE_PROMPTS[DEFAULT_STYLE])
     user_prompt = (
@@ -107,13 +108,15 @@ async def generate_script(
         )
         + "Write the script now."
     )
-    return _finalize(await generate_json(system, user_prompt, temperature=0.8, model=model))
+    return _finalize(await generate_json(system, user_prompt, temperature=0.8, model=model, user_keys=user_keys))
 
 
-async def format_custom_script(script_text: str, model: str = "auto") -> dict:
+async def format_custom_script(script_text: str, model: str = "auto", user_keys: dict[str, str] | None = None) -> dict:
     """Structure a user-written script without changing its wording."""
     user_prompt = f"User's script:\n---\n{script_text.strip()}\n---\nStructure it now."
-    data = _finalize(await generate_json(CUSTOM_SCRIPT_PROMPT, user_prompt, temperature=0.2, model=model))
+    data = _finalize(
+        await generate_json(CUSTOM_SCRIPT_PROMPT, user_prompt, temperature=0.2, model=model, user_keys=user_keys)
+    )
     return data
 
 

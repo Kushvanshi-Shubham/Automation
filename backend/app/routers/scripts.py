@@ -11,14 +11,19 @@ from app.models.video import Video
 from app.schemas.script import ScriptGenerateRequest, ScriptResponse, ScriptRegenerateRequest, ScriptUpdateRequest
 from app.services import script_gen
 from app.services.llm import VALID_MODELS, available_models
+from app.services.user_keys import get_user_keys
 
 router = APIRouter(prefix="/scripts", tags=["Scripts"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/models")
-async def list_models():
-    """LLM choices available on this server (for the studio model picker)."""
-    return {"items": available_models()}
+async def list_models(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """LLM choices for this user: platform models + the user's own keys."""
+    user_keys = await get_user_keys(db, current_user.id)
+    return {"items": available_models(user_keys)}
 
 
 async def _get_owned_video(video_id: UUID, db: AsyncSession, user: User) -> Video:
@@ -40,6 +45,8 @@ async def generate_script(
     if req.model not in VALID_MODELS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown model")
 
+    user_keys = await get_user_keys(db, current_user.id)
+
     hook_hint = None
     if req.custom_script:
         if len(req.custom_script.strip()) < 40:
@@ -48,7 +55,7 @@ async def generate_script(
                 detail="Your script is too short — write at least a few sentences",
             )
         subject = "user-written script"
-        script = await script_gen.format_custom_script(req.custom_script, model=req.model)
+        script = await script_gen.format_custom_script(req.custom_script, model=req.model, user_keys=user_keys)
     else:
         if req.topic_id is not None:
             topic = await db.get(Topic, req.topic_id)
@@ -73,6 +80,7 @@ async def generate_script(
             style=req.style,
             custom_instructions=req.custom_instructions,
             model=req.model,
+            user_keys=user_keys,
         )
 
     video = Video(

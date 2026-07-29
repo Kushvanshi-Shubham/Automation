@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.routers import (
     analytics,
+    api_keys,
     auth,
     billing,
     channels,
@@ -48,6 +49,7 @@ app.include_router(uploads.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
 app.include_router(channels.router, prefix="/api")
+app.include_router(api_keys.router, prefix="/api")
 
 
 # Rendered videos (local dev storage; object storage replaces this in prod).

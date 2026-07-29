@@ -18,11 +18,11 @@ GEMINI_MODEL = "gemini-flash-latest"
 OPENAI_MODEL = "gpt-4o"
 
 
-async def _gemini_json(system: str, user: str, temperature: float) -> dict:
+async def _gemini_json(system: str, user: str, temperature: float, api_key: str | None = None) -> dict:
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    client = genai.Client(api_key=api_key or settings.GEMINI_API_KEY)
     resp = await client.aio.models.generate_content(
         model=GEMINI_MODEL,
         contents=user,
@@ -35,10 +35,10 @@ async def _gemini_json(system: str, user: str, temperature: float) -> dict:
     return json.loads(resp.text)
 
 
-async def _openai_json(system: str, user: str, temperature: float) -> dict:
+async def _openai_json(system: str, user: str, temperature: float, api_key: str | None = None) -> dict:
     from openai import AsyncOpenAI
 
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=api_key or settings.OPENAI_API_KEY)
     resp = await client.chat.completions.create(
         model=OPENAI_MODEL,
         response_format={"type": "json_object"},
@@ -53,32 +53,50 @@ async def _openai_json(system: str, user: str, temperature: float) -> dict:
 
 VALID_MODELS = {"auto", "gemini", "openai"}
 
+_PROVIDER_FUNCS = {"gemini": _gemini_json, "openai": _openai_json}
+_PLATFORM_KEYS = {
+    "gemini": lambda: settings.GEMINI_API_KEY,
+    "openai": lambda: settings.OPENAI_API_KEY,
+}
+_LABELS = {"gemini": f"Gemini ({GEMINI_MODEL})", "openai": f"OpenAI ({OPENAI_MODEL})"}
 
-def available_models() -> list[dict]:
-    """Model choices the UI can offer, based on configured keys."""
-    models = [{"key": "auto", "label": "Auto (best available)"}]
-    if settings.GEMINI_API_KEY:
-        models.append({"key": "gemini", "label": f"Gemini ({GEMINI_MODEL})"})
-    if settings.OPENAI_API_KEY:
-        models.append({"key": "openai", "label": f"OpenAI ({OPENAI_MODEL})"})
+
+def available_models(user_keys: dict[str, str] | None = None) -> list[dict]:
+    """Model choices for the UI. A provider is offered when the platform has a
+    key OR the user brought their own (own=True marks BYO usage)."""
+    user_keys = user_keys or {}
+    models = [{"key": "auto", "label": "Auto (best available)", "own": False}]
+    for provider in ("gemini", "openai"):
+        own = provider in user_keys
+        if own or _PLATFORM_KEYS[provider]():
+            label = _LABELS[provider] + (" — your key" if own else "")
+            models.append({"key": provider, "label": label, "own": own})
     return models
 
 
-async def generate_json(system: str, user: str, temperature: float = 0.8, model: str = "auto") -> dict:
+async def generate_json(
+    system: str,
+    user: str,
+    temperature: float = 0.8,
+    model: str = "auto",
+    user_keys: dict[str, str] | None = None,
+) -> dict:
     """Run against the requested provider ('gemini'/'openai'), or try each
-    configured provider in order for 'auto'. Raises 502/503 on failure."""
-    all_providers = []
-    if settings.GEMINI_API_KEY:
-        all_providers.append(("gemini", _gemini_json))
-    if settings.OPENAI_API_KEY:
-        all_providers.append(("openai", _openai_json))
+    available provider in order for 'auto'. A user's own key (BYO) takes
+    precedence over the platform key for that provider. Raises 502/503."""
+    user_keys = user_keys or {}
+    all_providers: list[tuple[str, str | None]] = []
+    for provider in ("gemini", "openai"):
+        key = user_keys.get(provider) or _PLATFORM_KEYS[provider]()
+        if key:
+            all_providers.append((provider, user_keys.get(provider)))
 
     if model != "auto":
-        providers = [(n, f) for n, f in all_providers if n == model]
+        providers = [(n, k) for n, k in all_providers if n == model]
         if not providers:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Model '{model}' is not configured on this server",
+                detail=f"Model '{model}' is not configured (add your own key in Settings)",
             )
     else:
         providers = all_providers
@@ -90,9 +108,9 @@ async def generate_json(system: str, user: str, temperature: float = 0.8, model:
         )
 
     last_error: Exception | None = None
-    for name, call in providers:
+    for name, own_key in providers:
         try:
-            return await call(system, user, temperature)
+            return await _PROVIDER_FUNCS[name](system, user, temperature, api_key=own_key)
         except json.JSONDecodeError as exc:
             logger.warning("%s returned unparseable JSON: %s", name, exc)
             last_error = exc
