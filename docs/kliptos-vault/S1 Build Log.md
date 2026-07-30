@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-30 — Workflow v2 #3 shipped: Instagram Reels publishing (behind flag)
+- **Official Graph API flow**: FB Login OAuth (signed-state JWT) → long-lived token (~60d, Fernet-encrypted) → auto-discovers the IG Business account behind the user's Page → REELS container (Meta fetches video from public URL) → poll FINISHED → publish
+- **New `publishes` table** (migration 0005) — the multi-platform publish ledger (per video × platform attempt w/ status/external_id/error); `ig_accounts` table for connections
+- Endpoints: `/instagram/{status,connect,callback}`, list/disconnect; `POST /uploads/{id}/publish-instagram`; `GET /uploads/publishes/{id}`
+- UI: Instagram section in Settings (disabled state explains Meta app pending), Reel publish panel on preview w/ caption + live status
+- **Feature-flagged on META_APP_ID/SECRET** — everything testable except the final Meta fetch, which needs a PUBLIC media URL (deploy/tunnel). Works in Meta Dev Mode for owner/testers pre-review.
+- ⚠️ Owner actions: create Meta app (developers.facebook.com) + start App Review for `instagram_content_publish`; IG account must be Business/Creator linked to a FB Page
+- 64 backend tests green; frontend build green
+
 ## 2026-07-30 — Workflow v2 features 1+2 shipped: output types (script-only + visual short)
 - `videos.output_type` (migration 0004): **script** (free, 5/day rate limit, no render — Copy Script button) · **narrated** (current) · **visual** (no narration: on-screen text lines, music as THE soundtrack at 0.85 vol, LLM told to keep segments <12 words)
 - Pipeline: visual branch skips TTS, durations clamped 2.2–10s from estimates, `render_segment_silent` + `add_music_track` in assembler; pipeline/start rejects script-only (422)

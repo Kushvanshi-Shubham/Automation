@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     YOUTUBE_CLIENT_ID: Optional[str] = None
     YOUTUBE_CLIENT_SECRET: Optional[str] = None
 
+    META_APP_ID: Optional[str] = None
+    META_APP_SECRET: Optional[str] = None
+    # Public base URL Meta uses to fetch rendered videos (must be internet-reachable;
+    # falls back to API_PUBLIC_URL which only works once deployed).
+    MEDIA_PUBLIC_URL: Optional[str] = None
+
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     RAZORPAY_KEY_ID: Optional[str] = None

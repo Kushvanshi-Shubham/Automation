@@ -11,9 +11,12 @@ from app.config import settings
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.channel import Channel
+from app.models.ig_account import IgAccount
+from app.models.publish import Publish
 from app.models.user import User
 from app.models.video import Video
 from app.schemas.video import VideoResponse
+from app.services import instagram
 from app.services.youtube import YT_CATEGORIES
 
 router = APIRouter(prefix="/uploads", tags=["Uploads"], dependencies=[Depends(get_current_user)])
@@ -101,6 +104,76 @@ async def schedule_video(
     from app.pipeline.upload_tasks import upload_video_task
     upload_video_task.delay(str(video.id), str(channel.id), "private", publish_at.isoformat(), req.category_id)
     return {"status": "scheduling"}
+
+
+class IgPublishRequest(BaseModel):
+    caption: str = ""
+
+
+@router.post("/{video_id}/publish-instagram")
+async def publish_instagram(
+    video_id: UUID,
+    req: IgPublishRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Publish a rendered short to Instagram as a Reel (official Graph API)."""
+    if not instagram.enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Instagram publishing is not configured yet",
+        )
+    video = await db.get(Video, video_id)
+    if video is None or video.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
+    if video.status not in ("ready", "published", "scheduled"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Video is not rendered yet (status: {video.status})",
+        )
+    if not (Path(settings.OUTPUT_DIR) / str(video.id) / "final.mp4").exists():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Rendered file missing")
+
+    account = (
+        await db.execute(
+            select(IgAccount).where(IgAccount.user_id == current_user.id, IgAccount.is_active == True)  # noqa: E712
+        )
+    ).scalars().first()
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Instagram account connected")
+
+    caption = req.caption.strip() or f"{video.title or ''}\n\n{video.description or ''}".strip()
+    publish = Publish(video_id=video.id, user_id=current_user.id, platform="instagram",
+                      status="publishing", caption=caption[:2200])
+    db.add(publish)
+    await db.flush()
+    publish_id = publish.id
+    await db.commit()
+
+    from app.pipeline.ig_upload_tasks import ig_publish_task
+    ig_publish_task.delay(str(publish_id))
+    return {"status": "publishing", "publish_id": publish_id}
+
+
+@router.get("/publishes/{video_id}")
+async def list_publishes(
+    video_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Multi-platform publish history for one video."""
+    result = await db.execute(
+        select(Publish).where(Publish.video_id == video_id, Publish.user_id == current_user.id)
+        .order_by(Publish.created_at.desc())
+    )
+    return {
+        "items": [
+            {"id": p.id, "platform": p.platform, "status": p.status,
+             "external_id": p.external_id, "error_message": p.error_message,
+             "published_at": p.published_at}
+            for p in result.scalars().all()
+        ]
+    }
 
 
 @router.get("", response_model=list[VideoResponse])

@@ -135,6 +135,7 @@ function PreviewContent() {
         </div>
 
         {video.status === "ready" && <PublishPanel video={video} />}
+        {["ready", "published", "scheduled"].includes(video.status) && <InstagramPanel video={video} />}
         {video.status === "publishing" && (
           <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Uploading to YouTube…
@@ -166,6 +167,97 @@ function PreviewContent() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+interface PublishRecord {
+  id: string
+  platform: string
+  status: string
+  external_id: string | null
+  error_message: string | null
+}
+
+function InstagramPanel({ video }: { video: VideoData }) {
+  const queryClient = useQueryClient()
+  const [caption, setCaption] = useState("")
+
+  const { data: igStatus } = useQuery<{ enabled: boolean }>({
+    queryKey: ["ig-status"],
+    queryFn: () => fetchApi("/instagram/status"),
+    staleTime: Infinity,
+  })
+  const { data: accounts } = useQuery<{ id: string; username: string | null }[]>({
+    queryKey: ["ig-accounts"],
+    queryFn: () => fetchApi("/instagram"),
+    enabled: igStatus?.enabled === true,
+  })
+  const { data: publishes } = useQuery<{ items: PublishRecord[] }>({
+    queryKey: ["publishes", video.id],
+    queryFn: () => fetchApi(`/uploads/publishes/${video.id}`),
+    refetchInterval: q =>
+      (q.state.data?.items ?? []).some(p => p.status === "publishing") ? 5000 : false,
+  })
+
+  const publish = useMutation({
+    mutationFn: () =>
+      fetchApi(`/uploads/${video.id}/publish-instagram`, {
+        method: "POST",
+        body: JSON.stringify({ caption }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["publishes", video.id] }),
+  })
+
+  if (!igStatus?.enabled) return null
+
+  const igPublish = (publishes?.items ?? []).find(p => p.platform === "instagram")
+
+  return (
+    <div className="p-5 rounded-2xl bg-zinc-900 border border-white/5 space-y-3">
+      <h3 className="font-semibold text-sm flex items-center gap-2">📸 Publish to Instagram (Reel)</h3>
+
+      {igPublish?.status === "published" && (
+        <p className="text-sm text-emerald-400">Published to Instagram ✓ (media {igPublish.external_id})</p>
+      )}
+      {igPublish?.status === "publishing" && (
+        <p className="text-sm text-blue-300 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Uploading Reel — Instagram is processing the video…
+        </p>
+      )}
+      {igPublish?.status === "failed" && (
+        <p className="text-xs text-rose-400">Failed: {igPublish.error_message}</p>
+      )}
+
+      {(!igPublish || igPublish.status === "failed") && (
+        (accounts ?? []).length === 0 ? (
+          <p className="text-sm text-zinc-400">
+            <Link href="/dashboard/settings" className="text-violet-400 hover:text-violet-300 font-medium">
+              Connect an Instagram account
+            </Link>{" "}
+            to publish Reels.
+          </p>
+        ) : (
+          <>
+            <textarea
+              value={caption}
+              onChange={e => setCaption(e.target.value.slice(0, 2200))}
+              rows={2}
+              placeholder="Caption (leave empty to use the video title + description)"
+              className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-pink-500/50 resize-none"
+            />
+            <button
+              onClick={() => publish.mutate()}
+              disabled={publish.isPending}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-sm font-medium text-white disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {publish.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "📸"}
+              Publish Reel to @{accounts![0].username}
+            </button>
+            {publish.error && <p className="text-xs text-rose-400">{(publish.error as Error).message}</p>}
+          </>
+        )
+      )}
     </div>
   )
 }

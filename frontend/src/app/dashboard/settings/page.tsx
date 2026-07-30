@@ -26,6 +26,8 @@ function SettingsContent() {
   const searchParams = useSearchParams()
   const ytConnected = searchParams.get("yt_connected")
   const ytError = searchParams.get("yt_error")
+  const igConnected = searchParams.get("ig_connected")
+  const igError = searchParams.get("ig_error")
   const queryClient = useQueryClient()
 
   const { data: channels, isLoading } = useQuery<Channel[]>({
@@ -60,6 +62,16 @@ function SettingsContent() {
       {ytError && (
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
           YouTube connection failed: {ytError.replaceAll("_", " ")}
+        </div>
+      )}
+      {igConnected && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" /> Instagram &quot;@{igConnected}&quot; connected successfully.
+        </div>
+      )}
+      {igError && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+          Instagram connection failed: {igError.replaceAll("_", " ")}
         </div>
       )}
 
@@ -110,8 +122,94 @@ function SettingsContent() {
         </div>
       </section>
 
+      <InstagramSection />
+
       <ApiKeysSection />
     </div>
+  )
+}
+
+interface IgAccount {
+  id: string
+  ig_user_id: string
+  username: string | null
+  is_active: boolean | null
+}
+
+function InstagramSection() {
+  const queryClient = useQueryClient()
+  const { data: status } = useQuery<{ enabled: boolean }>({
+    queryKey: ["ig-status"],
+    queryFn: () => fetchApi("/instagram/status"),
+    staleTime: Infinity,
+  })
+  const { data: accounts } = useQuery<IgAccount[]>({
+    queryKey: ["ig-accounts"],
+    queryFn: () => fetchApi("/instagram"),
+    enabled: status?.enabled === true,
+  })
+
+  const connect = useMutation({
+    mutationFn: () => fetchApi("/instagram/connect"),
+    onSuccess: (data: { auth_url: string }) => { window.location.href = data.auth_url },
+  })
+  const disconnect = useMutation({
+    mutationFn: (id: string) => fetchApi(`/instagram/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ig-accounts"] }),
+  })
+
+  return (
+    <section className="rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden">
+      <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-base">
+            📸
+          </div>
+          <div>
+            <h2 className="font-semibold">Instagram Accounts</h2>
+            <p className="text-xs text-zinc-500">Publish Reels via the official Instagram API (Business/Creator account required)</p>
+          </div>
+        </div>
+        <button
+          onClick={() => connect.mutate()}
+          disabled={!status?.enabled || connect.isPending}
+          title={!status?.enabled ? "Instagram app not configured yet — coming with deployment" : undefined}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-sm font-medium text-white disabled:opacity-40"
+        >
+          {connect.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "📸"}
+          Connect Instagram
+        </button>
+      </div>
+
+      <div className="divide-y divide-white/5">
+        {!status?.enabled && (
+          <div className="p-6 text-sm text-zinc-500">
+            Instagram publishing activates once the Meta app is configured (in progress — requires Meta App Review).
+          </div>
+        )}
+        {status?.enabled && (accounts ?? []).length === 0 && (
+          <div className="p-6 text-sm text-zinc-500">
+            No Instagram account connected. Your IG must be a Business/Creator account linked to a Facebook Page.
+          </div>
+        )}
+        {(accounts ?? []).map(a => (
+          <div key={a.id} className="px-6 py-4 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm">@{a.username ?? "unknown"}</p>
+              <p className="text-xs text-zinc-500">{a.ig_user_id}</p>
+            </div>
+            <button
+              onClick={() => disconnect.mutate(a.id)}
+              disabled={disconnect.isPending}
+              className="p-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              title="Disconnect"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
