@@ -56,7 +56,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
-      <body className={`${inter.className} bg-zinc-950 text-zinc-50 min-h-screen antialiased`}>
+      {/* suppressHydrationWarning: browser extensions inject attributes into <body> pre-hydration */}
+      <body suppressHydrationWarning className={`${inter.className} bg-zinc-950 text-zinc-50 min-h-screen antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

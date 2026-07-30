@@ -57,12 +57,14 @@ export default function LandingPage() {
         <div className="absolute top-[38rem] -left-64 w-[600px] h-[400px] bg-blue-600/15 blur-[140px] rounded-full" />
         <div className="absolute bottom-0 -right-64 w-[600px] h-[500px] bg-fuchsia-600/10 blur-[160px] rounded-full" />
         <div
-          className="absolute inset-0 opacity-[0.04]"
+          className="absolute inset-0"
           style={{
+            opacity: 0.05,
             backgroundImage:
-              "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
+              "linear-gradient(to right, rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.6) 1px, transparent 1px)",
             backgroundSize: "72px 72px",
-            maskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent)",
+            maskImage: "radial-gradient(ellipse 80% 50% at 50% 0%, black, transparent)",
+            WebkitMaskImage: "radial-gradient(ellipse 80% 50% at 50% 0%, black, transparent)",
           }}
         />
       </div>
