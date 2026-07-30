@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-30 — Voices + languages shipped (AutoShorts gap analysis)
+- Owner benchmarked AutoShorts (screenshots): gaps = series autopilot, voice picker, languages, art styles, aspect ratios, per-scene media swap. Quick wins built same-session:
+- **14-voice curated catalog** (`services/voices.py`): US/UK/AU/Indian English + **Hindi (Madhur/Swara)** + Spanish/Portuguese, each with gender + vibe; `GET /scripts/voices`; **cached previews** (`/scripts/voices/{id}/preview` → mp3 under /media, localized preview text)
+- **voice_id threading**: pipeline start validates + stores it → runner narrates with the chosen voice; studio editor gets voice select + ▶ Preview (narrated type only)
+- **Script language** param → Gemini writes narration in the target language (title/tags stay English for SEO); language select in studio form
+- Live-verified: Hindi preview mp3 served (200), Hindi script generated in Devanagari
+- Remaining gaps queued: **series autopilot (next major)**, art styles (needs paid image key), aspect ratios, media swap UI
+- 70 backend tests green; frontend build green
+
 ## 2026-07-30 — UI revamp phase 1 + full SEO infrastructure
 - **Landing page redesigned** (premium dark violet/blue): sticky glass nav, animated 9:16 phone mockup hero, honest capability strip (no fake stats), 4-step how-it-works, 6 real feature cards, **truthful pricing** (Free live / Pro+Studio "coming at launch" with real feature lists + INR), FAQ accordion, CTA block. The old page's fabricated claims (4K, voice cloning, API access, fake user counts) are gone.
 - **SEO**: metadataBase + title template + OG/Twitter cards (branded og.png generated via Pillow), `sitemap.ts`, `robots.ts` (dashboard/api disallowed), JSON-LD `SoftwareApplication` + `FAQPage` — all verified serving on the live dev server. `NEXT_PUBLIC_SITE_URL` drives canonical URLs at deploy.

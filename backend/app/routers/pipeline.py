@@ -57,6 +57,13 @@ async def start_pipeline(
     if current_user.credit_balance < cost:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Not enough credits")
 
+    if req.voice_id:
+        from app.services.voices import VALID_VOICE_IDS
+
+        if req.voice_id not in VALID_VOICE_IDS:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown voice")
+        video.script_data = {**(video.script_data or {}), "voice_id": req.voice_id}
+
     # Deduct credits through the ledger before dispatching.
     current_user.credit_balance -= cost
     video.credits_used = cost

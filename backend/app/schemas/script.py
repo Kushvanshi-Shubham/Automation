@@ -16,6 +16,8 @@ class ScriptGenerateRequest(BaseModel):
     duration_seconds: int = Field(default=60, ge=15, le=180)
     # auto | gemini | openai
     model: str = "auto"
+    # Script language (also drives the default voice choice in the UI)
+    language: str = "English"
     # Extra creator guidance appended to the generation prompt
     custom_instructions: Optional[str] = Field(default=None, max_length=600)
 

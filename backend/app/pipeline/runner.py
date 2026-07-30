@@ -136,7 +136,8 @@ async def run(job_id: str) -> dict:
             ]
         else:
             _publish(job_key, "running", "voice", 10)
-            voiced = await tts.synth_script(segments, workdir)
+            voice = (video.script_data or {}).get("voice_id") or tts.DEFAULT_VOICE
+            voiced = await tts.synth_script(segments, workdir, voice=voice)
 
         # Stage 2: visuals
         _publish(job_key, "running", "visuals", 35)

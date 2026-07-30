@@ -6,7 +6,7 @@ import { Clapperboard, Clock, Loader2, PenTool, RefreshCw, Save, Sparkles, Trend
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
-import { fetchApi } from "@/lib/api-client"
+import { API_BASE_URL, fetchApi } from "@/lib/api-client"
 
 interface Segment {
   text: string
@@ -19,6 +19,14 @@ interface Script {
   segments: Segment[]
   total_duration: number
   output_type: string
+}
+
+interface Voice {
+  id: string
+  label: string
+  language: string
+  gender: string
+  vibe: string
 }
 
 export default function StudioPage() {
@@ -71,10 +79,16 @@ function EmptyStudio() {
   const [tone, setTone] = useState(TONE_PRESETS[0])
   const [customTone, setCustomTone] = useState("")
   const [instructions, setInstructions] = useState("")
+  const [language, setLanguage] = useState("English")
 
   const { data: models } = useQuery<{ items: { key: string; label: string }[] }>({
     queryKey: ["llm-models"],
     queryFn: () => fetchApi("/scripts/models"),
+    staleTime: Infinity,
+  })
+  const { data: voiceData } = useQuery<{ voices: Voice[]; languages: string[] }>({
+    queryKey: ["voices"],
+    queryFn: () => fetchApi("/scripts/voices"),
     staleTime: Infinity,
   })
 
@@ -90,6 +104,7 @@ function EmptyStudio() {
                 style,
                 model,
                 output_type: outputType,
+                language,
                 tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
                 custom_instructions: instructions.trim() || undefined,
               }
@@ -166,6 +181,16 @@ function EmptyStudio() {
                 placeholder="e.g. Apex Legends new season — everything that changed"
                 className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-violet-500/50 resize-none"
               />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">Script language</label>
+              <select
+                value={language}
+                onChange={e => setLanguage(e.target.value)}
+                className="w-full sm:w-56 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+              >
+                {(voiceData?.languages ?? ["English"]).map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">Video style</label>
@@ -290,6 +315,24 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [dirty, setDirty] = useState(false)
   const [regenIndex, setRegenIndex] = useState<number | null>(null)
   const [feedback, setFeedback] = useState("")
+  const [voiceId, setVoiceId] = useState("en-US-ChristopherNeural")
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  const { data: voiceData } = useQuery<{ voices: Voice[] }>({
+    queryKey: ["voices"],
+    queryFn: () => fetchApi("/scripts/voices"),
+    staleTime: Infinity,
+  })
+
+  const playPreview = async () => {
+    setPreviewLoading(true)
+    try {
+      const { preview_url } = await fetchApi(`/scripts/voices/${voiceId}/preview`)
+      new Audio(`${API_BASE_URL.replace(/\/api\/?$/, "")}${preview_url}`).play()
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   const { data, isLoading, error } = useQuery<Script>({
     queryKey: ["script", videoId],
@@ -331,6 +374,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
         body: JSON.stringify({
           video_id: videoId,
           visual_engine: outputType === "image" ? "stock_image" : "pexels",
+          voice_id: outputType === "narrated" ? voiceId : undefined,
         }),
       }),
     onSuccess: (data: { job_id: string }) => {
@@ -418,6 +462,30 @@ function ScriptEditor({ videoId }: { videoId: string }) {
         <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs">
           🎵 Visual short: these lines appear as on-screen text with music — no narration. Tip: attach a trending
           sound in the YouTube/Instagram editor when you post.
+        </div>
+      )}
+
+      {outputType === "narrated" && (
+        <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">🎙️ Voice</label>
+          <select
+            value={voiceId}
+            onChange={e => setVoiceId(e.target.value)}
+            className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+          >
+            {(voiceData?.voices ?? []).map(v => (
+              <option key={v.id} value={v.id}>
+                {v.label} · {v.language} · {v.vibe}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={playPreview}
+            disabled={previewLoading}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "▶"} Preview
+          </button>
         </div>
       )}
 

@@ -31,6 +31,26 @@ IMAGE_TYPE_NOTE = (
 )
 
 
+@router.get("/voices")
+async def list_voices():
+    """Curated narration voices + supported script languages."""
+    from app.services.voices import LANGUAGES, VOICES
+
+    return {"voices": VOICES, "languages": LANGUAGES}
+
+
+@router.get("/voices/{voice_id}/preview")
+async def voice_preview(voice_id: str):
+    """Returns the media URL of a short sample for this voice (cached)."""
+    from app.services.voices import get_preview
+
+    try:
+        url = await get_preview(voice_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown voice")
+    return {"preview_url": url}
+
+
 @router.get("/models")
 async def list_models(
     current_user: User = Depends(get_current_user),
@@ -120,6 +140,7 @@ async def generate_script(
             custom_instructions=instructions,
             model=req.model,
             user_keys=user_keys,
+            language=req.language,
         )
 
     video = Video(

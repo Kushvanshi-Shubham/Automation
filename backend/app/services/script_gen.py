@@ -95,12 +95,14 @@ async def generate_script(
     custom_instructions: str | None = None,
     model: str = "auto",
     user_keys: dict[str, str] | None = None,
+    language: str = "English",
 ) -> dict:
     system = STYLE_PROMPTS.get(style, STYLE_PROMPTS[DEFAULT_STYLE])
     user_prompt = (
         f"Topic: {topic}\n"
         f"Tone: {tone}\n"
         f"Target duration: {duration_seconds} seconds\n"
+        + (f"Write ALL narration text in {language}. Keep visual_prompt, title, description and tags in English.\n" if language != "English" else "")
         + (f"Hook inspiration (improve on it): {hook_hint}\n" if hook_hint else "")
         + (
             f"Additional creator instructions (follow them as long as they don't break the JSON format):\n{custom_instructions.strip()}\n"
