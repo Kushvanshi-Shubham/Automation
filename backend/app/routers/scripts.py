@@ -1,6 +1,8 @@
+from datetime import datetime, time, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -14,6 +16,14 @@ from app.services.llm import VALID_MODELS, available_models
 from app.services.user_keys import get_user_keys
 
 router = APIRouter(prefix="/scripts", tags=["Scripts"], dependencies=[Depends(get_current_user)])
+
+OUTPUT_TYPES = {"script", "narrated", "visual"}
+FREE_SCRIPT_ONLY_PER_DAY = 5
+
+VISUAL_TYPE_NOTE = (
+    "IMPORTANT: this script's lines will be displayed as ON-SCREEN TEXT with no narration "
+    "(music-driven video). Keep every segment under 12 punchy words, readable at a glance."
+)
 
 
 @router.get("/models")
@@ -44,8 +54,30 @@ async def generate_script(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
     if req.model not in VALID_MODELS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown model")
+    if req.output_type not in OUTPUT_TYPES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown output type")
+
+    # Script-only is free — rate-limited so it can't be farmed.
+    if req.output_type == "script":
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        count_today = await db.scalar(
+            select(func.count(Video.id)).where(
+                Video.user_id == current_user.id,
+                Video.output_type == "script",
+                Video.created_at >= today_start,
+            )
+        )
+        if (count_today or 0) >= FREE_SCRIPT_ONLY_PER_DAY:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Free script limit reached ({FREE_SCRIPT_ONLY_PER_DAY}/day) — try again tomorrow",
+            )
 
     user_keys = await get_user_keys(db, current_user.id)
+
+    instructions = req.custom_instructions
+    if req.output_type == "visual":
+        instructions = f"{VISUAL_TYPE_NOTE}\n{instructions or ''}".strip()
 
     hook_hint = None
     if req.custom_script:
@@ -78,7 +110,7 @@ async def generate_script(
             tone=req.tone,
             duration_seconds=req.duration_seconds,
             style=req.style,
-            custom_instructions=req.custom_instructions,
+            custom_instructions=instructions,
             model=req.model,
             user_keys=user_keys,
         )
@@ -86,6 +118,7 @@ async def generate_script(
     video = Video(
         user_id=current_user.id,
         status="script_ready",
+        output_type=req.output_type,
         title=script.get("title"),
         description=script.get("description"),
         tags=script.get("tags"),
@@ -105,6 +138,7 @@ async def generate_script(
         "video_id": video.id,
         "segments": script["segments"],
         "total_duration": script["total_duration"],
+        "output_type": video.output_type,
     }
 
 
@@ -120,6 +154,7 @@ async def get_script(
         "video_id": video.id,
         "segments": data.get("segments", []),
         "total_duration": data.get("total_duration", 0.0),
+        "output_type": video.output_type,
     }
 
 
@@ -136,7 +171,7 @@ async def update_script(
     total = round(sum(s["duration_estimate"] for s in segments), 1)
     video.script_data = {**(video.script_data or {}), "segments": segments, "total_duration": total}
     await db.commit()
-    return {"video_id": video.id, "segments": segments, "total_duration": total}
+    return {"video_id": video.id, "segments": segments, "total_duration": total, "output_type": video.output_type}
 
 
 @router.post("/{video_id}/regenerate-segment", response_model=ScriptResponse)
@@ -163,7 +198,7 @@ async def regenerate_segment(
     total = round(sum(float(s.get("duration_estimate", 0)) for s in segments), 1)
     video.script_data = {**data, "segments": segments, "total_duration": total}
     await db.commit()
-    return {"video_id": video.id, "segments": segments, "total_duration": total}
+    return {"video_id": video.id, "segments": segments, "total_duration": total, "output_type": video.output_type}
 
 
 @router.post("/{video_id}/preview-voice")

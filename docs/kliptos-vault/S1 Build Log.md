@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-30 — Workflow v2 features 1+2 shipped: output types (script-only + visual short)
+- `videos.output_type` (migration 0004): **script** (free, 5/day rate limit, no render — Copy Script button) · **narrated** (current) · **visual** (no narration: on-screen text lines, music as THE soundtrack at 0.85 vol, LLM told to keep segments <12 words)
+- Pipeline: visual branch skips TTS, durations clamped 2.2–10s from estimates, `render_segment_silent` + `add_music_track` in assembler; pipeline/start rejects script-only (422)
+- UI: "What do you want to make?" cards in Studio creation form; type+style selects on Topics toolbar; type badge in editor; visual-type tip about attaching trending audio natively when posting
+- **Live E2E verified**: Gemini wrote a 5-segment visual script ("These three nature moments look completely fake") → rendered 25.0s, music-only audio, on-screen text — frame-checked visually
+- **Caption bug found & fixed via frame check**: ASS WrapStyle 2 clipped long lines at frame edges → WrapStyle 0 (smart wrap), verified wrapped 2-line render
+- 60 backend tests green; frontend build green
+
 ## 2026-07-30 — S2 #5 shipped: BYO API keys
 - `user_api_keys` table (migration 0003), Fernet-encrypted, unique per user+provider
 - `PUT/GET/DELETE /settings/api-keys`: keys are **live-validated against the provider before saving** (bogus key → 422 with friendly message), listed masked only — plaintext never returned

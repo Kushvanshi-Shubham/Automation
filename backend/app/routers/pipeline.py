@@ -28,6 +28,11 @@ async def start_pipeline(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
     if not (video.script_data or {}).get("segments"):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Video has no script yet")
+    if video.output_type == "script":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="This is a script-only creation — there is nothing to render",
+        )
     if video.status == "rendering":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already rendering")
 

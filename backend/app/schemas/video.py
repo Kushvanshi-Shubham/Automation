@@ -6,6 +6,7 @@ from datetime import datetime
 class VideoResponse(BaseModel):
     id: UUID
     status: str
+    output_type: str = "narrated"
     title: Optional[str]
     description: Optional[str]
     tags: Optional[List[str]]

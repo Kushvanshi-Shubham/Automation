@@ -15,6 +15,8 @@ class Video(Base):
     channel_id = Column(Uuid, ForeignKey("channels.id"), nullable=True, index=True)
 
     status = Column(String, default="draft")
+    # script | narrated | visual  (Creation Workflow v2 output types)
+    output_type = Column(String, default="narrated", nullable=False)
     title = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     tags = Column(PortableJSON, nullable=True)

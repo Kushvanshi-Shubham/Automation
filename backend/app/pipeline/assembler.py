@@ -59,6 +59,45 @@ def render_segment(
     )
 
 
+def render_segment_silent(
+    clip_path: Path,
+    duration: float,
+    out_path: Path,
+    ass_path: Path | None = None,
+) -> None:
+    """Visual-only segment: no narration track (music is added after concat)."""
+    vf = VF
+    if ass_path is not None:
+        vf = f"{VF},ass={ass_path.name}"
+    _run(
+        [
+            "-stream_loop", "-1",
+            "-i", str(clip_path),
+            "-t", f"{duration:.2f}",
+            "-vf", vf,
+            "-an",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            str(out_path),
+        ],
+        cwd=ass_path.parent if ass_path is not None else None,
+    )
+
+
+def add_music_track(video_path: Path, music_path: Path, out_path: Path, music_volume: float = 0.85) -> None:
+    """Attach a looped music track as the ONLY audio (for visual shorts)."""
+    _run([
+        "-i", str(video_path),
+        "-stream_loop", "-1",
+        "-i", str(music_path),
+        "-filter_complex", f"[1:a]volume={music_volume}[a]",
+        "-map", "0:v", "-map", "[a]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "128k",
+        "-shortest",
+        str(out_path),
+    ])
+
+
 def mix_music(video_path: Path, music_path: Path, out_path: Path, music_volume: float = 0.12) -> None:
     """Loop background music under the narration, ducked to music_volume."""
     _run([

@@ -18,6 +18,7 @@ interface Script {
   video_id: string
   segments: Segment[]
   total_duration: number
+  output_type: string
 }
 
 export default function StudioPage() {
@@ -51,12 +52,19 @@ const TONE_PRESETS = [
   "calm and professional",
 ]
 
+const OUTPUT_TYPES = [
+  { value: "narrated", label: "🎙️ Narrated short", desc: "AI voice narrates over visuals", badge: "1 credit" },
+  { value: "visual", label: "🎵 Visual short", desc: "On-screen text + music, no voice — add trending audio when posting", badge: "1 credit" },
+  { value: "script", label: "📝 Script only", desc: "Just the script — film it yourself", badge: "FREE · 5/day" },
+]
+
 function EmptyStudio() {
   const router = useRouter()
   const [mode, setMode] = useState<"idea" | "own">("idea")
   const [prompt, setPrompt] = useState("")
   const [ownScript, setOwnScript] = useState("")
   const [style, setStyle] = useState("viral_story")
+  const [outputType, setOutputType] = useState("narrated")
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [model, setModel] = useState("auto")
   const [tone, setTone] = useState(TONE_PRESETS[0])
@@ -75,11 +83,12 @@ function EmptyStudio() {
         method: "POST",
         body: JSON.stringify(
           mode === "own"
-            ? { custom_script: ownScript, model }
+            ? { custom_script: ownScript, model, output_type: outputType }
             : {
                 custom_prompt: prompt,
                 style,
                 model,
+                output_type: outputType,
                 tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
                 custom_instructions: instructions.trim() || undefined,
               }
@@ -119,6 +128,32 @@ function EmptyStudio() {
       </div>
 
       <div className="rounded-2xl bg-zinc-900 border border-white/5 p-6 space-y-5">
+        {/* Output type — WHAT are we making? */}
+        <div>
+          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">What do you want to make?</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {OUTPUT_TYPES.map(t => (
+              <button
+                key={t.value}
+                onClick={() => setOutputType(t.value)}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  outputType === t.value
+                    ? "bg-violet-500/10 border-violet-500/40"
+                    : "bg-black/20 border-white/10 hover:border-white/20"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">{t.label}</p>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${t.value === "script" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-zinc-400"}`}>
+                    {t.badge}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">{t.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {mode === "idea" ? (
           <>
             <div>
@@ -319,19 +354,30 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   }
 
   const totalDuration = segments.reduce((sum, s) => sum + (s.duration_estimate || 0), 0)
+  const outputType = data?.output_type ?? "narrated"
 
   const updateSegment = (index: number, patch: Partial<Segment>) => {
     setSegments(prev => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
     setDirty(true)
   }
 
+  const copyScript = () => {
+    const text = segments.map(s => s.text).join("\n\n")
+    navigator.clipboard.writeText(text)
+  }
+
   return (
     <div className="space-y-6 pb-12 max-w-4xl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Script Studio</h1>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            Script Studio
+            <span className="text-xs font-medium px-2 py-1 rounded-md bg-white/5 border border-white/10 text-zinc-400">
+              {outputType === "script" ? "📝 Script only" : outputType === "visual" ? "🎵 Visual short" : "🎙️ Narrated short"}
+            </span>
+          </h1>
           <p className="text-zinc-400 mt-1 flex items-center gap-2">
-            <Clock className="w-4 h-4" /> ~{Math.round(totalDuration)}s spoken · {segments.length} segments
+            <Clock className="w-4 h-4" /> ~{Math.round(totalDuration)}s {outputType === "visual" ? "on screen" : "spoken"} · {segments.length} segments
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -343,17 +389,33 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {dirty ? "Save Changes" : "Saved"}
           </button>
-          <button
-            onClick={() => render.mutate()}
-            disabled={render.isPending || dirty}
-            title={dirty ? "Save your changes first" : "Costs 1 credit (Pexels visuals)"}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm disabled:opacity-50"
-          >
-            {render.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
-            Generate Video · 1 credit
-          </button>
+          {outputType === "script" ? (
+            <button
+              onClick={copyScript}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-medium text-white text-sm"
+            >
+              📋 Copy Script
+            </button>
+          ) : (
+            <button
+              onClick={() => render.mutate()}
+              disabled={render.isPending || dirty}
+              title={dirty ? "Save your changes first" : "Costs 1 credit (Pexels visuals)"}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm disabled:opacity-50"
+            >
+              {render.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
+              Generate Video · 1 credit
+            </button>
+          )}
         </div>
       </div>
+
+      {outputType === "visual" && (
+        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs">
+          🎵 Visual short: these lines appear as on-screen text with music — no narration. Tip: attach a trending
+          sound in the YouTube/Instagram editor when you post.
+        </div>
+      )}
 
       {render.error && (
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">

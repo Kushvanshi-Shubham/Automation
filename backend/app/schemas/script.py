@@ -8,6 +8,8 @@ class ScriptGenerateRequest(BaseModel):
     custom_prompt: Optional[str] = None
     # Bring-your-own-script: wording preserved, only segmented + visual-prompted.
     custom_script: Optional[str] = None
+    # script (free, no render) | narrated (voice) | visual (on-screen text, no voice)
+    output_type: str = "narrated"
     # viral_story | news_update | educational | commentary
     style: str = "viral_story"
     tone: str = "engaging and curious"
@@ -28,6 +30,7 @@ class ScriptResponse(BaseModel):
     video_id: UUID
     segments: List[ScriptSegment]
     total_duration: float
+    output_type: str = "narrated"
 
 
 class ScriptUpdateRequest(BaseModel):

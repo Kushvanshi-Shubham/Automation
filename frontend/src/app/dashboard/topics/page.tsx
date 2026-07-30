@@ -30,10 +30,14 @@ export default function TopicsPage() {
   const router = useRouter()
   const [creatingId, setCreatingId] = useState<string | null>(null)
   const [style, setStyle] = useState("viral_story")
+  const [outputType, setOutputType] = useState("narrated")
 
   const createShort = useMutation({
     mutationFn: (topicId: string) =>
-      fetchApi("/scripts/generate", { method: "POST", body: JSON.stringify({ topic_id: topicId, style }) }),
+      fetchApi("/scripts/generate", {
+        method: "POST",
+        body: JSON.stringify({ topic_id: topicId, style, output_type: outputType }),
+      }),
     onSuccess: (data: { video_id: string }) => {
       router.push(`/dashboard/studio?video=${data.video_id}`)
     },
@@ -69,6 +73,16 @@ export default function TopicsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <select
+            value={outputType}
+            onChange={e => setOutputType(e.target.value)}
+            title="What gets created when you hit Create Short"
+            className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
+          >
+            <option value="narrated">🎙️ Narrated</option>
+            <option value="visual">🎵 Visual</option>
+            <option value="script">📝 Script only</option>
+          </select>
           <select
             value={style}
             onChange={e => setStyle(e.target.value)}

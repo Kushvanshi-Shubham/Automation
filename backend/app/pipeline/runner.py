@@ -72,14 +72,27 @@ async def run(job_id: str) -> dict:
         await db.commit()
 
     job_key = str(job_id)
+    output_type = video.output_type or "narrated"
     out_dir = Path(settings.OUTPUT_DIR) / str(video.id)
     out_dir.mkdir(parents=True, exist_ok=True)
     workdir = Path(tempfile.mkdtemp(prefix="kliptos_"))
 
     try:
-        # Stage 1: voice
-        _publish(job_key, "running", "voice", 10)
-        voiced = await tts.synth_script(segments, workdir)
+        # Stage 1: voice (narrated only) — visual shorts have no narration
+        if output_type == "visual":
+            voiced = [
+                {
+                    "index": i,
+                    "audio_path": None,
+                    "words": [],
+                    # on-screen text needs reading time: clamp the LLM estimate
+                    "duration": min(10.0, max(2.2, float(seg.get("duration_estimate") or len(seg["text"].split()) / 2.0))),
+                }
+                for i, seg in enumerate(segments)
+            ]
+        else:
+            _publish(job_key, "running", "voice", 10)
+            voiced = await tts.synth_script(segments, workdir)
 
         # Stage 2: visuals
         _publish(job_key, "running", "visuals", 35)
@@ -104,22 +117,28 @@ async def run(job_id: str) -> dict:
                 duration=seg_audio["duration"],
                 out_path=workdir / f"cap_{i:02d}.ass",
             )
-            assembler.render_segment(
-                clip, Path(seg_audio["audio_path"]), seg_audio["duration"], seg_out, ass_path=ass_path
-            )
+            if output_type == "visual":
+                assembler.render_segment_silent(clip, seg_audio["duration"], seg_out, ass_path=ass_path)
+            else:
+                assembler.render_segment(
+                    clip, Path(seg_audio["audio_path"]), seg_audio["duration"], seg_out, ass_path=ass_path
+                )
             rendered.append(seg_out)
             _publish(job_key, "running", "assembly", 65 + (i + 1) / len(segments) * 20)
 
         concat_path = workdir / "concat_full.mp4"
         assembler.concat_segments(rendered, concat_path, workdir)
 
-        # Stage 4: background music (skipped when the library is empty)
+        # Stage 4: music — background bed for narrated, THE soundtrack for visual
         final_path = out_dir / "final.mp4"
         music = _pick_music()
         attribution = None
         if music is not None:
             _publish(job_key, "running", "music", 90)
-            assembler.mix_music(concat_path, music, final_path)
+            if output_type == "visual":
+                assembler.add_music_track(concat_path, music, final_path, music_volume=0.85)
+            else:
+                assembler.mix_music(concat_path, music, final_path)
             attribution = _music_attribution(music)
             logger.info("mixed music track: %s", music.name)
         else:
