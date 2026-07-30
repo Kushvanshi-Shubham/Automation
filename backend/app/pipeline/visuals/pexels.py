@@ -10,6 +10,7 @@ from app.config import settings
 logger = logging.getLogger("kliptos.pexels")
 
 SEARCH_URL = "https://api.pexels.com/videos/search"
+PHOTO_SEARCH_URL = "https://api.pexels.com/v1/search"
 TARGET_W, TARGET_H = 1080, 1920
 
 
@@ -63,3 +64,37 @@ async def fetch_clip(
         return video["id"]
 
     raise RuntimeError(f"no usable portrait clip found on Pexels for query: {query!r}")
+
+
+async def fetch_photo(
+    client: httpx.AsyncClient,
+    query: str,
+    out_path: Path,
+    used_ids: set[int],
+) -> int:
+    """Download a portrait stock PHOTO matching the query (for image posts)."""
+    if not settings.PEXELS_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Pexels engine not configured (missing PEXELS_API_KEY)",
+        )
+    resp = await client.get(
+        PHOTO_SEARCH_URL,
+        params={"query": query, "orientation": "portrait", "per_page": 10},
+        headers={"Authorization": settings.PEXELS_API_KEY},
+    )
+    resp.raise_for_status()
+    for photo in resp.json().get("photos", []):
+        if photo["id"] in used_ids:
+            continue
+        url = photo.get("src", {}).get("large2x") or photo.get("src", {}).get("portrait")
+        if not url:
+            continue
+        download = await client.get(url, follow_redirects=True)
+        download.raise_for_status()
+        out_path.write_bytes(download.content)
+        used_ids.add(photo["id"])
+        logger.info("pexels photo %s for query %r", photo["id"], query)
+        return photo["id"]
+
+    raise RuntimeError(f"no usable portrait photo found on Pexels for query: {query!r}")

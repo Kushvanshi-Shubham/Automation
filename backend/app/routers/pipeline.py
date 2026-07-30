@@ -14,7 +14,13 @@ from app.schemas.pipeline import PipelineStartRequest, PipelineStatusResponse
 router = APIRouter(prefix="/pipeline", tags=["Pipeline"], dependencies=[Depends(get_current_user)])
 
 # Variable credit pricing per engine — see docs/kliptos-vault/Pricing.md
-ENGINE_CREDIT_COST = {"pexels": 1, "stock": 1}
+ENGINE_CREDIT_COST = {"pexels": 1, "stock": 1, "stock_image": 1, "ai_image": 2}
+# Which engines fit which output type
+TYPE_ENGINES = {
+    "narrated": {"pexels", "stock"},
+    "visual": {"pexels", "stock"},
+    "image": {"stock_image", "ai_image"},
+}
 
 
 @router.post("/start", response_model=PipelineStatusResponse)
@@ -36,12 +42,17 @@ async def start_pipeline(
     if video.status == "rendering":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already rendering")
 
-    engine = req.visual_engine or "pexels"
+    engine = req.visual_engine or ("stock_image" if video.output_type == "image" else "pexels")
     cost = ENGINE_CREDIT_COST.get(engine)
     if cost is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Visual engine '{engine}' is not available yet",
+        )
+    if engine not in TYPE_ENGINES.get(video.output_type, set()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Engine '{engine}' doesn't fit a {video.output_type} creation",
         )
     if current_user.credit_balance < cost:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Not enough credits")

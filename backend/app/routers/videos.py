@@ -47,7 +47,10 @@ async def get_video(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _get_owned_video(id, db, current_user)
+    video = await _get_owned_video(id, db, current_user)
+    resp = VideoResponse.model_validate(video)
+    resp.images = (video.script_data or {}).get("images")
+    return resp
 
 
 @router.put("/{id}/metadata", response_model=VideoResponse)

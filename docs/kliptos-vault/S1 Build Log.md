@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-30 — Workflow v2 #4 shipped: 🖼️ image posts (carousels)
+- **Key finding**: Gemini image models are NOT in the free tier (all return 429 limit:0). Product answer consistent with our economics: **stock photos (Pexels /v1/search, portrait) = default engine (1 cr, works today)**; AI images (`services/image_gen.py`, model-fallback list, BYO-aware) = 2 cr, activates with any billed Gemini key.
+- New output type `image`: LLM writes 3-6 slide captions + image prompts (carousel instruction) → pipeline image branch (no ffmpeg) saves slides to /media → `script_data.images` + thumbnail_url; engine/type matching validated (`TYPE_ENGINES`)
+- UI: 🖼️ card in studio, "Generate Images · 1 credit", preview shows slide grid w/ full-size links; video-publish panels hidden for image posts (IG carousel publishing comes with Meta app)
+- Live E2E: 3-slide coffee carousel from real Pexels photos, verified visually
+- Also saved: `docs/INSTAGRAM_SETUP.md` — exact top-to-bottom Meta setup steps for owner
+- 66 backend tests green; frontend build green
+
 ## 2026-07-30 — Workflow v2 #3 shipped: Instagram Reels publishing (behind flag)
 - **Official Graph API flow**: FB Login OAuth (signed-state JWT) → long-lived token (~60d, Fernet-encrypted) → auto-discovers the IG Business account behind the user's Page → REELS container (Meta fetches video from public URL) → poll FINISHED → publish
 - **New `publishes` table** (migration 0005) — the multi-platform publish ledger (per video × platform attempt w/ status/external_id/error); `ig_accounts` table for connections

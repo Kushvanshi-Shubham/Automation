@@ -14,12 +14,14 @@ const MEDIA_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "")
 interface VideoData {
   id: string
   status: string
+  output_type: string
   title: string | null
   description: string | null
   tags: string[] | null
   video_url: string | null
   thumbnail_url: string | null
   youtube_video_id: string | null
+  images: string[] | null
 }
 
 interface Channel {
@@ -72,6 +74,17 @@ function PreviewContent() {
     <div className="flex flex-col lg:flex-row gap-10 pb-12 max-w-5xl">
       {/* Player column */}
       <div className="w-full max-w-sm mx-auto lg:mx-0 flex-shrink-0">
+        {video.output_type === "image" && video.status === "ready" && (video.images ?? []).length > 0 ? (
+          <div className="grid grid-cols-2 gap-3">
+            {(video.images ?? []).map((img, i) => (
+              <a key={img} href={`${MEDIA_ORIGIN}${img}`} target="_blank" rel="noopener noreferrer"
+                 className="block rounded-2xl overflow-hidden border border-white/10 hover:border-violet-500/50 transition-colors">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`${MEDIA_ORIGIN}${img}`} alt={`Slide ${i + 1}`} className="w-full aspect-[4/5] object-cover" />
+              </a>
+            ))}
+          </div>
+        ) : (
         <div className="aspect-[9/16] rounded-3xl overflow-hidden bg-zinc-900 border border-white/10 relative shadow-2xl">
           {video.status === "ready" && video.video_url ? (
             <video
@@ -100,6 +113,7 @@ function PreviewContent() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Meta column */}
@@ -134,8 +148,14 @@ function PreviewContent() {
           </Link>
         </div>
 
-        {video.status === "ready" && <PublishPanel video={video} />}
-        {["ready", "published", "scheduled"].includes(video.status) && <InstagramPanel video={video} />}
+        {video.output_type === "image" && video.status === "ready" && (
+          <div className="p-4 rounded-xl bg-zinc-900 border border-white/5 text-sm text-zinc-400">
+            🖼️ Image post ready — click any slide to open full size and download. Direct Instagram
+            carousel publishing arrives with the Meta app setup.
+          </div>
+        )}
+        {video.output_type !== "image" && video.status === "ready" && <PublishPanel video={video} />}
+        {video.output_type !== "image" && ["ready", "published", "scheduled"].includes(video.status) && <InstagramPanel video={video} />}
         {video.status === "publishing" && (
           <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Uploading to YouTube…

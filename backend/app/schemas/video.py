@@ -13,6 +13,8 @@ class VideoResponse(BaseModel):
     video_url: Optional[str]
     thumbnail_url: Optional[str]
     youtube_video_id: Optional[str] = None
+    # image-post output type: media URLs of the generated slides
+    images: Optional[List[str]] = None
     scheduled_at: Optional[datetime]
     published_at: Optional[datetime]
     created_at: Optional[datetime]

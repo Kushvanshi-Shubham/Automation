@@ -17,12 +17,17 @@ from app.services.user_keys import get_user_keys
 
 router = APIRouter(prefix="/scripts", tags=["Scripts"], dependencies=[Depends(get_current_user)])
 
-OUTPUT_TYPES = {"script", "narrated", "visual"}
+OUTPUT_TYPES = {"script", "narrated", "visual", "image"}
 FREE_SCRIPT_ONLY_PER_DAY = 5
 
 VISUAL_TYPE_NOTE = (
     "IMPORTANT: this script's lines will be displayed as ON-SCREEN TEXT with no narration "
     "(music-driven video). Keep every segment under 12 punchy words, readable at a glance."
+)
+IMAGE_TYPE_NOTE = (
+    "IMPORTANT: this is an IMAGE CAROUSEL post (3-6 slides), not a video. Each segment is one "
+    "slide: text = a short punchy slide caption (under 15 words), visual_prompt = a detailed "
+    "image description for that slide. The first slide must hook, the last must conclude."
 )
 
 
@@ -78,6 +83,8 @@ async def generate_script(
     instructions = req.custom_instructions
     if req.output_type == "visual":
         instructions = f"{VISUAL_TYPE_NOTE}\n{instructions or ''}".strip()
+    elif req.output_type == "image":
+        instructions = f"{IMAGE_TYPE_NOTE}\n{instructions or ''}".strip()
 
     hook_hint = None
     if req.custom_script:

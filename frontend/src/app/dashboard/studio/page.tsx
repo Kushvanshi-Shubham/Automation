@@ -55,6 +55,7 @@ const TONE_PRESETS = [
 const OUTPUT_TYPES = [
   { value: "narrated", label: "🎙️ Narrated short", desc: "AI voice narrates over visuals", badge: "1 credit" },
   { value: "visual", label: "🎵 Visual short", desc: "On-screen text + music, no voice — add trending audio when posting", badge: "1 credit" },
+  { value: "image", label: "🖼️ Image post", desc: "3–6 slide carousel with captions (stock photos)", badge: "1 credit" },
   { value: "script", label: "📝 Script only", desc: "Just the script — film it yourself", badge: "FREE · 5/day" },
 ]
 
@@ -327,7 +328,10 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     mutationFn: () =>
       fetchApi("/pipeline/start", {
         method: "POST",
-        body: JSON.stringify({ video_id: videoId, visual_engine: "pexels" }),
+        body: JSON.stringify({
+          video_id: videoId,
+          visual_engine: outputType === "image" ? "stock_image" : "pexels",
+        }),
       }),
     onSuccess: (data: { job_id: string }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"] })
@@ -373,7 +377,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
             Script Studio
             <span className="text-xs font-medium px-2 py-1 rounded-md bg-white/5 border border-white/10 text-zinc-400">
-              {outputType === "script" ? "📝 Script only" : outputType === "visual" ? "🎵 Visual short" : "🎙️ Narrated short"}
+              {outputType === "script" ? "📝 Script only" : outputType === "visual" ? "🎵 Visual short" : outputType === "image" ? "🖼️ Image post" : "🎙️ Narrated short"}
             </span>
           </h1>
           <p className="text-zinc-400 mt-1 flex items-center gap-2">
@@ -400,11 +404,11 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             <button
               onClick={() => render.mutate()}
               disabled={render.isPending || dirty}
-              title={dirty ? "Save your changes first" : "Costs 1 credit (Pexels visuals)"}
+              title={dirty ? "Save your changes first" : "Costs 1 credit"}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm disabled:opacity-50"
             >
               {render.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
-              Generate Video · 1 credit
+              {outputType === "image" ? "Generate Images · 1 credit" : "Generate Video · 1 credit"}
             </button>
           )}
         </div>

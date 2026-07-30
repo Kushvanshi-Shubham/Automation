@@ -54,6 +54,47 @@ def _publish(job_id: str, status: str, stage: str, percent: float, error: str | 
         logger.warning("progress publish failed (%s): %s", stage, exc)
 
 
+async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], out_dir: Path) -> dict:
+    """Image-post branch: one image per slide (stock photos or AI images)."""
+    from app.services import image_gen
+    from app.services.user_keys import get_user_keys
+
+    engine = video.visual_engine or "stock_image"
+    slides = segments[:8]
+    images: list[str] = []
+
+    if engine == "ai_image":
+        async with AsyncSessionLocal() as db:
+            user_keys = await get_user_keys(db, video.user_id)
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        used_ids: set[int] = set()
+        for i, seg in enumerate(slides):
+            out_path = out_dir / f"img_{i:02d}.jpg"
+            prompt = seg.get("visual_prompt") or seg["text"]
+            _publish(job_key, "running", "images", 10 + i / len(slides) * 80)
+            if engine == "ai_image":
+                await image_gen.generate_image(prompt, out_path, user_keys=user_keys)
+            else:
+                await pexels.fetch_photo(client, prompt, out_path, used_ids)
+            images.append(f"/media/{video.id}/{out_path.name}")
+
+    async with AsyncSessionLocal() as db:
+        job = await db.get(PipelineJob, job_uuid)
+        video_row = await db.get(Video, job.video_id)
+        video_row.status = "ready"
+        video_row.thumbnail_url = images[0]
+        video_row.script_data = {**(video_row.script_data or {}), "images": images}
+        job.status = "completed"
+        job.completed_at = datetime.now(timezone.utc)
+        job.progress = {"stage": "completed", "percent": 100, "images": len(images)}
+        await db.commit()
+
+    _publish(job_key, "completed", "completed", 100)
+    logger.info("image post complete: %d slides", len(images))
+    return {"images": images}
+
+
 async def run(job_id: str) -> dict:
     job_uuid = UUID(str(job_id))
     async with AsyncSessionLocal() as db:
@@ -78,6 +119,9 @@ async def run(job_id: str) -> dict:
     workdir = Path(tempfile.mkdtemp(prefix="kliptos_"))
 
     try:
+        if output_type == "image":
+            return await _run_image_post(job_key, job_uuid, video, segments, out_dir)
+
         # Stage 1: voice (narrated only) — visual shorts have no narration
         if output_type == "visual":
             voiced = [
