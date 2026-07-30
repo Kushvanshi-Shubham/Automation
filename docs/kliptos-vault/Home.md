@@ -4,6 +4,7 @@
 > Solo founder build. India + US markets.
 
 ## Maps
+- [[Creation Workflow v2]] — output types (script-only / narrated / visual / image / premium), credit matrix, priorities (2026-07-30)
 - [[Project Audit]] — what the code actually was on 2026-07-28 (score 3/10)
 - [[Business Audit]] — assumptions challenged, SWOT, investor verdict
 - [[Unit Economics]] — the numbers that reshaped the pricing model
