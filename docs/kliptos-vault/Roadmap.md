@@ -8,6 +8,7 @@ Auth end-to-end (Google via NextAuth ↔ FastAPI JWT) · Alembic · credit syste
 Build order: monorepo merge → foundation fixes → auth → OpenAPI client → Redis pub/sub → pipeline stages (E2E test each)
 
 ## S2 — Functionality First (re-prioritized 2026-07-29 evening: deploy POSTPONED by owner)
+Build status 2026-07-30: ✅ script modes+BYO script · ✅ niche clustering · ✅ studio power features · ✅ publish metadata editor · ✅ BYO API keys · ✅ output types (script-only/visual) · ✅ Instagram code (flag-gated, Meta app pending) · ⬜ image gen · ⬜ premium engines · ⬜ UI revamp · ⬜ billing · ⬜ deploy
 Ordered by priority:
 1. **Script creation modes** — before generating, user picks intent: Viral Story (current default) · News/Update (e.g., "Apex Legends patch explained") · Educational/Explainer · Commentary/Opinion · **Bring-Your-Own-Script** (paste your script, we only segment it + add visual prompts, wording preserved). Foundation for later: story SERIES ("continue the story" — episode catalog per storyline).
 2. **Niche clustering for trends** — user picks their niche (Gaming / Education / Memes / Tech / …) and sees only relevant trends instead of one big cluster. YT API natively supports videoCategoryId + regionCode; Google Trends RSS is uncategorized (LLM-classify at harvest time); per-user default niche on profile.

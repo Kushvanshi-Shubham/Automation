@@ -15,11 +15,12 @@
 - [[S1 Build Log]] — running log of the actual build
 
 ## Status
-- **Stage: S2 in progress — 4 features shipped 2026-07-29** (S1 complete + first real YouTube publish proven)
-- Working end-to-end: sign-in → niche-clustered trends (chips: gaming/tech/music/…) → script in 4 styles or your own script (wording preserved) → model/tone/instructions controls → 1-credit render with captions + music → edit title/tags/category → publish/schedule to YouTube
-- **Remaining S2:** BYO API keys · auto-thumbnails (quick win) · UI revamp (logo pending) · billing · deploy (owner will say when)
+- **Stage: S2 / Workflow v2 — 8 features shipped across 2026-07-29/30**
+- Working end-to-end: sign-in → niche-clustered trends → **choose output type** (📝 script-only FREE · 🎙️ narrated · 🎵 visual/no-narration) → 4 script styles or own script → model/tone/instructions + **BYO API keys** → 1-credit render (captions w/ wrap fix + music) → metadata editor → **YouTube publish/schedule** + **Instagram Reels (code complete, flag-gated)**
+- **Multi-platform foundation:** `publishes` ledger table (per video × platform)
+- **Remaining:** image generation (posts + thumbnails) · premium engines (Veo/HiggsField) · UI revamp (logo pending) · billing · deploy
+- **Owner action items pending:** ① `youtube.upload` verification ② Meta app creation + `instagram_content_publish` review ③ logo
 - **Gate to S3:** ≥30 paying subscribers, gross margin ≥60%
-- **Urgent external item:** Google OAuth verification for `youtube.upload` scope — STILL NOT APPLIED (weeks of lead time)
 - Restart everything: `.\scripts\dev.ps1` (see `docs/RUNBOOK.md`)
 
 ## Source documents
