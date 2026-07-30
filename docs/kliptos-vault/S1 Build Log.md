@@ -2,6 +2,12 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-07-30 — UI revamp phase 1 + full SEO infrastructure
+- **Landing page redesigned** (premium dark violet/blue): sticky glass nav, animated 9:16 phone mockup hero, honest capability strip (no fake stats), 4-step how-it-works, 6 real feature cards, **truthful pricing** (Free live / Pro+Studio "coming at launch" with real feature lists + INR), FAQ accordion, CTA block. The old page's fabricated claims (4K, voice cloning, API access, fake user counts) are gone.
+- **SEO**: metadataBase + title template + OG/Twitter cards (branded og.png generated via Pillow), `sitemap.ts`, `robots.ts` (dashboard/api disallowed), JSON-LD `SoftwareApplication` + `FAQPage` — all verified serving on the live dev server. `NEXT_PUBLIC_SITE_URL` drives canonical URLs at deploy.
+- Dashboard revamp = phase 2, waiting on owner's logo.
+- Billing + deploy: waiting on owner accounts (Stripe/Razorpay test keys; Render-or-Railway + Vercel).
+
 ## 2026-07-30 — Workflow v2 #4 shipped: 🖼️ image posts (carousels)
 - **Key finding**: Gemini image models are NOT in the free tier (all return 429 limit:0). Product answer consistent with our economics: **stock photos (Pexels /v1/search, portrait) = default engine (1 cr, works today)**; AI images (`services/image_gen.py`, model-fallback list, BYO-aware) = 2 cr, activates with any billed Gemini key.
 - New output type `image`: LLM writes 3-6 slide captions + image prompts (carousel instruction) → pipeline image branch (no ffmpeg) saves slides to /media → `script_data.images` + thumbnail_url; engine/type matching validated (`TYPE_ENGINES`)
