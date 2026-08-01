@@ -317,10 +317,16 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [feedback, setFeedback] = useState("")
   const [voiceId, setVoiceId] = useState("en-US-ChristopherNeural")
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [captionStyle, setCaptionStyle] = useState("classic")
 
   const { data: voiceData } = useQuery<{ voices: Voice[] }>({
     queryKey: ["voices"],
     queryFn: () => fetchApi("/scripts/voices"),
+    staleTime: Infinity,
+  })
+  const { data: captionStyles } = useQuery<{ items: { key: string; label: string; desc: string }[] }>({
+    queryKey: ["caption-styles"],
+    queryFn: () => fetchApi("/pipeline/caption-styles"),
     staleTime: Infinity,
   })
 
@@ -375,6 +381,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           video_id: videoId,
           visual_engine: outputType === "image" ? "stock_image" : "pexels",
           voice_id: outputType === "narrated" ? voiceId : undefined,
+          caption_style: outputType !== "image" ? captionStyle : undefined,
         }),
       }),
     onSuccess: (data: { job_id: string }) => {
@@ -465,27 +472,43 @@ function ScriptEditor({ videoId }: { videoId: string }) {
         </div>
       )}
 
-      {outputType === "narrated" && (
-        <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 flex flex-col sm:flex-row sm:items-center gap-3">
-          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">🎙️ Voice</label>
-          <select
-            value={voiceId}
-            onChange={e => setVoiceId(e.target.value)}
-            className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
-          >
-            {(voiceData?.voices ?? []).map(v => (
-              <option key={v.id} value={v.id}>
-                {v.label} · {v.language} · {v.vibe}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={playPreview}
-            disabled={previewLoading}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "▶"} Preview
-          </button>
+      {(outputType === "narrated" || outputType === "visual") && (
+        <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 space-y-3">
+          {outputType === "narrated" && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">🎙️ Voice</label>
+              <select
+                value={voiceId}
+                onChange={e => setVoiceId(e.target.value)}
+                className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+              >
+                {(voiceData?.voices ?? []).map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.label} · {v.language} · {v.vibe}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={playPreview}
+                disabled={previewLoading}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "▶"} Preview
+              </button>
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">💬 Captions</label>
+            <select
+              value={captionStyle}
+              onChange={e => setCaptionStyle(e.target.value)}
+              className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+            >
+              {(captionStyles?.items ?? [{ key: "classic", label: "Classic Bold", desc: "" }]).map(s => (
+                <option key={s.key} value={s.key}>{s.label} — {s.desc}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 

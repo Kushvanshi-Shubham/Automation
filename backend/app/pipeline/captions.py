@@ -1,14 +1,63 @@
-"""Shorts-style burned-in captions (ASS subtitles).
+"""Shorts-style burned-in captions (ASS subtitles) with selectable style packs.
 
 Word-boundary events from edge-tts are grouped into short punchy cues
-(2-3 words), styled bold-white-with-outline in the lower-middle of the
-9:16 frame — the format viewers expect from Shorts/Reels.
+(2-3 words). The `karaoke` pack additionally colors each word as it is
+spoken (\\k tags) — possible because we keep per-word timings.
+
+ASS colors are &HAABBGGRR (alpha, blue, green, red).
 """
 from pathlib import Path
 
 MAX_WORDS_PER_CUE = 3
 
-ASS_HEADER = """[Script Info]
+# name -> style parameters
+CAPTION_STYLES: dict[str, dict] = {
+    "classic": {
+        "label": "Classic Bold",
+        "desc": "White uppercase, black outline — the default shorts look",
+        "fontsize": 88, "bold": -1, "uppercase": True, "karaoke": False,
+        "primary": "&H00FFFFFF", "secondary": "&H00FFFFFF",
+        "outline_colour": "&H00000000", "back_colour": "&H80000000",
+        "border_style": 1, "outline": 7, "alignment": 2, "margin_v": 640,
+    },
+    "neon": {
+        "label": "Neon Pop",
+        "desc": "Electric yellow with heavy outline — high energy",
+        "fontsize": 92, "bold": -1, "uppercase": True, "karaoke": False,
+        "primary": "&H0000F7FF", "secondary": "&H0000F7FF",
+        "outline_colour": "&H00000000", "back_colour": "&H80000000",
+        "border_style": 1, "outline": 8, "alignment": 2, "margin_v": 640,
+    },
+    "impact": {
+        "label": "Center Impact",
+        "desc": "Huge center-screen text with violet outline — maximum attention",
+        "fontsize": 104, "bold": -1, "uppercase": True, "karaoke": False,
+        "primary": "&H00FFFFFF", "secondary": "&H00FFFFFF",
+        "outline_colour": "&H00ED3A7C", "back_colour": "&H80000000",
+        "border_style": 1, "outline": 8, "alignment": 5, "margin_v": 0,
+    },
+    "minimal": {
+        "label": "Minimal Box",
+        "desc": "Clean sentence-case on a soft dark box — calm & premium",
+        "fontsize": 64, "bold": 0, "uppercase": False, "karaoke": False,
+        "primary": "&H00FFFFFF", "secondary": "&H00FFFFFF",
+        "outline_colour": "&H00000000", "back_colour": "&HA0000000",
+        "border_style": 3, "outline": 10, "alignment": 2, "margin_v": 600,
+    },
+    "karaoke": {
+        "label": "Karaoke Highlight",
+        "desc": "Each word lights up yellow exactly as it's spoken",
+        "fontsize": 88, "bold": -1, "uppercase": True, "karaoke": True,
+        # primary = highlighted (spoken) color, secondary = not-yet-spoken color
+        "primary": "&H0000F7FF", "secondary": "&H00FFFFFF",
+        "outline_colour": "&H00000000", "back_colour": "&H80000000",
+        "border_style": 1, "outline": 7, "alignment": 2, "margin_v": 640,
+    },
+}
+
+DEFAULT_CAPTION_STYLE = "classic"
+
+_HEADER_TMPL = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
@@ -17,7 +66,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,Arial,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,0,2,60,60,640,1
+Style: Caption,Arial,{fontsize},{primary},{secondary},{outline_colour},{back_colour},{bold},0,0,0,100,100,1,0,{border_style},{outline},0,{alignment},60,60,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -34,57 +83,76 @@ def _ass_time(seconds: float) -> str:
 
 def group_words(words: list[dict], max_words: int = MAX_WORDS_PER_CUE) -> list[dict]:
     """Group word events into cues of up to max_words, breaking early on
-    sentence punctuation so cues follow the phrasing."""
+    sentence punctuation. Keeps per-word timings for karaoke styles."""
     cues: list[dict] = []
     current: list[dict] = []
     for w in words:
         current.append(w)
         ends_clause = w["word"].rstrip().endswith((".", ",", "!", "?", ";", ":"))
         if len(current) >= max_words or ends_clause:
-            cues.append(
-                {
-                    "text": " ".join(x["word"] for x in current),
-                    "start": current[0]["start"],
-                    "end": current[-1]["end"],
-                }
-            )
+            cues.append(_cue_from(current))
             current = []
     if current:
-        cues.append(
-            {
-                "text": " ".join(x["word"] for x in current),
-                "start": current[0]["start"],
-                "end": current[-1]["end"],
-            }
-        )
+        cues.append(_cue_from(current))
     # Stretch each cue to meet the next so captions never flicker off.
     for i in range(len(cues) - 1):
         cues[i]["end"] = cues[i + 1]["start"]
     return cues
 
 
+def _cue_from(ws: list[dict]) -> dict:
+    return {
+        "text": " ".join(x["word"] for x in ws),
+        "start": ws[0]["start"],
+        "end": ws[-1]["end"],
+        "words": [dict(w) for w in ws],
+    }
+
+
 def fallback_cues(text: str, duration: float) -> list[dict]:
     """No word events: spread the text across the duration in 3-word chunks."""
     tokens = text.split()
-    chunks = [" ".join(tokens[i:i + MAX_WORDS_PER_CUE]) for i in range(0, len(tokens), MAX_WORDS_PER_CUE)]
+    chunks = [tokens[i:i + MAX_WORDS_PER_CUE] for i in range(0, len(tokens), MAX_WORDS_PER_CUE)]
     if not chunks:
         return []
     per = duration / len(chunks)
-    return [
-        {"text": c, "start": round(i * per, 3), "end": round((i + 1) * per, 3)}
-        for i, c in enumerate(chunks)
-    ]
+    cues = []
+    for i, chunk in enumerate(chunks):
+        start, end = round(i * per, 3), round((i + 1) * per, 3)
+        word_per = (end - start) / len(chunk)
+        cues.append({
+            "text": " ".join(chunk),
+            "start": start,
+            "end": end,
+            "words": [
+                {"word": w, "start": round(start + j * word_per, 3), "end": round(start + (j + 1) * word_per, 3)}
+                for j, w in enumerate(chunk)
+            ],
+        })
+    return cues
 
 
-def _escape(text: str) -> str:
-    return text.replace("\\", "").replace("{", "(").replace("}", ")").upper()
+def _escape(text: str, uppercase: bool) -> str:
+    out = text.replace("\\", "").replace("{", "(").replace("}", ")")
+    return out.upper() if uppercase else out
 
 
-def write_ass(cues: list[dict], out_path: Path) -> Path:
-    lines = [ASS_HEADER]
+def _karaoke_text(cue: dict, uppercase: bool) -> str:
+    """Build \\k-tagged text: each word's duration in centiseconds."""
+    parts = []
+    for w in cue.get("words", []):
+        dur_cs = max(1, round((w["end"] - w["start"]) * 100))
+        parts.append(f"{{\\k{dur_cs}}}{_escape(w['word'], uppercase)}")
+    return " ".join(parts) if parts else _escape(cue["text"], uppercase)
+
+
+def write_ass(cues: list[dict], out_path: Path, style: str = DEFAULT_CAPTION_STYLE) -> Path:
+    cfg = CAPTION_STYLES.get(style, CAPTION_STYLES[DEFAULT_CAPTION_STYLE])
+    lines = [_HEADER_TMPL.format(**cfg)]
     for cue in cues:
+        text = _karaoke_text(cue, cfg["uppercase"]) if cfg["karaoke"] else _escape(cue["text"], cfg["uppercase"])
         lines.append(
-            f"Dialogue: 0,{_ass_time(cue['start'])},{_ass_time(cue['end'])},Caption,,0,0,0,,{_escape(cue['text'])}\n"
+            f"Dialogue: 0,{_ass_time(cue['start'])},{_ass_time(cue['end'])},Caption,,0,0,0,,{text}\n"
         )
     out_path.write_text("".join(lines), encoding="utf-8")
     return out_path
@@ -95,6 +163,7 @@ def build_segment_captions(
     text: str,
     duration: float,
     out_path: Path,
+    style: str = DEFAULT_CAPTION_STYLE,
 ) -> Path:
     cues = group_words(words) if words else fallback_cues(text, duration)
-    return write_ass(cues, out_path)
+    return write_ass(cues, out_path, style=style)

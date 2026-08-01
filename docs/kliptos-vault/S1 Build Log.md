@@ -2,6 +2,12 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-01 — Caption style packs shipped (Crayo gap closed)
+- 5 packs in `captions.py`: **Classic Bold** (default) · **Neon Pop** (electric yellow) · **Center Impact** (huge, violet outline, mid-screen) · **Minimal Box** (sentence case on soft box) · **Karaoke Highlight** (each word lights yellow AS SPOKEN via \\k tags — possible because we keep per-word edge-tts timings; competitors mostly can't)
+- `caption_style` flows: pipeline start (validated) → script_data → runner → per-segment ASS; `GET /pipeline/caption-styles` for the UI; studio picker (narrated + visual)
+- Frame-verified: karaoke mid-word state (spoken words yellow, unspoken white) + impact violet outline
+- 78 backend tests green; frontend build green
+
 ## 2026-08-01 — 🤖 SERIES AUTOPILOT SHIPPED (the AutoShorts headline feature, done our way)
 - `series` table + `videos.series_id` (migration 0006): niche OR fixed-theme source, style/output-type/language/voice, cadence (daily/2-day/weekly), **auto-publish to a channel OR review-first (default)**, max 3 active per user until billing
 - **Celery beat** ticks `series.tick` every 15 min → advances next_run_at IMMEDIATELY (no double-fire) → dispatches `series.run_one`: credit check (skips safely, surfaces "not enough credits") → topic pick (top fresh trend in niche, dedupes against the series' previous subjects) → script with variety guard ("avoid repeating: …") → video + credit ledger + render; auto-publish chains `run_pipeline → upload_video_task` (chain stops on render failure)

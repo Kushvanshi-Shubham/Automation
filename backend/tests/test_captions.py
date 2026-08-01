@@ -23,7 +23,9 @@ def test_group_words_max_three_and_punctuation_break():
 def test_fallback_cues_spread_evenly():
     cues = fallback_cues("one two three four five six", 6.0)
     assert len(cues) == 2
-    assert cues[0] == {"text": "one two three", "start": 0.0, "end": 3.0}
+    assert cues[0]["text"] == "one two three"
+    assert cues[0]["start"] == 0.0 and cues[0]["end"] == 3.0
+    assert len(cues[0]["words"]) == 3  # per-word timings kept for karaoke
     assert cues[1]["end"] == 6.0
 
 
@@ -40,3 +42,36 @@ def test_ass_fallback_when_no_words(tmp_path: Path):
     content = out.read_text(encoding="utf-8")
     assert "HELLO BRAVE NEW" in content
     assert "WORLD" in content
+
+
+def test_style_packs(tmp_path: Path):
+    from app.pipeline.captions import CAPTION_STYLES
+
+    # minimal: sentence case + opaque box
+    out = build_segment_captions(WORDS, "x", 2.5, tmp_path / "m.ass", style="minimal")
+    content = out.read_text(encoding="utf-8")
+    assert "The ocean covers" in content  # NOT uppercased
+    assert ",3,10,0,2," in content  # BorderStyle 3 (box)
+
+    # neon: yellow primary
+    out = build_segment_captions(WORDS, "x", 2.5, tmp_path / "n.ass", style="neon")
+    assert "&H0000F7FF" in out.read_text(encoding="utf-8")
+
+    # karaoke: \k timing tags per word
+    out = build_segment_captions(WORDS, "x", 2.5, tmp_path / "k.ass", style="karaoke")
+    content = out.read_text(encoding="utf-8")
+    assert "\\k" in content
+    assert "{\\k" in content
+
+    # unknown style falls back to classic without crashing
+    out = build_segment_captions(WORDS, "x", 2.5, tmp_path / "u.ass", style="does-not-exist")
+    assert "THE OCEAN COVERS" in out.read_text(encoding="utf-8")
+
+    assert set(CAPTION_STYLES) == {"classic", "neon", "impact", "minimal", "karaoke"}
+
+
+def test_caption_styles_endpoint(client, auth_headers):
+    resp = client.get("/api/pipeline/caption-styles", headers=auth_headers)
+    assert resp.status_code == 200
+    keys = [s["key"] for s in resp.json()["items"]]
+    assert "karaoke" in keys and "classic" in keys

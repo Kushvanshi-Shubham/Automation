@@ -23,6 +23,14 @@ TYPE_ENGINES = {
 }
 
 
+@router.get("/caption-styles")
+async def list_caption_styles():
+    """Available caption looks for the studio picker."""
+    from app.pipeline.captions import CAPTION_STYLES
+
+    return {"items": [{"key": k, "label": v["label"], "desc": v["desc"]} for k, v in CAPTION_STYLES.items()]}
+
+
 @router.post("/start", response_model=PipelineStatusResponse)
 async def start_pipeline(
     req: PipelineStartRequest,
@@ -63,6 +71,13 @@ async def start_pipeline(
         if req.voice_id not in VALID_VOICE_IDS:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown voice")
         video.script_data = {**(video.script_data or {}), "voice_id": req.voice_id}
+
+    if req.caption_style:
+        from app.pipeline.captions import CAPTION_STYLES
+
+        if req.caption_style not in CAPTION_STYLES:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown caption style")
+        video.script_data = {**(video.script_data or {}), "caption_style": req.caption_style}
 
     # Deduct credits through the ledger before dispatching.
     current_user.credit_balance -= cost

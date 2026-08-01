@@ -6,6 +6,7 @@ class PipelineStartRequest(BaseModel):
     video_id: UUID
     visual_engine: str = "stock"
     voice_id: Optional[str] = None
+    caption_style: Optional[str] = None
 
 class PipelineStatusResponse(BaseModel):
     job_id: UUID

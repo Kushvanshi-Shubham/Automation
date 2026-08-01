@@ -153,6 +153,7 @@ async def run(job_id: str) -> dict:
 
         # Stage 3: assembly (with burned-in captions)
         _publish(job_key, "running", "assembly", 65)
+        caption_style = (video.script_data or {}).get("caption_style") or captions.DEFAULT_CAPTION_STYLE
         rendered = []
         for i, (seg_audio, clip) in enumerate(zip(voiced, clips)):
             seg_out = workdir / f"final_{i:02d}.mp4"
@@ -161,6 +162,7 @@ async def run(job_id: str) -> dict:
                 text=segments[i]["text"],
                 duration=seg_audio["duration"],
                 out_path=workdir / f"cap_{i:02d}.ass",
+                style=caption_style,
             )
             if output_type == "visual":
                 assembler.render_segment_silent(clip, seg_audio["duration"], seg_out, ass_path=ass_path)
