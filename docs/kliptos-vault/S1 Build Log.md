@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — Per-scene media swap shipped + Founder Pack delivered
+- **Media swap**: every scene card in the studio gets "🖼 Swap visuals" → thumbnail grid of 8 portrait Pexels candidates for that scene's visual prompt (photos for image posts, clips for videos, durations + photographer credits) → click pins `media_id`/`media_thumb` into the segment (persisted via script save, unpin supported) → runner downloads the EXACT pinned clip/photo at render (`fetch_clip_by_id`/`fetch_photo_by_id`)
+- Endpoint: `GET /scripts/{id}/segments/{i}/media-options` (ownership-checked; 422 on bad index)
+- Live-verified: real segment returned 8 candidates (Ron Lach 32s, etc.)
+- **Founder Pack** (`docs/FOUNDER_PACK.md`): MVP one-pager, Veo3 logo prompts (static + animated reveal), 4-scene 30s promo prompts, trademark guide (skip patent — S.3(k); file TM classes 9/41/42 at ipindia; grab handles/domain NOW), investor list (100X.VC/Antler/YC/creator funds), influencer channels (PH, r/NewTubers, mid-size faceless-channel YouTubers), 12-item manual task table
+- 81 backend tests green; frontend build green
+- Note: dev.ps1 spawned windows died silently once — services run reliably as session background processes; investigate window-spawn env later
+
 ## 2026-08-01 — Caption style packs shipped (Crayo gap closed)
 - 5 packs in `captions.py`: **Classic Bold** (default) · **Neon Pop** (electric yellow) · **Center Impact** (huge, violet outline, mid-screen) · **Minimal Box** (sentence case on soft box) · **Karaoke Highlight** (each word lights yellow AS SPOKEN via \\k tags — possible because we keep per-word edge-tts timings; competitors mostly can't)
 - `caption_style` flows: pipeline start (validated) → script_data → runner → per-segment ASS; `GET /pipeline/caption-styles` for the UI; studio picker (narrated + visual)

@@ -66,6 +66,82 @@ async def fetch_clip(
     raise RuntimeError(f"no usable portrait clip found on Pexels for query: {query!r}")
 
 
+async def search_candidates(
+    client: httpx.AsyncClient,
+    query: str,
+    media: str = "video",
+    per_page: int = 8,
+) -> list[dict]:
+    """Thumbnail candidates for the per-scene media picker."""
+    if not settings.PEXELS_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Pexels engine not configured (missing PEXELS_API_KEY)",
+        )
+    headers = {"Authorization": settings.PEXELS_API_KEY}
+    if media == "photo":
+        resp = await client.get(
+            PHOTO_SEARCH_URL,
+            params={"query": query, "orientation": "portrait", "per_page": per_page},
+            headers=headers,
+        )
+        resp.raise_for_status()
+        return [
+            {"id": p["id"], "thumb": p.get("src", {}).get("medium"), "kind": "photo",
+             "photographer": p.get("photographer")}
+            for p in resp.json().get("photos", [])
+            if p.get("src", {}).get("medium")
+        ]
+    resp = await client.get(
+        SEARCH_URL,
+        params={"query": query, "orientation": "portrait", "per_page": per_page, "size": "medium"},
+        headers=headers,
+    )
+    resp.raise_for_status()
+    out = []
+    for v in resp.json().get("videos", []):
+        if _pick_file(v) is None:
+            continue
+        out.append({"id": v["id"], "thumb": v.get("image"), "kind": "video",
+                    "duration": v.get("duration"), "photographer": v.get("user", {}).get("name")})
+    return out
+
+
+async def fetch_clip_by_id(client: httpx.AsyncClient, video_id: int, out_path: Path) -> int:
+    """Download a specific (user-pinned) Pexels video."""
+    resp = await client.get(
+        f"https://api.pexels.com/videos/videos/{video_id}",
+        headers={"Authorization": settings.PEXELS_API_KEY},
+    )
+    resp.raise_for_status()
+    chosen = _pick_file(resp.json())
+    if chosen is None:
+        raise RuntimeError(f"pinned pexels video {video_id} has no usable portrait file")
+    download = await client.get(chosen["link"], follow_redirects=True)
+    download.raise_for_status()
+    out_path.write_bytes(download.content)
+    logger.info("pexels pinned clip %s downloaded", video_id)
+    return video_id
+
+
+async def fetch_photo_by_id(client: httpx.AsyncClient, photo_id: int, out_path: Path) -> int:
+    """Download a specific (user-pinned) Pexels photo."""
+    resp = await client.get(
+        f"https://api.pexels.com/v1/photos/{photo_id}",
+        headers={"Authorization": settings.PEXELS_API_KEY},
+    )
+    resp.raise_for_status()
+    src = resp.json().get("src", {})
+    url = src.get("large2x") or src.get("portrait") or src.get("original")
+    if not url:
+        raise RuntimeError(f"pinned pexels photo {photo_id} has no usable source")
+    download = await client.get(url, follow_redirects=True)
+    download.raise_for_status()
+    out_path.write_bytes(download.content)
+    logger.info("pexels pinned photo %s downloaded", photo_id)
+    return photo_id
+
+
 async def fetch_photo(
     client: httpx.AsyncClient,
     query: str,

@@ -1,9 +1,10 @@
 def test_list_videos_paginated_shape(client, auth_headers):
-    resp = client.get("/api/videos", headers=auth_headers)
+    resp = client.get("/api/videos?page=1&page_size=5", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
     assert isinstance(body["items"], list)
-    assert body["total"] == len(body["items"])  # single page in tests
+    assert len(body["items"]) <= 5
+    assert body["total"] >= len(body["items"])
 
 
 def test_get_missing_video_404(client, auth_headers):

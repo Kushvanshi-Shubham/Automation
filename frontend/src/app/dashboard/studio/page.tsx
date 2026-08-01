@@ -12,6 +12,16 @@ interface Segment {
   text: string
   visual_prompt: string
   duration_estimate: number
+  media_id?: number | null
+  media_thumb?: string | null
+}
+
+interface MediaOption {
+  id: number
+  thumb: string
+  kind: string
+  duration?: number
+  photographer?: string
 }
 
 interface Script {
@@ -315,6 +325,30 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [dirty, setDirty] = useState(false)
   const [regenIndex, setRegenIndex] = useState<number | null>(null)
   const [feedback, setFeedback] = useState("")
+  const [swapIndex, setSwapIndex] = useState<number | null>(null)
+  const [mediaOptions, setMediaOptions] = useState<MediaOption[]>([])
+  const [mediaLoading, setMediaLoading] = useState(false)
+
+  const openSwap = async (index: number) => {
+    if (swapIndex === index) { setSwapIndex(null); return }
+    setSwapIndex(index)
+    setMediaLoading(true)
+    setMediaOptions([])
+    try {
+      const data = await fetchApi(`/scripts/${videoId}/segments/${index}/media-options`)
+      setMediaOptions(data.items ?? [])
+    } finally {
+      setMediaLoading(false)
+    }
+  }
+
+  const pinMedia = (index: number, option: MediaOption | null) => {
+    setSegments(prev => prev.map((s, i) =>
+      i === index ? { ...s, media_id: option?.id ?? null, media_thumb: option?.thumb ?? null } : s
+    ))
+    setDirty(true)
+    setSwapIndex(null)
+  }
   const [voiceId, setVoiceId] = useState("en-US-ChristopherNeural")
   const [previewLoading, setPreviewLoading] = useState(false)
   const [captionStyle, setCaptionStyle] = useState("classic")
@@ -532,12 +566,22 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                 {i === 0 ? "🎣 Hook" : i === segments.length - 1 ? "🏁 Payoff" : `Segment ${i + 1}`}
                 <span className="ml-3 text-zinc-600 normal-case font-medium">~{segment.duration_estimate}s</span>
               </span>
-              <button
-                onClick={() => setRegenIndex(regenIndex === i ? null : i)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-violet-300 hover:bg-violet-500/10 border border-transparent hover:border-violet-500/20 transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> Regenerate
-              </button>
+              <div className="flex items-center gap-1">
+                {outputType !== "script" && (
+                  <button
+                    onClick={() => openSwap(i)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-300 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 transition-colors"
+                  >
+                    🖼 {segment.media_id ? "Pinned" : "Swap visuals"}
+                  </button>
+                )}
+                <button
+                  onClick={() => setRegenIndex(regenIndex === i ? null : i)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-violet-300 hover:bg-violet-500/10 border border-transparent hover:border-violet-500/20 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Regenerate
+                </button>
+              </div>
             </div>
 
             <div className="p-5 space-y-4">
@@ -575,6 +619,56 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                     {regen.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     Go
                   </button>
+                </div>
+              )}
+
+              {segment.media_thumb && swapIndex !== i && (
+                <div className="flex items-center gap-2 pt-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={segment.media_thumb} alt="Pinned media" className="w-10 h-14 object-cover rounded-md border border-blue-500/40" />
+                  <span className="text-xs text-blue-300">Visuals pinned for this scene</span>
+                  <button onClick={() => pinMedia(i, null)} className="text-xs text-zinc-500 hover:text-rose-400 underline">
+                    unpin
+                  </button>
+                </div>
+              )}
+
+              {swapIndex === i && (
+                <div className="pt-2">
+                  <p className="text-xs text-zinc-500 mb-2">
+                    {mediaLoading ? "Searching stock media…" : "Pick the visuals for this scene:"}
+                  </p>
+                  {mediaLoading ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {Array.from({ length: 4 }).map((_, j) => (
+                        <div key={j} className="aspect-[9/16] rounded-lg bg-black/30 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                      {mediaOptions.map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => pinMedia(i, opt)}
+                          title={opt.photographer ? `by ${opt.photographer} (Pexels)` : "Pexels"}
+                          className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
+                            segment.media_id === opt.id ? "border-blue-500" : "border-transparent hover:border-white/40"
+                          }`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={opt.thumb} alt="" className="w-full h-full object-cover" />
+                          {opt.duration && (
+                            <span className="absolute bottom-1 right-1 px-1 rounded bg-black/70 text-[9px] font-medium">
+                              {opt.duration}s
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                      {mediaOptions.length === 0 && (
+                        <p className="col-span-full text-xs text-zinc-500">No portrait media found — try editing the visual prompt.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

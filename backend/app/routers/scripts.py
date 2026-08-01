@@ -229,6 +229,31 @@ async def regenerate_segment(
     return {"video_id": video.id, "segments": segments, "total_duration": total, "output_type": video.output_type}
 
 
+@router.get("/{video_id}/segments/{segment_index}/media-options")
+async def segment_media_options(
+    video_id: UUID,
+    segment_index: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stock media candidates for one scene (video clips, or photos for image posts)."""
+    import httpx
+
+    from app.pipeline.visuals import pexels as pexels_service
+
+    video = await _get_owned_video(video_id, db, current_user)
+    segments = (video.script_data or {}).get("segments", [])
+    if not 0 <= segment_index < len(segments):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="segment_index out of range")
+
+    seg = segments[segment_index]
+    query = seg.get("visual_prompt") or seg.get("text") or ""
+    media = "photo" if video.output_type == "image" else "video"
+    async with httpx.AsyncClient(timeout=30) as client:
+        items = await pexels_service.search_candidates(client, query, media=media)
+    return {"items": items, "query": query}
+
+
 @router.post("/{video_id}/preview-voice")
 async def preview_voice(video_id: UUID, voice_id: str):
     # Lands with the edge-tts milestone.

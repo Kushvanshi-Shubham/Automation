@@ -75,6 +75,9 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
             _publish(job_key, "running", "images", 10 + i / len(slides) * 80)
             if engine == "ai_image":
                 await image_gen.generate_image(prompt, out_path, user_keys=user_keys)
+            elif seg.get("media_id"):  # user pinned a specific photo
+                await pexels.fetch_photo_by_id(client, int(seg["media_id"]), out_path)
+                used_ids.add(int(seg["media_id"]))
             else:
                 await pexels.fetch_photo(client, prompt, out_path, used_ids)
             images.append(f"/media/{video.id}/{out_path.name}")
@@ -146,8 +149,12 @@ async def run(job_id: str) -> dict:
         async with httpx.AsyncClient(timeout=60) as client:
             for i, seg in enumerate(segments):
                 clip_path = workdir / f"clip_{i:02d}.mp4"
-                query = seg.get("visual_prompt") or seg["text"]
-                await pexels.fetch_clip(client, query, clip_path, used_ids)
+                if seg.get("media_id"):  # user pinned a specific clip in the studio
+                    await pexels.fetch_clip_by_id(client, int(seg["media_id"]), clip_path)
+                    used_ids.add(int(seg["media_id"]))
+                else:
+                    query = seg.get("visual_prompt") or seg["text"]
+                    await pexels.fetch_clip(client, query, clip_path, used_ids)
                 clips.append(clip_path)
                 _publish(job_key, "running", "visuals", 35 + (i + 1) / len(segments) * 25)
 

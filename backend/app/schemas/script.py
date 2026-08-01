@@ -26,6 +26,9 @@ class ScriptSegment(BaseModel):
     text: str
     visual_prompt: str = ""
     duration_estimate: float = 0.0
+    # User-pinned stock media for this scene (Pexels id + preview thumbnail)
+    media_id: Optional[int] = None
+    media_thumb: Optional[str] = None
 
 
 class ScriptResponse(BaseModel):
