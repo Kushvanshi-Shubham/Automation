@@ -14,7 +14,10 @@ from app.config import settings
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.asset import Asset
+from app.models.credit import CreditLedger
+from app.models.pipeline_job import PipelineJob
 from app.models.user import User
+from app.models.video import Video
 
 router = APIRouter(prefix="/media-assets", tags=["Media"], dependencies=[Depends(get_current_user)])
 
@@ -22,6 +25,10 @@ ALLOWED_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv", ".mp3", ".m4a", ".wav"}
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav"}
 MAX_SIZE_BYTES = 500 * 1024 * 1024  # 500MB local-first cap
 MAX_ASSETS_PER_USER = 10  # until object storage exists
+
+CLIP_CREDIT_COST = 1
+MIN_CLIP_SECONDS = 5
+MAX_CLIP_SECONDS = 90
 
 
 class AssetResponse(BaseModel):
@@ -118,6 +125,93 @@ async def get_asset(
     if asset is None or asset.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
     return asset
+
+
+class ClipCreateRequest(BaseModel):
+    start: float
+    end: float
+    title: Optional[str] = None
+    caption_style: Optional[str] = None
+
+
+@router.post("/{asset_id}/clips")
+async def create_clip(
+    asset_id: UUID,
+    req: ClipCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render a highlight from an uploaded asset as a 9:16 short (1 credit):
+    trim + center-crop + word-synced captions, original audio kept."""
+    asset = await db.get(Asset, asset_id)
+    if asset is None or asset.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+    if asset.status != "ready":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Asset is still being analyzed" if asset.status in ("uploaded", "processing")
+            else "Asset processing failed — re-upload it",
+        )
+    if asset.kind != "video":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Audio-only uploads can't be clipped into video yet",
+        )
+
+    start, end = round(float(req.start), 2), round(float(req.end), 2)
+    if start < 0 or end <= start:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid clip range")
+    if not (MIN_CLIP_SECONDS <= end - start <= MAX_CLIP_SECONDS):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Clip must be {MIN_CLIP_SECONDS}–{MAX_CLIP_SECONDS} seconds long",
+        )
+    if asset.duration and start >= asset.duration:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Clip starts past the end of the video")
+    if asset.duration and end > asset.duration + 0.5:
+        end = round(asset.duration, 2)
+
+    if req.caption_style:
+        from app.pipeline.captions import CAPTION_STYLES
+
+        if req.caption_style not in CAPTION_STYLES:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown caption style")
+
+    if current_user.credit_balance < CLIP_CREDIT_COST:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Not enough credits")
+
+    # Fresh video row born in "rendering" — no claim race possible.
+    script_data: dict = {"clip": {"asset_id": str(asset.id), "start": start, "end": end}}
+    if req.caption_style:
+        script_data["caption_style"] = req.caption_style
+    video = Video(
+        user_id=current_user.id,
+        title=(req.title or f"Clip from {asset.filename}")[:100],
+        status="rendering",
+        output_type="clip",
+        visual_engine="source",
+        credits_used=CLIP_CREDIT_COST,
+        script_data=script_data,
+    )
+    current_user.credit_balance -= CLIP_CREDIT_COST
+    db.add(video)
+    await db.flush()
+    db.add(CreditLedger(user_id=current_user.id, amount=-CLIP_CREDIT_COST, type="video_debit",
+                        description="Clip render (your footage)", video_id=video.id))
+    job = PipelineJob(video_id=video.id, user_id=current_user.id, status="queued",
+                      progress={"stage": "queued", "percent": 0})
+    db.add(job)
+    await db.flush()
+    video_id, job_id = video.id, job.id
+    await db.commit()
+
+    # Enqueue only after commit — the job must be durable before the worker sees it.
+    from app.pipeline.tasks import run_pipeline
+    task = run_pipeline.delay(str(job_id))
+    job.celery_task_id = task.id
+    await db.commit()
+
+    return {"video_id": video_id, "job_id": job_id, "status": "queued"}
 
 
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)

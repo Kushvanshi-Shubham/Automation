@@ -98,6 +98,32 @@ def add_music_track(video_path: Path, music_path: Path, out_path: Path, music_vo
     ])
 
 
+def render_clip(
+    source: Path,
+    start: float,
+    end: float,
+    out_path: Path,
+    ass_path: Path | None = None,
+) -> None:
+    """Cut [start, end] from creator footage: 9:16 center-crop, captions
+    burned in, ORIGINAL audio kept (that's the point of creator clips)."""
+    vf = VF
+    if ass_path is not None:
+        vf = f"{VF},ass={ass_path.name}"
+    _run(
+        [
+            "-ss", f"{start:.2f}",
+            "-to", f"{end:.2f}",
+            "-i", str(source),
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+            str(out_path),
+        ],
+        cwd=ass_path.parent if ass_path is not None else None,
+    )
+
+
 def mix_music(video_path: Path, music_path: Path, out_path: Path, music_volume: float = 0.12) -> None:
     """Loop background music under the narration, ducked to music_volume."""
     _run([

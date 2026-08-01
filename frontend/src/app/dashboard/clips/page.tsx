@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Clock, Loader2, Scissors, Trash2, UploadCloud } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useRef, useState } from "react"
 import { API_BASE_URL, fetchApi } from "@/lib/api-client"
 import { getSession } from "next-auth/react"
@@ -32,9 +33,29 @@ function fmtTime(s: number) {
 
 export default function ClipsPage() {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [clipError, setClipError] = useState<string | null>(null)
+  const [creatingKey, setCreatingKey] = useState<string | null>(null)
+
+  const createClip = useMutation({
+    mutationFn: (p: { assetId: string; h: Highlight }) =>
+      fetchApi(`/media-assets/${p.assetId}/clips`, {
+        method: "POST",
+        body: JSON.stringify({ start: p.h.start, end: p.h.end, title: p.h.title }),
+      }) as Promise<{ video_id: string; job_id: string }>,
+    onMutate: (p) => {
+      setClipError(null)
+      setCreatingKey(`${p.assetId}:${p.h.start}`)
+    },
+    onSuccess: (data) => router.push(`/dashboard/preview/${data.video_id}?job=${data.job_id}`),
+    onError: (e) => {
+      setClipError((e as Error).message)
+      setCreatingKey(null)
+    },
+  })
 
   const { data: assets, isLoading } = useQuery<AssetItem[]>({
     queryKey: ["media-assets"],
@@ -107,6 +128,7 @@ export default function ClipsPage() {
         </div>
       </label>
       {uploadError && <p className="text-sm text-rose-400">{uploadError}</p>}
+      {clipError && <p className="text-sm text-rose-400">{clipError}</p>}
 
       {/* Assets */}
       {isLoading && <div className="h-28 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />}
@@ -163,11 +185,17 @@ export default function ClipsPage() {
                   </p>
                 </div>
                 <button
-                  disabled
-                  title="Clip rendering ships next"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-zinc-500 cursor-not-allowed flex-shrink-0"
+                  onClick={() => createClip.mutate({ assetId: asset.id, h })}
+                  disabled={asset.kind !== "video" || createClip.isPending}
+                  title={asset.kind !== "video" ? "Audio-only uploads can't be clipped yet" : "Render this moment as a 9:16 short (1 credit)"}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-zinc-500 disabled:border disabled:border-white/10 text-xs font-medium transition-colors flex-shrink-0"
                 >
-                  <Scissors className="w-3.5 h-3.5" /> Create clip (soon)
+                  {creatingKey === `${asset.id}:${h.start}` ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Scissors className="w-3.5 h-3.5" />
+                  )}
+                  Create clip · 1cr
                 </button>
               </div>
             ))}

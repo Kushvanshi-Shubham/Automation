@@ -98,6 +98,53 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
     return {"images": images}
 
 
+async def _run_clip(job_key: str, job_uuid, video, out_dir: Path, workdir: Path) -> dict:
+    """Creator-clip branch: cut a highlight straight from uploaded footage.
+    Original audio is the soundtrack; captions come from the whisper words."""
+    from app.models.asset import Asset
+    from app.pipeline import transcribe
+
+    cfg = (video.script_data or {}).get("clip") or {}
+    start, end = float(cfg["start"]), float(cfg["end"])
+
+    async with AsyncSessionLocal() as db:
+        asset = await db.get(Asset, UUID(str(cfg["asset_id"])))
+        if asset is None:
+            raise RuntimeError("source upload no longer exists")
+        # asset.path may be relative to the backend dir, but ffmpeg runs with
+        # cwd = the ASS workdir — resolve to absolute first.
+        source = Path(asset.path).resolve()
+        transcript = asset.transcript or {}
+    if not source.exists():
+        raise RuntimeError("source file is missing on disk — re-upload it")
+
+    _publish(job_key, "running", "captions", 20)
+    caption_style = (video.script_data or {}).get("caption_style") or captions.DEFAULT_CAPTION_STYLE
+    words = transcribe.words_in_range(transcript, start, end)
+    ass_path = None
+    if words:
+        ass_path = captions.write_ass(captions.group_words(words), workdir / "clip.ass", style=caption_style)
+
+    _publish(job_key, "running", "assembly", 45)
+    final_path = (out_dir / "final.mp4").resolve()  # ffmpeg cwd is the workdir
+    assembler.render_clip(source, start, end, final_path, ass_path=ass_path)
+    duration = assembler.probe_duration(final_path)
+
+    async with AsyncSessionLocal() as db:
+        job = await db.get(PipelineJob, job_uuid)
+        video_row = await db.get(Video, job.video_id)
+        video_row.status = "ready"
+        video_row.video_url = f"/media/{video_row.id}/final.mp4"
+        job.status = "completed"
+        job.completed_at = datetime.now(timezone.utc)
+        job.progress = {"stage": "completed", "percent": 100, "duration": duration}
+        await db.commit()
+
+    _publish(job_key, "completed", "completed", 100)
+    logger.info("clip render complete: %s (%.1fs from %s)", final_path, duration, asset.filename)
+    return {"video_url": f"/media/{video.id}/final.mp4", "duration": duration}
+
+
 async def run(job_id: str) -> dict:
     job_uuid = UUID(str(job_id))
     async with AsyncSessionLocal() as db:
@@ -107,7 +154,8 @@ async def run(job_id: str) -> dict:
 
         video = await db.get(Video, job.video_id)
         segments = (video.script_data or {}).get("segments") or []
-        if not segments:
+        # Clip renders cut from an uploaded asset — they have no script segments.
+        if not segments and (video.output_type or "narrated") != "clip":
             raise RuntimeError("video has no script segments")
 
         job.status = "running"
@@ -122,6 +170,8 @@ async def run(job_id: str) -> dict:
     workdir = Path(tempfile.mkdtemp(prefix="kliptos_"))
 
     try:
+        if output_type == "clip":
+            return await _run_clip(job_key, job_uuid, video, out_dir, workdir)
         if output_type == "image":
             return await _run_image_post(job_key, job_uuid, video, segments, out_dir)
 

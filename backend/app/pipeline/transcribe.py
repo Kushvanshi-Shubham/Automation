@@ -51,6 +51,24 @@ def transcribe(source: Path) -> dict:
     return {"language": info.language, "segments": segments}
 
 
+def words_in_range(transcript: dict, start: float, end: float) -> list[dict]:
+    """Word events overlapping [start, end], times shifted so the clip
+    starts at 0 — ready for the caption builder."""
+    out = []
+    for seg in transcript.get("segments", []):
+        if seg["end"] < start or seg["start"] > end:
+            continue
+        for w in seg.get("words", []):
+            if w["end"] <= start or w["start"] >= end:
+                continue
+            out.append({
+                "word": w["word"],
+                "start": round(max(w["start"] - start, 0.0), 3),
+                "end": round(min(w["end"], end) - start, 3),
+            })
+    return out
+
+
 HIGHLIGHT_SYSTEM = (
     "You are a short-form clip producer. Given a timestamped transcript of a long video, pick the "
     "3-6 BEST self-contained moments to publish as vertical clips (15-60 seconds each). Prefer: "
