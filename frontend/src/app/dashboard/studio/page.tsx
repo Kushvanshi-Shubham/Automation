@@ -128,7 +128,7 @@ function EmptyStudio() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
       <div className="text-center pt-4">
-        <h1 className="text-3xl font-bold mb-2">Script Studio</h1>
+        <h1 className="text-3xl font-bold mb-2">Create</h1>
         <p className="text-zinc-400">
           Start from an idea, or{" "}
           <Link href="/dashboard/topics" className="text-violet-400 hover:text-violet-300">
@@ -462,7 +462,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            Script Studio
+            Create
             <span className="text-xs font-medium px-2 py-1 rounded-md bg-white/5 border border-white/10 text-zinc-400">
               {outputType === "script" ? "📝 Script only" : outputType === "visual" ? "🎵 Visual short" : outputType === "image" ? "🖼️ Image post" : "🎙️ Narrated short"}
             </span>

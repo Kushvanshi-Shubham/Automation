@@ -2,6 +2,13 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — ✨ "Right trend → right Short" shipped (the moat move from the brainstorm)
+- **Best-format recommendation per trend**: `topics.best_format/format_reason` (migration 0007); harvest-time LLM strategist recommends narrated/visual/image per topic with an 8-word why; failure-safe (fields empty without LLM). 265 existing topics backfilled.
+- **Live-verified intelligence**: ALL music topics → visual ("KATSEYE Animal" → 🎵, exactly the owner's brainstorm case); news → narrated ("iran news: context matters"); maps/lists → image
+- Topics toolbar defaults to **✨ Best format (auto)** — Create button adapts per card and shows the recommendation chip + reason
+- **Reframing**: Script Studio → **Create** (nav + headers); source badges → "YouTube signal"/"Trends signal" with rights tooltip; landing hero → **"The right trend, into the right Short."** + format-aware subcopy
+- 85 backend tests green; build + lint clean
+
 ## 2026-08-02 — 🔒 GATE 0 shipped: security P0s + CI (Codex audit findings fixed)
 - **OAuth state hijack fixed**: reusable signed-JWT state replaced with single-use Redis-stored nonces (`services/oauth_state.py`, atomic Lua get+del, 10-min TTL, purpose-bound) for both YouTube and Instagram connect flows; replay test proves second use is rejected
 - **Dispatch race + idempotency fixed**: atomic status CLAIM (`UPDATE … WHERE status NOT IN (…)`, rowcount check) on render start and YT publish/schedule; job committed BEFORE Celery enqueue (task id recorded in follow-up write); IG publish guarded against concurrent duplicates

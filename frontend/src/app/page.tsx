@@ -112,15 +112,16 @@ export default function LandingPage() {
                 {...fadeUp}
                 className="text-5xl md:text-6xl xl:text-7xl font-bold tracking-tight leading-[1.05] mb-6"
               >
-                Turn trends into
+                The right trend, into
                 <span className="block text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400">
-                  published Shorts.
+                  the right Short.
                 </span>
               </motion.h1>
 
               <motion.p {...fadeUp} className="text-lg md:text-xl text-zinc-400 max-w-xl mb-8 leading-relaxed">
-                Kliptos watches what&apos;s trending in your niche, writes the script, renders a captioned
-                9:16 video with voice and music, and publishes it to YouTube. You stay in control of every word.
+                Kliptos finds what&apos;s trending in your niche, recommends the format that fits it — story,
+                music-led visual, or carousel — writes it, renders it with captions and voice, and publishes
+                to YouTube. You stay in control of every word.
               </motion.p>
 
               <motion.div {...fadeUp} className="flex flex-col sm:flex-row gap-3">

@@ -8,6 +8,8 @@ class TopicResponse(BaseModel):
     title: str
     source: Optional[str]
     category: Optional[str] = None
+    best_format: Optional[str] = None
+    format_reason: Optional[str] = None
     keywords: Optional[List[str]]
     score: Optional[float]
     hook_text: Optional[str]

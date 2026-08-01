@@ -241,6 +241,48 @@ async def classify_titles(titles: list[str]) -> list[str]:
     return result[: len(titles)]
 
 
+VALID_FORMATS = {"narrated", "visual", "image"}
+
+_FORMAT_SYSTEM = (
+    "You are a short-form content strategist. For each trending topic, recommend the SINGLE best "
+    "short format:\n"
+    "- narrated: story/explainer where context and facts matter (news, updates, how/why topics)\n"
+    "- visual: music-led, emotional or aesthetic trends where on-screen text + vibe beat narration "
+    "(music releases, aesthetic moments, hype)\n"
+    "- image: listy/insight topics that work as a swipeable carousel (facts, tips, rankings)\n"
+    'Respond ONLY with JSON: {"formats": [{"format": "narrated", "why": "<max 8 words>"}, ...]} '
+    "— one entry per input, same order."
+)
+
+
+async def recommend_formats(titles: list[str]) -> list[dict]:
+    """LLM-recommend the best output format per topic; empty dicts on failure."""
+    if not titles:
+        return []
+    from app.services.llm import generate_json
+
+    numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(titles))
+    try:
+        data = await generate_json(
+            system=_FORMAT_SYSTEM,
+            user=f"Recommend formats for these {len(titles)} trending topics:\n{numbered}",
+            temperature=0.0,
+        )
+        raw = data.get("formats", [])
+    except Exception as exc:
+        logger.warning("format recommendation failed: %s", exc)
+        return [{}] * len(titles)
+    out = []
+    for item in raw[: len(titles)]:
+        fmt = (item or {}).get("format", "")
+        if fmt in VALID_FORMATS:
+            out.append({"best_format": fmt, "format_reason": str((item or {}).get("why", ""))[:120]})
+        else:
+            out.append({})
+    out += [{}] * (len(titles) - len(out))
+    return out
+
+
 async def harvest_topics(db: AsyncSession, geo: str = "US") -> dict:
     """Fetch all sources, dedupe against DB by content hash, insert new topics."""
     async with httpx.AsyncClient(timeout=15) as client:
@@ -268,6 +310,12 @@ async def harvest_topics(db: AsyncSession, geo: str = "US") -> dict:
         categories = await classify_titles([r["title"] for r in unclassified])
         for r, cat in zip(unclassified, categories):
             r["category"] = cat
+
+    # Recommend the best output format per topic (the "right trend → right
+    # short" moat). Failure-safe: recommendation fields just stay empty.
+    formats = await recommend_formats([r["title"] for r in results])
+    for r, rec in zip(results, formats):
+        r.update(rec)
 
     hashes = [content_hash(r["title"]) for r in results]
     existing = set(

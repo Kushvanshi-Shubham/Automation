@@ -12,10 +12,18 @@ interface Topic {
   title: string
   source: string | null
   category: string | null
+  best_format: string | null
+  format_reason: string | null
   keywords: string[] | null
   score: number | null
   hook_text: string | null
   discovered_at: string | null
+}
+
+const FORMAT_META: Record<string, { label: string; emoji: string }> = {
+  narrated: { label: "Story / explainer", emoji: "🎙️" },
+  visual: { label: "Music-led visual", emoji: "🎵" },
+  image: { label: "Swipeable carousel", emoji: "🖼️" },
 }
 
 interface Niche {
@@ -30,13 +38,13 @@ export default function TopicsPage() {
   const router = useRouter()
   const [creatingId, setCreatingId] = useState<string | null>(null)
   const [style, setStyle] = useState("viral_story")
-  const [outputType, setOutputType] = useState("narrated")
+  const [outputType, setOutputType] = useState("auto")
 
   const createShort = useMutation({
-    mutationFn: (topicId: string) =>
+    mutationFn: ({ topicId, format }: { topicId: string; format: string }) =>
       fetchApi("/scripts/generate", {
         method: "POST",
-        body: JSON.stringify({ topic_id: topicId, style, output_type: outputType }),
+        body: JSON.stringify({ topic_id: topicId, style, output_type: format }),
       }),
     onSuccess: (data: { video_id: string }) => {
       router.push(`/dashboard/studio?video=${data.video_id}`)
@@ -79,8 +87,10 @@ export default function TopicsPage() {
             title="What gets created when you hit Create Short"
             className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
           >
+            <option value="auto">✨ Best format (auto)</option>
             <option value="narrated">🎙️ Narrated</option>
             <option value="visual">🎵 Visual</option>
+            <option value="image">🖼️ Image post</option>
             <option value="script">📝 Script only</option>
           </select>
           <select
@@ -163,14 +173,17 @@ export default function TopicsPage() {
           >
             <div className="p-6 flex-1">
               <div className="flex justify-between items-start mb-4">
-                <div className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${
-                  topic.source === "youtube"
-                    ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
-                    : topic.source === "reddit"
-                      ? "bg-orange-500/10 text-orange-500 border border-orange-500/20"
-                      : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                }`}>
-                  {topic.source ?? "unknown"}
+                <div
+                  title="Trend signal only — your video uses original, licensed or your own visuals"
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${
+                    topic.source === "youtube"
+                      ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                      : topic.source === "reddit"
+                        ? "bg-orange-500/10 text-orange-500 border border-orange-500/20"
+                        : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                  }`}
+                >
+                  {topic.source === "youtube" ? "YouTube signal" : topic.source === "trends" ? "Trends signal" : topic.source ?? "unknown"}
                 </div>
                 <div className="flex items-center gap-2">
                   {topic.category && topic.category !== "general" && (
@@ -187,6 +200,20 @@ export default function TopicsPage() {
               <h3 className="text-xl font-semibold mb-3 leading-tight text-zinc-100 group-hover:text-violet-300 transition-colors">
                 {topic.title}
               </h3>
+
+              {topic.best_format && FORMAT_META[topic.best_format] && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-violet-500/5 border border-violet-500/15">
+                  <span className="text-base">{FORMAT_META[topic.best_format].emoji}</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-violet-300">
+                      ✨ Best format: {FORMAT_META[topic.best_format].label}
+                    </p>
+                    {topic.format_reason && (
+                      <p className="text-[11px] text-zinc-500 truncate">{topic.format_reason}</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {topic.hook_text && (
                 <div className="bg-black/20 rounded-xl p-4 mb-4 border border-white/5">
@@ -206,14 +233,18 @@ export default function TopicsPage() {
 
             <div className="p-4 border-t border-white/5 bg-zinc-950/50">
               <button
-                onClick={() => { setCreatingId(topic.id); createShort.mutate(topic.id) }}
+                onClick={() => {
+                  const format = outputType === "auto" ? (topic.best_format ?? "narrated") : outputType
+                  setCreatingId(topic.id)
+                  createShort.mutate({ topicId: topic.id, format })
+                }}
                 disabled={createShort.isPending}
                 className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-sm font-medium flex items-center justify-center gap-2 group-hover:bg-violet-600 group-hover:border-violet-500 group-hover:text-white disabled:opacity-60"
               >
                 {creatingId === topic.id ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Writing script…</>
                 ) : (
-                  <><Zap className="w-4 h-4" /> Create Short</>
+                  <><Zap className="w-4 h-4" /> Create {outputType === "auto" && topic.best_format && FORMAT_META[topic.best_format] ? FORMAT_META[topic.best_format].emoji : "Short"}</>
                 )}
               </button>
             </div>

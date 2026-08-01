@@ -11,6 +11,9 @@ class Topic(Base):
     source = Column(String, nullable=True)
     # niche key from app.services.niches (e.g. "gaming"), "general" if unknown
     category = Column(String, nullable=True, index=True)
+    # recommended output type for this trend: narrated | visual | image
+    best_format = Column(String, nullable=True)
+    format_reason = Column(String, nullable=True)
     keywords = Column(JSON, nullable=True)
     score = Column(Float, nullable=True)
     hook_text = Column(String, nullable=True)

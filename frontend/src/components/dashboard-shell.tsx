@@ -11,7 +11,7 @@ import { useCredits } from "@/hooks/use-credits"
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/topics", icon: TrendingUp, label: "Topics" },
-  { href: "/dashboard/studio", icon: PenTool, label: "Script Studio" },
+  { href: "/dashboard/studio", icon: PenTool, label: "Create" },
   { href: "/dashboard/series", icon: Repeat, label: "Series" },
   { href: "/dashboard/uploads", icon: Upload, label: "Upload Manager" },
   { href: "/dashboard/analytics", icon: BarChart3, label: "Analytics" },
