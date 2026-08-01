@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { signOut } from "next-auth/react"
-import { Home, TrendingUp, PenTool, Upload, BarChart3, Settings, CreditCard, Plus, Bell, LogOut, ChevronLeft, ChevronRight, Repeat } from "lucide-react"
+import { Home, TrendingUp, PenTool, Upload, BarChart3, Settings, CreditCard, Plus, Bell, LogOut, ChevronLeft, ChevronRight, Repeat, Scissors } from "lucide-react"
 import { useCredits } from "@/hooks/use-credits"
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/dashboard/topics", icon: TrendingUp, label: "Topics" },
   { href: "/dashboard/studio", icon: PenTool, label: "Create" },
   { href: "/dashboard/series", icon: Repeat, label: "Series" },
+  { href: "/dashboard/clips", icon: Scissors, label: "Clips" },
   { href: "/dashboard/uploads", icon: Upload, label: "Upload Manager" },
   { href: "/dashboard/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/dashboard/billing", icon: CreditCard, label: "Billing" },

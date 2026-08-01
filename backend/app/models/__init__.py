@@ -1,5 +1,6 @@
 from app.database import Base
 from app.models.api_key import UserApiKey
+from app.models.asset import Asset
 from app.models.ig_account import IgAccount
 from app.models.publish import Publish
 from app.models.series import Series

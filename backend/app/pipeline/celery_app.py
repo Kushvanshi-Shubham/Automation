@@ -11,6 +11,7 @@ celery_app = Celery(
         "app.pipeline.upload_tasks",
         "app.pipeline.ig_upload_tasks",
         "app.pipeline.series_tasks",
+        "app.pipeline.asset_tasks",
     ],
 )
 

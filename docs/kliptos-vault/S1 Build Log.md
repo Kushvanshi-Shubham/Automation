@@ -2,6 +2,16 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — 🎤 Creator-clip recipe Phase A shipped (upload → transcribe → highlights)
+- **assets table** (migration 0008) — the strategy's Asset primitive, rights-cleared rail (creator-owned uploads only)
+- **Upload API** `/media-assets`: multipart streaming w/ 500MB cap, ext whitelist (mp4/mov/webm/mkv/mp3/m4a/wav), 10-upload limit, ownership everywhere
+- **Processing task** (`asset.process`): ffprobe → audio extract → **faster-whisper (base, int8, WORD timestamps — works on py3.14!)** → Gemini clip-producer prompt picks 3-6 highlights (15-90s, validated bounds), BYO-key aware
+- **Clips page** + nav: dashed upload zone, live analyzing status, highlight rows w/ timestamps + reasons; "Create clip" button stubbed for Phase B
+- **Live E2E**: uploaded the 64s Apex short as source → Whisper transcribed real narration → highlights referenced actual content ("Skull Town", "Vantage bat radar") with correct timestamps
+- Phase B next: render pinned highlight → 9:16 crop + word-synced captions from the transcript (1 credit)
+- Also: CI unblocked (owner fixed GitHub billing) + lockfile sync commit; **owner bought kliptos.app** 🎉
+- 89 backend tests green; build + lint clean
+
 ## 2026-08-02 — ✨ "Right trend → right Short" shipped (the moat move from the brainstorm)
 - **Best-format recommendation per trend**: `topics.best_format/format_reason` (migration 0007); harvest-time LLM strategist recommends narrated/visual/image per topic with an 8-word why; failure-safe (fields empty without LLM). 265 existing topics backfilled.
 - **Live-verified intelligence**: ALL music topics → visual ("KATSEYE Animal" → 🎵, exactly the owner's brainstorm case); news → narrated ("iran news: context matters"); maps/lists → image
