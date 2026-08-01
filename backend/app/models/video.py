@@ -13,6 +13,7 @@ class Video(Base):
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id = Column(Uuid, ForeignKey("users.id"), nullable=False, index=True)
     channel_id = Column(Uuid, ForeignKey("channels.id"), nullable=True, index=True)
+    series_id = Column(Uuid, ForeignKey("series.id"), nullable=True, index=True)
 
     status = Column(String, default="draft")
     # script | narrated | visual  (Creation Workflow v2 output types)

@@ -41,7 +41,13 @@ cd backend
 .\.venv\Scripts\celery.exe -A app.pipeline.celery_app worker --loglevel=info --pool=solo
 ```
 
-**Terminal 3 — Frontend**
+**Terminal 3 — Beat scheduler (series autopilot; separate process — `-B` unsupported on Windows)**
+```powershell
+cd backend
+.\.venv\Scripts\celery.exe -A app.pipeline.celery_app beat --loglevel=info
+```
+
+**Terminal 4 — Frontend**
 ```powershell
 cd frontend
 npm run dev

@@ -14,6 +14,10 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command",
 Start-Process powershell -ArgumentList "-NoExit", "-Command",
     "cd '$root\backend'; .\.venv\Scripts\celery.exe -A app.pipeline.celery_app worker --loglevel=info --pool=solo"
 
+# Beat scheduler (series autopilot) — separate process; -B is not supported on Windows
+Start-Process powershell -ArgumentList "-NoExit", "-Command",
+    "cd '$root\backend'; .\.venv\Scripts\celery.exe -A app.pipeline.celery_app beat --loglevel=info"
+
 Start-Process powershell -ArgumentList "-NoExit", "-Command",
     "cd '$root\frontend'; npm run dev"
 

@@ -15,6 +15,7 @@ from app.routers import (
     instagram,
     pipeline,
     scripts,
+    series,
     topics,
     uploads,
     videos,
@@ -52,6 +53,7 @@ app.include_router(billing.router, prefix="/api")
 app.include_router(channels.router, prefix="/api")
 app.include_router(api_keys.router, prefix="/api")
 app.include_router(instagram.router, prefix="/api")
+app.include_router(series.router, prefix="/api")
 
 
 # Rendered videos (local dev storage; object storage replaces this in prod).

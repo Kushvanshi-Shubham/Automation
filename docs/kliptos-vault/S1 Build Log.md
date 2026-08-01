@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-01 — 🤖 SERIES AUTOPILOT SHIPPED (the AutoShorts headline feature, done our way)
+- `series` table + `videos.series_id` (migration 0006): niche OR fixed-theme source, style/output-type/language/voice, cadence (daily/2-day/weekly), **auto-publish to a channel OR review-first (default)**, max 3 active per user until billing
+- **Celery beat** ticks `series.tick` every 15 min → advances next_run_at IMMEDIATELY (no double-fire) → dispatches `series.run_one`: credit check (skips safely, surfaces "not enough credits") → topic pick (top fresh trend in niche, dedupes against the series' previous subjects) → script with variety guard ("avoid repeating: …") → video + credit ledger + render; auto-publish chains `run_pipeline → upload_video_task` (chain stops on render failure)
+- CRUD API + `POST /series/{id}/run-now`; Series page UI (create form w/ trends-vs-theme toggle, run-now, pause/resume, next-run display, error surfacing) + nav entry
+- **Windows gotcha:** `-B` embedded beat is rejected on Windows — beat runs as a SEPARATE process (dev.ps1 + runbook updated; deploy = its own service)
+- **Live E2E verified:** series "Space Wonders Daily" → run-now → autonomously wrote and rendered "3 Mind-Blowing Space Facts You've Never Heard" (visual short, ready) with exactly 1 credit deducted
+- 76 backend tests green; frontend build green
+
 ## 2026-07-30 — Voices + languages shipped (AutoShorts gap analysis)
 - Owner benchmarked AutoShorts (screenshots): gaps = series autopilot, voice picker, languages, art styles, aspect ratios, per-scene media swap. Quick wins built same-session:
 - **14-voice curated catalog** (`services/voices.py`): US/UK/AU/Indian English + **Hindi (Madhur/Swara)** + Spanish/Portuguese, each with gender + vibe; `GET /scripts/voices`; **cached previews** (`/scripts/voices/{id}/preview` → mp3 under /media, localized preview text)

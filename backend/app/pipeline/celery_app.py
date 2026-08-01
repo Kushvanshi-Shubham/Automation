@@ -6,7 +6,12 @@ celery_app = Celery(
     "kliptos_pipeline",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.pipeline.tasks", "app.pipeline.upload_tasks", "app.pipeline.ig_upload_tasks"],
+    include=[
+        "app.pipeline.tasks",
+        "app.pipeline.upload_tasks",
+        "app.pipeline.ig_upload_tasks",
+        "app.pipeline.series_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -16,4 +21,7 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     broker_connection_retry_on_startup=True,
+    beat_schedule={
+        "series-autopilot-tick": {"task": "series.tick", "schedule": 900.0},  # every 15 min
+    },
 )
