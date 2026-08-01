@@ -2,10 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
-import { Clapperboard, Clock, Loader2, PenTool, RefreshCw, Save, Sparkles, TrendingUp } from "lucide-react"
+import { Clapperboard, Clock, Loader2, PenTool, RefreshCw, Save, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useState } from "react"
 import { API_BASE_URL, fetchApi } from "@/lib/api-client"
 
 interface Segment {
@@ -379,12 +379,14 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     queryFn: () => fetchApi(`/scripts/${videoId}`),
   })
 
-  useEffect(() => {
-    if (data?.segments) {
-      setSegments(data.segments)
-      setDirty(false)
-    }
-  }, [data])
+  // Sync fetched script into editable state during render (not in an effect):
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [syncedData, setSyncedData] = useState<Script | null>(null)
+  if (data && data !== syncedData) {
+    setSyncedData(data)
+    setSegments(data.segments)
+    setDirty(false)
+  }
 
   const save = useMutation({
     mutationFn: () => fetchApi(`/scripts/${videoId}`, { method: "PUT", body: JSON.stringify({ segments }) }),

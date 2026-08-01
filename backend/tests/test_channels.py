@@ -47,6 +47,14 @@ def test_callback_connects_channel(client, auth_headers, monkeypatch):
     assert resp.status_code in (302, 307)
     assert "yt_connected=Test" in resp.headers["location"]
 
+    # SECURITY: the state nonce is single-use — replaying it must fail.
+    replay = client.get(
+        "/api/channels/callback",
+        params={"state": state, "code": "authcode2"},
+        follow_redirects=False,
+    )
+    assert "yt_error=invalid_state" in replay.headers["location"]
+
     channels = client.get("/api/channels", headers=auth_headers).json()
     assert any(c["youtube_channel_id"] == "UCtestchannel" for c in channels)
     # Tokens must never be exposed by the API.

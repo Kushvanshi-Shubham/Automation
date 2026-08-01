@@ -68,12 +68,34 @@ async def health_check():
 
 
 @app.websocket("/ws/pipeline/{job_id}")
-async def websocket_endpoint(websocket: WebSocket, job_id: str):
+async def websocket_endpoint(websocket: WebSocket, job_id: str, token: str = ""):
     """Forward Redis pub/sub progress events for this job to the browser.
 
-    Celery workers publish via app.services.progress.publish_progress; this
-    endpoint is a pure subscriber, so it works across processes/containers.
+    Requires ?token=<jwt> and verifies the job belongs to that user —
+    job UUIDs alone must not grant access to progress streams.
     """
+    from uuid import UUID as _UUID
+
+    from app.core.security import decode_access_token
+    from app.database import AsyncSessionLocal
+    from app.models.pipeline_job import PipelineJob
+
+    subject = decode_access_token(token) if token else None
+    if subject is None:
+        await websocket.close(code=4401)
+        return
+    try:
+        job_uuid = _UUID(job_id)
+        user_uuid = _UUID(subject)
+    except ValueError:
+        await websocket.close(code=4403)
+        return
+    async with AsyncSessionLocal() as db:
+        job = await db.get(PipelineJob, job_uuid)
+    if job is None or job.user_id != user_uuid:
+        await websocket.close(code=4403)
+        return
+
     await websocket.accept()
     client = progress_service.async_redis()
     pubsub = client.pubsub()

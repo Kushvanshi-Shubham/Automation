@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -79,6 +79,16 @@ async def publish_video(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid category")
     video, channel = await _validate(video_id, req.channel_id, db, current_user)
 
+    # Atomic claim: double-clicks must not double-upload.
+    claim = await db.execute(
+        update(Video)
+        .where(Video.id == video.id, Video.status.in_(["ready", "upload_failed"]))
+        .values(status="publishing")
+    )
+    if claim.rowcount == 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already being published")
+    await db.commit()
+
     from app.pipeline.upload_tasks import upload_video_task
     upload_video_task.delay(str(video.id), str(channel.id), req.privacy, None, req.category_id)
     return {"status": "publishing"}
@@ -100,6 +110,15 @@ async def schedule_video(
     if req.category_id not in YT_CATEGORIES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid category")
     video, channel = await _validate(video_id, req.channel_id, db, current_user)
+
+    claim = await db.execute(
+        update(Video)
+        .where(Video.id == video.id, Video.status.in_(["ready", "upload_failed"]))
+        .values(status="publishing")
+    )
+    if claim.rowcount == 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already being published")
+    await db.commit()
 
     from app.pipeline.upload_tasks import upload_video_task
     upload_video_task.delay(str(video.id), str(channel.id), "private", publish_at.isoformat(), req.category_id)
@@ -141,6 +160,18 @@ async def publish_instagram(
     ).scalars().first()
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Instagram account connected")
+
+    in_flight = (
+        await db.execute(
+            select(Publish).where(
+                Publish.video_id == video.id,
+                Publish.platform == "instagram",
+                Publish.status == "publishing",
+            )
+        )
+    ).scalars().first()
+    if in_flight is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already publishing to Instagram")
 
     caption = req.caption.strip() or f"{video.title or ''}\n\n{video.description or ''}".strip()
     publish = Publish(video_id=video.id, user_id=current_user.id, platform="instagram",

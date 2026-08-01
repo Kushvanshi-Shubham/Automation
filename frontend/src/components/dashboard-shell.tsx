@@ -114,6 +114,7 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
           <div className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : "px-2"}`}>
             <div className="w-9 h-9 rounded-full bg-zinc-700 flex-shrink-0 overflow-hidden border border-white/10">
               {user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element -- external avatar host, no optimizer benefit
                 <img src={user.image} alt={user.name ?? "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-300">

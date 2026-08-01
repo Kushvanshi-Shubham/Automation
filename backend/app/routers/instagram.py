@@ -51,7 +51,7 @@ async def connect(current_user: User = Depends(get_current_user)):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Instagram is not configured yet (META_APP_ID/SECRET missing)",
         )
-    return {"auth_url": instagram.build_auth_url(str(current_user.id))}
+    return {"auth_url": await instagram.build_auth_url(str(current_user.id))}
 
 
 @router.get("/callback")
@@ -65,7 +65,7 @@ async def oauth_callback(
     if error or not code:
         return RedirectResponse(f"{settings_url}?ig_error={error or 'cancelled'}")
 
-    user_id = instagram.verify_state(state)
+    user_id = await instagram.verify_state(state)
     if user_id is None:
         return RedirectResponse(f"{settings_url}?ig_error=invalid_state")
 

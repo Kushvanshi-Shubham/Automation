@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -47,8 +48,8 @@ async def start_pipeline(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="This is a script-only creation — there is nothing to render",
         )
-    if video.status == "rendering":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already rendering")
+    if video.status in ("rendering", "publishing"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already being processed")
 
     engine = req.visual_engine or ("stock_image" if video.output_type == "image" else "pexels")
     cost = ENGINE_CREDIT_COST.get(engine)
@@ -79,7 +80,18 @@ async def start_pipeline(
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown caption style")
         video.script_data = {**(video.script_data or {}), "caption_style": req.caption_style}
 
-    # Deduct credits through the ledger before dispatching.
+    # Atomically CLAIM the video (idempotency: double-clicks / concurrent
+    # requests both pass the read check above, but only one wins this update).
+    claim = await db.execute(
+        update(Video)
+        .where(Video.id == video.id, Video.status.notin_(["rendering", "publishing"]))
+        .values(status="rendering")
+    )
+    if claim.rowcount == 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already being processed")
+
+    # Deduct credits through the ledger, create the job, and COMMIT — the job
+    # must be durable before the worker can possibly pick it up.
     current_user.credit_balance -= cost
     video.credits_used = cost
     video.visual_engine = engine
@@ -91,7 +103,9 @@ async def start_pipeline(
     db.add(job)
     await db.flush()
     job_id = job.id
+    await db.commit()
 
+    # Enqueue only after the commit; record the task id in a follow-up write.
     from app.pipeline.tasks import run_pipeline
     task = run_pipeline.delay(str(job_id))
     job.celery_task_id = task.id

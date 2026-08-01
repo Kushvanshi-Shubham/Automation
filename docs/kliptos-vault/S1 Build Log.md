@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — 🔒 GATE 0 shipped: security P0s + CI (Codex audit findings fixed)
+- **OAuth state hijack fixed**: reusable signed-JWT state replaced with single-use Redis-stored nonces (`services/oauth_state.py`, atomic Lua get+del, 10-min TTL, purpose-bound) for both YouTube and Instagram connect flows; replay test proves second use is rejected
+- **Dispatch race + idempotency fixed**: atomic status CLAIM (`UPDATE … WHERE status NOT IN (…)`, rowcount check) on render start and YT publish/schedule; job committed BEFORE Celery enqueue (task id recorded in follow-up write); IG publish guarded against concurrent duplicates
+- **WebSocket progress authenticated**: `?token=` JWT + job-ownership check, 4401/4403 closes; frontend hook passes session token; tests cover no-token, bad-token, foreign-job, and happy path
+- **Build hygiene**: stale pre-monorepo `Desktop\Handover\frontend` deleted (owner-approved); `turbopack.root` pinned (ancestor lockfile confusion); studio lint error fixed with derive-during-render pattern; lint + tsc clean
+- **CI added**: GitHub Actions — backend (py3.12 + Redis service + ffmpeg, pytest) and frontend (npm ci, lint, tsc, build) on every push/PR
+- 83 backend tests green
+- Deferred (documented): backend-token-in-session proxying → deploy milestone; renamed studio/"best format" product moves → next
+
 ## 2026-08-02 — Per-scene media swap shipped + Founder Pack delivered
 - **Media swap**: every scene card in the studio gets "🖼 Swap visuals" → thumbnail grid of 8 portrait Pexels candidates for that scene's visual prompt (photos for image posts, clips for videos, durations + photographer credits) → click pins `media_id`/`media_thumb` into the segment (persisted via script save, unpin supported) → runner downloads the EXACT pinned clip/photo at render (`fetch_clip_by_id`/`fetch_photo_by_id`)
 - Endpoint: `GET /scripts/{id}/segments/{i}/media-options` (ownership-checked; 422 on bad index)

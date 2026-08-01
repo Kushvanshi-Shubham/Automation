@@ -39,30 +39,22 @@ def redirect_uri() -> str:
     return f"{settings.API_PUBLIC_URL}/api/instagram/callback"
 
 
-def sign_state(user_id: str) -> str:
-    payload = {
-        "sub": user_id,
-        "purpose": STATE_PURPOSE,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+async def verify_state(state: str) -> str | None:
+    """Single-use server-stored nonce (consumed on first verification)."""
+    from app.services.oauth_state import consume_state
+
+    return await consume_state(state, STATE_PURPOSE)
 
 
-def verify_state(state: str) -> str | None:
-    try:
-        payload = jwt.decode(state, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-    except JWTError:
-        return None
-    return payload.get("sub") if payload.get("purpose") == STATE_PURPOSE else None
+async def build_auth_url(user_id: str) -> str:
+    from app.services.oauth_state import create_state
 
-
-def build_auth_url(user_id: str) -> str:
     params = {
         "client_id": settings.META_APP_ID,
         "redirect_uri": redirect_uri(),
         "response_type": "code",
         "scope": SCOPES,
-        "state": sign_state(user_id),
+        "state": await create_state(user_id, STATE_PURPOSE),
     }
     return f"{OAUTH_DIALOG}?{urlencode(params)}"
 

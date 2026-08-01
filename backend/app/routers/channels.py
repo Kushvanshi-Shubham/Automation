@@ -36,7 +36,7 @@ async def connect_channel(current_user: User = Depends(get_current_user)):
     """Returns the Google consent URL for connecting a YouTube channel."""
     if not (settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Google OAuth not configured")
-    return {"auth_url": youtube.build_auth_url(str(current_user.id))}
+    return {"auth_url": await youtube.build_auth_url(str(current_user.id))}
 
 
 @router.get("/callback")
@@ -51,7 +51,7 @@ async def oauth_callback(
     if error or not code:
         return RedirectResponse(f"{settings_url}?yt_error={error or 'cancelled'}")
 
-    user_id = youtube.verify_state(state)
+    user_id = await youtube.verify_state(state)
     if user_id is None:
         return RedirectResponse(f"{settings_url}?yt_error=invalid_state")
 

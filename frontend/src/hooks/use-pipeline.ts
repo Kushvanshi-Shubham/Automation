@@ -1,5 +1,6 @@
 "use client"
 
+import { getSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { API_BASE_URL } from "@/lib/api-client"
 
@@ -28,9 +29,14 @@ export function usePipeline(jobId: string | null) {
 
     let ws: WebSocket
     let reconnectTimeout: ReturnType<typeof setTimeout>
-    
-    const connect = () => {
-      ws = new WebSocket(`${WS_BASE_URL}/ws/pipeline/${jobId}`)
+    let cancelled = false
+
+    const connect = async () => {
+      // The progress stream is authenticated: pass the backend token.
+      const session = await getSession()
+      if (cancelled) return
+      const token = session?.backendToken ?? ""
+      ws = new WebSocket(`${WS_BASE_URL}/ws/pipeline/${jobId}?token=${encodeURIComponent(token)}`)
 
       ws.onopen = () => {
         setState((s) => ({ ...s, isConnected: true }))
@@ -66,6 +72,7 @@ export function usePipeline(jobId: string | null) {
     connect()
 
     return () => {
+      cancelled = true
       clearTimeout(reconnectTimeout)
       if (ws) ws.close()
     }
