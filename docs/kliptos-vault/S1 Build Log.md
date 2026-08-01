@@ -2,6 +2,16 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — ✂️ Creator-clip Phase B shipped: highlight → 9:16 short (commit 09d91f1)
+- **New output type "clip"**: `assembler.render_clip` = single-pass ffmpeg trim + center-crop 1080×1920 + caption burn, **original audio kept** (the whole point — the creator's own voice)
+- **Word-synced captions from whisper**: `transcribe.words_in_range` slices the transcript's word events to the clip range and shifts times to 0 → same cue grouping/style packs as narrated shorts
+- **`POST /media-assets/{id}/clips`**: 1 credit, bounds validated (5–90s, within duration), caption_style optional; video row is BORN in "rendering" (fresh row = no claim race), ledger debit + commit-before-enqueue like pipeline/start; audio-only assets 422 for now (audiograms later)
+- **Clips page live**: "Create clip · 1cr" renders and lands on the existing preview page (WS progress, publish panel — clips can go straight to YouTube)
+- **Two real bugs found by live E2E**: `asset.path` and `OUTPUT_DIR` are relative but ffmpeg runs with cwd = ASS workdir → `.resolve()` both. **One false alarm**: "double captions" in frame checks = the test source was our own earlier render with captions already baked into pixels; re-ran on a caption-free source (same audio over plain color) → clean single-layer word-synced captions, frame-verified at 4 timestamps
+- Full-flow E2E green: upload → whisper → Gemini highlight → clip render 24s → 1080×1920 + audio, 1 credit deducted (and auto-refund confirmed working on the failed attempts)
+- 93 backend tests green (clip endpoint validations, credits, words_in_range, isolation cleanup); lint + tsc clean
+- Next per owner sequence: aspect ratios → format templates (S3)
+
 ## 2026-08-02 — 🎤 Creator-clip recipe Phase A shipped (upload → transcribe → highlights)
 - **assets table** (migration 0008) — the strategy's Asset primitive, rights-cleared rail (creator-owned uploads only)
 - **Upload API** `/media-assets`: multipart streaming w/ 500MB cap, ext whitelist (mp4/mov/webm/mkv/mp3/m4a/wav), 10-upload limit, ownership everywhere
