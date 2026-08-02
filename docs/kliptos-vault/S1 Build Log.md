@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — ✨ Best-format upgrade: the loop is complete (0e034db)
+**Trend → recommended format → creator-specific draft** now runs end to end on format keys.
+- New 9th format 🎵 **Music / Trend Visual** (`music_visual`): the music-forward visual short as a first-class format (neon captions, energetic mood) — music trends finally have a real recommendation target
+- Every format carries a `when` hint; the harvester's recommendation prompt is **generated from the registry**, so future formats become recommendable with zero extra wiring; invalid keys are dropped, never stored
+- Topics API maps pre-pack engine values to format keys (`LEGACY_FORMAT_MAP`); 265 existing rows backfilled in the dev DB
+- Topics page fully catalog-driven: the picker lists every available format, the ✨ chip and Create button show format emoji+label, Create sends `format` (script-style dropdown only appears for free script-only)
+- **Live verify, 6/6 correct**: KATSEYE song → music_visual · Apex patch notes → gaming_update · landlord drama → reddit_story · Iran talks → breaking_news · 7 habits → image_carousel · discipline → motivational
+- 108 backend tests green; CI green
+
 ## 2026-08-02 — 🎛️ FORMAT PACK shipped: 8 formats as pipeline recipes (2fe3a9b, fb144dd, e567fa2)
 Owner directive: these are **Formats** (an editing pipeline), not templates (a skin). Each defines `input → pacing → asset rules → caption style → music → editable controls`.
 - **Registry** (`services/formats.py`): 👽 Reddit Story · 💬 Fake Text Convo · 🎬 Viral Story · 🚨 Breaking-News Explainer · 🔥 Motivational Quote · 🌙 Shayari/Poetry · 🎮 Gaming Update · 🖼️ Image Carousel
