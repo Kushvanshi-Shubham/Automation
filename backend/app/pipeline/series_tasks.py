@@ -104,12 +104,31 @@ async def _run_one(series_id: str) -> dict:
         if prev_subjects else None
     )
 
+    # A format is the run's full pipeline recipe — derived at RUN time so
+    # recipe improvements apply to every future episode automatically.
+    from app.services.formats import FORMATS, render_defaults
+
+    fmt = FORMATS.get(series.format) if series.format else None
+    style = fmt["style"] if fmt else series.style
+    output_type = fmt["output_type"] if fmt else series.output_type
+    language = series.language
+    if fmt and fmt.get("language") and language == "English":
+        language = fmt["language"]
+
+    instructions = [variety_note] if variety_note else []
+    if output_type == "visual":
+        from app.routers.scripts import VISUAL_TYPE_NOTE
+
+        instructions.insert(0, VISUAL_TYPE_NOTE)
+    if fmt and fmt.get("script_recipe"):
+        instructions.insert(0, fmt["script_recipe"])
+
     script = await script_gen.generate_script(
         topic=subject,
         hook_hint=hook_hint,
-        style=series.style,
-        language=series.language,
-        custom_instructions=variety_note,
+        style=style,
+        language=language,
+        custom_instructions="\n".join(instructions) or None,
         user_keys=user_keys,
     )
 
@@ -117,23 +136,30 @@ async def _run_one(series_id: str) -> dict:
         series = await db.get(Series, UUID(series_id))
         user = await db.get(User, series.user_id)
 
+        script_data = {
+            "subject": subject,
+            "style": style,
+            "segments": script["segments"],
+            "total_duration": script["total_duration"],
+        }
+        if fmt is not None:
+            script_data["format"] = series.format
+            script_data.update(render_defaults(fmt))
+        # An explicit series voice beats the format's default.
+        if series.voice_id:
+            script_data["voice_id"] = series.voice_id
+
         video = Video(
             user_id=user.id,
             series_id=series.id,
             status="script_ready",
-            output_type=series.output_type,
+            output_type=output_type,
             title=script.get("title"),
             description=script.get("description"),
             tags=script.get("tags"),
             visual_engine="pexels",
             credits_used=SERIES_RENDER_COST,
-            script_data={
-                "subject": subject,
-                "style": series.style,
-                "voice_id": series.voice_id,
-                "segments": script["segments"],
-                "total_duration": script["total_duration"],
-            },
+            script_data=script_data,
         )
         db.add(video)
         await db.flush()

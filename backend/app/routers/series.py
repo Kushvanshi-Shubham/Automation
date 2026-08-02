@@ -25,10 +25,21 @@ VALID_PRIVACY = {"public", "unlisted", "private"}
 MAX_ACTIVE_SERIES = 3  # per user, until billing exists
 
 
+def _valid_series_formats() -> set:
+    """Formats a series can run on autopilot: video-producing only —
+    image carousels can't be auto-published to YouTube."""
+    from app.services.formats import FORMATS
+
+    return {k for k, f in FORMATS.items()
+            if f["available"] and f["output_type"] in ("narrated", "visual", "fake_text")}
+
+
 class SeriesCreate(BaseModel):
     name: str = Field(min_length=2, max_length=80)
     category: Optional[str] = None
     topic_prompt: Optional[str] = Field(default=None, max_length=300)
+    # format = full pipeline recipe for every run; None = custom style/output_type
+    format: Optional[str] = None
     style: str = "viral_story"
     output_type: str = "narrated"
     language: str = "English"
@@ -54,6 +65,7 @@ class SeriesResponse(BaseModel):
     name: str
     category: Optional[str]
     topic_prompt: Optional[str]
+    format: Optional[str] = None
     style: str
     output_type: str
     language: str
@@ -73,6 +85,11 @@ class SeriesResponse(BaseModel):
 def _validate(req: SeriesCreate):
     if req.category is not None and req.category not in VALID_CATEGORIES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown category")
+    if req.format is not None and req.format not in _valid_series_formats():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Unknown format, or this format can't run as a series",
+        )
     if req.style not in VALID_STYLES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
     if req.output_type not in VALID_OUTPUT_TYPES:

@@ -16,6 +16,9 @@ class Series(Base):
     # optional theme, e.g. "Apex Legends updates" — overrides trend picking
     topic_prompt = Column(Text, nullable=True)
 
+    # format key (services.formats) — the full pipeline recipe for every run;
+    # None = custom (style/output_type below apply directly)
+    format = Column(String, nullable=True)
     style = Column(String, default="viral_story", nullable=False)
     output_type = Column(String, default="narrated", nullable=False)  # narrated | visual
     language = Column(String, default="English", nullable=False)

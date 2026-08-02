@@ -10,6 +10,7 @@ interface SeriesItem {
   name: string
   category: string | null
   topic_prompt: string | null
+  format: string | null
   style: string
   output_type: string
   language: string
@@ -44,6 +45,15 @@ export default function SeriesPage() {
     queryFn: () => fetchApi("/series"),
     refetchInterval: 30000,
   })
+  const { data: formatCatalog } = useQuery<{ items: { key: string; label: string; emoji: string }[] }>({
+    queryKey: ["formats"],
+    queryFn: () => fetchApi("/scripts/formats"),
+    staleTime: Infinity,
+  })
+  const formatLabel = (key: string | null) => {
+    const f = formatCatalog?.items.find(x => x.key === key)
+    return f ? `${f.emoji} ${f.label}` : null
+  }
 
   const toggle = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
@@ -127,7 +137,7 @@ export default function SeriesPage() {
                 <p className="text-xs text-zinc-500 mt-1.5">
                   {s.topic_prompt ? `Theme: ${s.topic_prompt}` : `Niche: ${s.category ?? "all trends"}`}
                   {" · "}{INTERVALS.find(i => i.value === s.interval_hours)?.label ?? `${s.interval_hours}h`}
-                  {" · "}{s.output_type === "visual" ? "🎵 visual" : "🎙️ narrated"}
+                  {" · "}{formatLabel(s.format) ?? (s.output_type === "visual" ? "🎵 visual" : "🎙️ narrated")}
                   {" · "}{s.language}
                   {" · "}{s.video_count} video{s.video_count === 1 ? "" : "s"} created
                 </p>
@@ -176,6 +186,7 @@ function CreateForm({ onDone }: { onDone: () => void }) {
   const [mode, setMode] = useState<"trends" | "theme">("trends")
   const [category, setCategory] = useState("")
   const [theme, setTheme] = useState("")
+  const [format, setFormat] = useState("viral_story")  // format key, or "custom"
   const [style, setStyle] = useState("viral_story")
   const [outputType, setOutputType] = useState("narrated")
   const [language, setLanguage] = useState("English")
@@ -199,6 +210,16 @@ function CreateForm({ onDone }: { onDone: () => void }) {
     queryKey: ["channels"],
     queryFn: () => fetchApi("/channels"),
   })
+  const { data: formats } = useQuery<{ items: { key: string; label: string; emoji: string; output_type: string; available: boolean }[] }>({
+    queryKey: ["formats"],
+    queryFn: () => fetchApi("/scripts/formats"),
+    staleTime: Infinity,
+  })
+  // Series run on autopilot — only video-producing formats qualify.
+  const seriesFormats = (formats?.items ?? []).filter(f => f.available && f.output_type !== "image")
+  const effectiveOutput = format === "custom"
+    ? outputType
+    : (seriesFormats.find(f => f.key === format)?.output_type ?? "narrated")
 
   const create = useMutation({
     mutationFn: () =>
@@ -208,8 +229,9 @@ function CreateForm({ onDone }: { onDone: () => void }) {
           name,
           category: mode === "trends" && category ? category : null,
           topic_prompt: mode === "theme" ? theme : null,
+          format: format === "custom" ? null : format,
           style,
-          output_type: outputType,
+          output_type: format === "custom" ? outputType : effectiveOutput === "fake_text" ? "narrated" : effectiveOutput,
           language,
           voice_id: voiceId || null,
           interval_hours: interval,
@@ -287,20 +309,30 @@ function CreateForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <select value={style} onChange={e => setStyle(e.target.value)}
+        <select value={format} onChange={e => setFormat(e.target.value)}
+                title="The pipeline recipe every episode runs"
                 className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-          {STYLES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          {seriesFormats.map(f => <option key={f.key} value={f.key}>{f.emoji} {f.label}</option>)}
+          <option value="custom">🛠️ Custom</option>
         </select>
-        <select value={outputType} onChange={e => setOutputType(e.target.value)}
-                className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-          <option value="narrated">🎙️ Narrated</option>
-          <option value="visual">🎵 Visual</option>
-        </select>
+        {format === "custom" && (
+          <>
+            <select value={style} onChange={e => setStyle(e.target.value)}
+                    className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
+              {STYLES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+            <select value={outputType} onChange={e => setOutputType(e.target.value)}
+                    className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
+              <option value="narrated">🎙️ Narrated</option>
+              <option value="visual">🎵 Visual</option>
+            </select>
+          </>
+        )}
         <select value={language} onChange={e => setLanguage(e.target.value)}
                 className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
           {(voiceData?.languages ?? ["English"]).map(l => <option key={l} value={l}>{l}</option>)}
         </select>
-        <select value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={outputType !== "narrated"}
+        <select value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={effectiveOutput !== "narrated"}
                 className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50 disabled:opacity-40">
           <option value="">Default voice</option>
           {(voiceData?.voices ?? []).map(v => <option key={v.id} value={v.id}>{v.label} · {v.language}</option>)}

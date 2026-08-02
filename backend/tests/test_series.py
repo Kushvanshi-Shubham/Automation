@@ -144,3 +144,69 @@ def test_run_one_creates_video_and_deducts(client, auth_headers, monkeypatch):
     video = client.get(f"/api/videos/{result['video_id']}", headers=auth_headers).json()
     assert video["title"] == "Chess puzzle of the day"
     assert video["output_type"] == "visual"
+
+
+def test_series_format_validation(client, auth_headers):
+    resp = client.post("/api/series", headers=auth_headers,
+                       json={"name": "Bad fmt", "format": "hollywood"})
+    assert resp.status_code == 422
+
+    # image carousels can't auto-publish to YouTube -> not series-able
+    resp = client.post("/api/series", headers=auth_headers,
+                       json={"name": "Carousel", "format": "image_carousel"})
+    assert resp.status_code == 422
+
+    resp = client.post("/api/series", headers=auth_headers,
+                       json={"name": "Reddit night", "format": "reddit_story"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["format"] == "reddit_story"
+
+
+def test_run_one_applies_format_recipe(client, auth_headers, monkeypatch):
+    created = client.post(
+        "/api/series", headers=auth_headers,
+        json={"name": "Reddit stories daily", "topic_prompt": "wild roommate drama stories",
+              "format": "reddit_story"},
+    ).json()
+
+    captured = {}
+
+    async def fake_generate(topic, **kwargs):
+        captured["topic"] = topic
+        captured.update(kwargs)
+        return {
+            "title": "My roommate's secret",
+            "description": "d", "tags": [],
+            "segments": [{"text": "I never should have checked.", "visual_prompt": "x", "duration_estimate": 3.0}],
+            "total_duration": 3.0,
+        }
+
+    monkeypatch.setattr("app.services.script_gen.generate_script", fake_generate)
+    import app.pipeline.tasks as tasks_mod
+    monkeypatch.setattr(tasks_mod.run_pipeline, "delay", lambda job_id: None)
+
+    from app.pipeline.series_tasks import _run_one
+
+    result = asyncio.run(_run_one(created["id"]))
+    assert "video_id" in result
+    # The format's recipe and style drive generation
+    assert captured["style"] == "viral_story"
+    assert "FIRST PERSON" in captured["custom_instructions"]
+
+    video = client.get(f"/api/videos/{result['video_id']}", headers=auth_headers).json()
+    assert video["output_type"] == "narrated"
+
+    # Render defaults landed in script_data for the runner
+    from uuid import UUID
+
+    from app.database import AsyncSessionLocal
+    from app.models.video import Video
+
+    async def fetch():
+        async with AsyncSessionLocal() as db:
+            return (await db.get(Video, UUID(result["video_id"]))).script_data
+
+    data = asyncio.run(fetch())
+    assert data["format"] == "reddit_story"
+    assert data["background_query"]
+    assert data["music_mood"] == "calm"
