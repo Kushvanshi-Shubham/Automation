@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — 🎛️ FORMAT PACK shipped: 8 formats as pipeline recipes (2fe3a9b, fb144dd, e567fa2)
+Owner directive: these are **Formats** (an editing pipeline), not templates (a skin). Each defines `input → pacing → asset rules → caption style → music → editable controls`.
+- **Registry** (`services/formats.py`): 👽 Reddit Story · 💬 Fake Text Convo · 🎬 Viral Story · 🚨 Breaking-News Explainer · 🔥 Motivational Quote · 🌙 Shayari/Poetry · 🎮 Gaming Update · 🖼️ Image Carousel
+- Six ride existing engines via recipes: script recipe injected into the LLM prompt, background_query (Reddit Story renders ALL scenes from one theme — satisfying parkour), caption/voice/language/tone/music-mood defaults stored in script_data (studio seeds its pickers from them; everything stays editable)
+- **Fake Text got its own renderer** (`pipeline/fake_text.py`, output_type `fake_text`): segments ARE the messages (A:/B:), each gets a typing beat ("• • •") + reading dwell, the chat renders as piecewise-static ASS states — BorderStyle=3 bubble boxes, grey left / blue right, bottom-up stacking with scroll-off, 85s cap, music-only audio at 0.55. No narration timeline at all — exactly the owner's point about formats being different pipelines.
+- Create page: **format grid is now the primary choice** ("Custom" reveals the old output-type + style pickers); Clips page got caption + format pickers (owner: "makes the new system feel coherent across creation and repurposing")
+- Live E2E ×2: Reddit Story — flawless first-person story ("I couldn't figure out why my bed smelled like cheap perfume every Sunday…"), 7 scenes all parkour-themed, calm track auto-picked, captions frame-verified. Fake Text — 12-message horror escalation ending "behind your drywall. my battery is at 1%." — bubbles, typing beats, and stack-scroll all frame-verified. The differentiator stays: Trend → recommended format → creator-specific draft.
+- 107 backend tests green; CI green. Next follow-ups: best_format recommendations upgraded to format keys; Reddit-card intro overlay polish.
+
 ## 2026-08-02 — 📐 Aspect ratios shipped: 9:16 / 1:1 / 16:9 (commit 942caf7)
 - **Every render path is now format-aware**: narrated, visual, image posts, and creator clips take `aspect_ratio` ("9:16" default, "1:1" square, "16:9" widescreen) — stored in `script_data`, zero migrations
 - **The plumbing**: `ASPECT_RATIOS` map in assembler (dimensions + Pexels orientation), parametrized ffmpeg crop filter, ASS caption resolution parametrized with styles scaled by height/1920 (captions keep the same relative size in any frame), Pexels searches by matching orientation with a graceful fallback (the crop filter covers any input)
