@@ -39,12 +39,31 @@ export default function ClipsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [clipError, setClipError] = useState<string | null>(null)
   const [creatingKey, setCreatingKey] = useState<string | null>(null)
+  const [captionStyle, setCaptionStyle] = useState("classic")
+  const [aspectRatio, setAspectRatio] = useState("9:16")
+
+  const { data: captionStyles } = useQuery<{ items: { key: string; label: string; desc: string }[] }>({
+    queryKey: ["caption-styles"],
+    queryFn: () => fetchApi("/pipeline/caption-styles"),
+    staleTime: Infinity,
+  })
+  const { data: aspectRatios } = useQuery<{ items: { key: string; label: string }[] }>({
+    queryKey: ["aspect-ratios"],
+    queryFn: () => fetchApi("/pipeline/aspect-ratios"),
+    staleTime: Infinity,
+  })
 
   const createClip = useMutation({
     mutationFn: (p: { assetId: string; h: Highlight }) =>
       fetchApi(`/media-assets/${p.assetId}/clips`, {
         method: "POST",
-        body: JSON.stringify({ start: p.h.start, end: p.h.end, title: p.h.title }),
+        body: JSON.stringify({
+          start: p.h.start,
+          end: p.h.end,
+          title: p.h.title,
+          caption_style: captionStyle,
+          aspect_ratio: aspectRatio,
+        }),
       }) as Promise<{ video_id: string; job_id: string }>,
     onMutate: (p) => {
       setClipError(null)
@@ -129,6 +148,40 @@ export default function ClipsPage() {
       </label>
       {uploadError && <p className="text-sm text-rose-400">{uploadError}</p>}
       {clipError && <p className="text-sm text-rose-400">{clipError}</p>}
+
+      {/* Clip render settings — applied to every "Create clip" */}
+      <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex-shrink-0">💬 Captions</label>
+          <select
+            value={captionStyle}
+            onChange={e => setCaptionStyle(e.target.value)}
+            className="flex-1 min-w-0 bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500/50"
+          >
+            {(captionStyles?.items ?? [{ key: "classic", label: "Classic Bold", desc: "" }]).map(s => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex-shrink-0">📐 Format</label>
+          <div className="flex gap-1.5">
+            {(aspectRatios?.items ?? [{ key: "9:16", label: "Vertical" }]).map(a => (
+              <button
+                key={a.key}
+                onClick={() => setAspectRatio(a.key)}
+                className={`px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
+                  aspectRatio === a.key
+                    ? "bg-violet-600/20 border-violet-500/50 text-violet-200"
+                    : "bg-black/20 border-white/10 text-zinc-400 hover:bg-white/5"
+                }`}
+              >
+                {a.key === "9:16" ? "📱" : a.key === "1:1" ? "⬜" : "🖥️"} {a.key}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Assets */}
       {isLoading && <div className="h-28 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />}
