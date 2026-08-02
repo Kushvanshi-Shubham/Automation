@@ -6,6 +6,7 @@ import httpx
 from fastapi import HTTPException, status
 
 from app.config import settings
+from app.core.retry import get_with_retries
 
 logger = logging.getLogger("kliptos.pexels")
 
@@ -57,8 +58,8 @@ async def fetch_clip(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Pexels engine not configured (missing PEXELS_API_KEY)",
         )
-    resp = await client.get(
-        SEARCH_URL,
+    resp = await get_with_retries(
+        client, SEARCH_URL, label="pexels search",
         params={"query": query, "orientation": orientation, "per_page": 10, "size": "medium"},
         headers={"Authorization": settings.PEXELS_API_KEY},
     )
@@ -71,7 +72,7 @@ async def fetch_clip(
         chosen = _pick_file(video, target_w, target_h, orientation)
         if chosen is None:
             continue
-        download = await client.get(chosen["link"], follow_redirects=True)
+        download = await get_with_retries(client, chosen["link"], label="pexels download", follow_redirects=True)
         download.raise_for_status()
         out_path.write_bytes(download.content)
         used_ids.add(video["id"])
@@ -95,8 +96,8 @@ async def search_candidates(
         )
     headers = {"Authorization": settings.PEXELS_API_KEY}
     if media == "photo":
-        resp = await client.get(
-            PHOTO_SEARCH_URL,
+        resp = await get_with_retries(
+            client, PHOTO_SEARCH_URL, label="pexels photo search",
             params={"query": query, "orientation": "portrait", "per_page": per_page},
             headers=headers,
         )
@@ -107,8 +108,8 @@ async def search_candidates(
             for p in resp.json().get("photos", [])
             if p.get("src", {}).get("medium")
         ]
-    resp = await client.get(
-        SEARCH_URL,
+    resp = await get_with_retries(
+        client, SEARCH_URL, label="pexels search",
         params={"query": query, "orientation": "portrait", "per_page": per_page, "size": "medium"},
         headers=headers,
     )
@@ -131,15 +132,15 @@ async def fetch_clip_by_id(
     target_h: int = TARGET_H,
 ) -> int:
     """Download a specific (user-pinned) Pexels video."""
-    resp = await client.get(
-        f"https://api.pexels.com/videos/videos/{video_id}",
+    resp = await get_with_retries(
+        client, f"https://api.pexels.com/videos/videos/{video_id}", label="pexels video detail",
         headers={"Authorization": settings.PEXELS_API_KEY},
     )
     resp.raise_for_status()
     chosen = _pick_file(resp.json(), target_w, target_h, orientation)
     if chosen is None:
         raise RuntimeError(f"pinned pexels video {video_id} has no usable file")
-    download = await client.get(chosen["link"], follow_redirects=True)
+    download = await get_with_retries(client, chosen["link"], label="pexels download", follow_redirects=True)
     download.raise_for_status()
     out_path.write_bytes(download.content)
     logger.info("pexels pinned clip %s downloaded", video_id)
@@ -148,8 +149,8 @@ async def fetch_clip_by_id(
 
 async def fetch_photo_by_id(client: httpx.AsyncClient, photo_id: int, out_path: Path) -> int:
     """Download a specific (user-pinned) Pexels photo."""
-    resp = await client.get(
-        f"https://api.pexels.com/v1/photos/{photo_id}",
+    resp = await get_with_retries(
+        client, f"https://api.pexels.com/v1/photos/{photo_id}", label="pexels photo detail",
         headers={"Authorization": settings.PEXELS_API_KEY},
     )
     resp.raise_for_status()
@@ -157,7 +158,7 @@ async def fetch_photo_by_id(client: httpx.AsyncClient, photo_id: int, out_path: 
     url = src.get("large2x") or src.get("portrait") or src.get("original")
     if not url:
         raise RuntimeError(f"pinned pexels photo {photo_id} has no usable source")
-    download = await client.get(url, follow_redirects=True)
+    download = await get_with_retries(client, url, label="pexels download", follow_redirects=True)
     download.raise_for_status()
     out_path.write_bytes(download.content)
     logger.info("pexels pinned photo %s downloaded", photo_id)
@@ -177,8 +178,8 @@ async def fetch_photo(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Pexels engine not configured (missing PEXELS_API_KEY)",
         )
-    resp = await client.get(
-        PHOTO_SEARCH_URL,
+    resp = await get_with_retries(
+        client, PHOTO_SEARCH_URL, label="pexels photo search",
         params={"query": query, "orientation": orientation, "per_page": 10},
         headers={"Authorization": settings.PEXELS_API_KEY},
     )
@@ -189,7 +190,7 @@ async def fetch_photo(
         url = photo.get("src", {}).get("large2x") or photo.get("src", {}).get("portrait")
         if not url:
             continue
-        download = await client.get(url, follow_redirects=True)
+        download = await get_with_retries(client, url, label="pexels download", follow_redirects=True)
         download.raise_for_status()
         out_path.write_bytes(download.content)
         used_ids.add(photo["id"])

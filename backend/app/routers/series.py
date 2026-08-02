@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rate_limit import rate_limit
 from app.models.channel import Channel
 from app.models.series import Series
 from app.models.user import User
@@ -125,7 +126,7 @@ async def list_series(
     return await _with_counts(db, items)
 
 
-@router.post("", response_model=SeriesResponse)
+@router.post("", response_model=SeriesResponse, dependencies=[Depends(rate_limit("series_create"))])
 async def create_series(
     req: SeriesCreate,
     current_user: User = Depends(get_current_user),

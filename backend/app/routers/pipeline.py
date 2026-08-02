@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rate_limit import rate_limit
 from app.models.credit import CreditLedger
 from app.models.pipeline_job import PipelineJob
 from app.models.user import User
@@ -44,7 +45,7 @@ async def list_aspect_ratios():
     ]}
 
 
-@router.post("/start", response_model=PipelineStatusResponse)
+@router.post("/start", response_model=PipelineStatusResponse, dependencies=[Depends(rate_limit("pipeline_start"))])
 async def start_pipeline(
     req: PipelineStartRequest,
     current_user: User = Depends(get_current_user),

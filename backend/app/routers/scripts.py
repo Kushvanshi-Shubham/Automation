@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rate_limit import rate_limit
 from app.models.topic import Topic
 from app.models.user import User
 from app.models.video import Video
@@ -80,7 +81,7 @@ async def _get_owned_video(video_id: UUID, db: AsyncSession, user: User) -> Vide
     return video
 
 
-@router.post("/generate", response_model=ScriptResponse)
+@router.post("/generate", response_model=ScriptResponse, dependencies=[Depends(rate_limit("script_generate"))])
 async def generate_script(
     req: ScriptGenerateRequest,
     current_user: User = Depends(get_current_user),

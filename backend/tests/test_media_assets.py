@@ -40,6 +40,11 @@ def no_dispatch(monkeypatch):
     return dispatched
 
 
+# Minimal valid-looking file heads (magic bytes) for the content sniff.
+FAKE_MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64
+FAKE_MP3 = b"ID3\x04\x00\x00\x00\x00\x00\x00" + b"\x00" * 64
+
+
 def test_upload_rejects_bad_extension(client, auth_headers):
     resp = client.post(
         "/api/media-assets",
@@ -49,11 +54,23 @@ def test_upload_rejects_bad_extension(client, auth_headers):
     assert resp.status_code == 422
 
 
+def test_upload_rejects_mismatched_content(client, auth_headers, no_dispatch):
+    """An .mp4 whose bytes are not a video container must be rejected."""
+    resp = client.post(
+        "/api/media-assets",
+        headers=auth_headers,
+        files={"file": ("totally_a_video.mp4", io.BytesIO(b"#!/bin/sh\nrm -rf /"), "video/mp4")},
+    )
+    assert resp.status_code == 422
+    assert "content" in resp.json()["detail"].lower()
+    assert no_dispatch == []
+
+
 def test_upload_and_lifecycle(client, auth_headers, no_dispatch):
     resp = client.post(
         "/api/media-assets",
         headers=auth_headers,
-        files={"file": ("podcast_ep1.mp4", io.BytesIO(b"fake video bytes"), "video/mp4")},
+        files={"file": ("podcast_ep1.mp4", io.BytesIO(FAKE_MP4), "video/mp4")},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -73,7 +90,7 @@ def test_audio_kind_detection(client, auth_headers, no_dispatch):
     resp = client.post(
         "/api/media-assets",
         headers=auth_headers,
-        files={"file": ("episode.mp3", io.BytesIO(b"fake audio"), "audio/mpeg")},
+        files={"file": ("episode.mp3", io.BytesIO(FAKE_MP3), "audio/mpeg")},
     )
     assert resp.json()["kind"] == "audio"
 

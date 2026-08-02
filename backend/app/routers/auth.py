@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import create_access_token
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rate_limit import rate_limit_ip
 from app.models.credit import CreditLedger
 from app.models.user import User
 from app.schemas.auth import GoogleAuthRequest, TokenResponse
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 FREE_TIER_SIGNUP_CREDITS = 3
 
 
-@router.post("/google", response_model=TokenResponse)
+@router.post("/google", response_model=TokenResponse, dependencies=[Depends(rate_limit_ip("auth_google"))])
 async def auth_google(request: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     """Exchange a Google ID token for a Kliptos access token, creating the user on first login."""
     claims = await verify_google_id_token(request.id_token)

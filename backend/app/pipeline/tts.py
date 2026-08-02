@@ -9,6 +9,7 @@ from pathlib import Path
 
 import edge_tts
 
+from app.core.retry import with_retries
 from app.pipeline.assembler import probe_duration
 
 logger = logging.getLogger("kliptos.tts")
@@ -16,12 +17,7 @@ logger = logging.getLogger("kliptos.tts")
 DEFAULT_VOICE = "en-US-ChristopherNeural"
 
 
-async def synth_segment(text: str, out_path: Path, voice: str = DEFAULT_VOICE) -> tuple[float, list[dict]]:
-    """Synthesize one segment.
-
-    Returns (duration_seconds, words) where words is
-    [{"word": str, "start": float, "end": float}] in segment-local seconds.
-    """
+async def _synth_once(text: str, out_path: Path, voice: str) -> tuple[float, list[dict]]:
     # boundary= must be requested explicitly in edge-tts 7.x, else no events.
     communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
     words: list[dict] = []
@@ -39,8 +35,20 @@ async def synth_segment(text: str, out_path: Path, voice: str = DEFAULT_VOICE) -
                     }
                 )
     if not out_path.exists() or out_path.stat().st_size == 0:
-        raise RuntimeError(f"edge-tts produced no audio for: {text[:50]!r}")
+        # Empty output usually means the stream dropped mid-way — treat as
+        # transient so the retry wrapper takes another shot.
+        raise RuntimeError(f"edge-tts produced no audio (connection reset?) for: {text[:50]!r}")
     return probe_duration(out_path), words
+
+
+async def synth_segment(text: str, out_path: Path, voice: str = DEFAULT_VOICE) -> tuple[float, list[dict]]:
+    """Synthesize one segment (retried — edge-tts is a free network service
+    and drops connections now and then).
+
+    Returns (duration_seconds, words) where words is
+    [{"word": str, "start": float, "end": float}] in segment-local seconds.
+    """
+    return await with_retries(lambda: _synth_once(text, out_path, voice), label="edge-tts")
 
 
 async def synth_script(

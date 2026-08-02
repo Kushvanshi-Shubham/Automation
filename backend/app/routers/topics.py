@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rate_limit import rate_limit
 from app.models.topic import Topic
 from app.schemas.topic import TopicListResponse
 from app.services.harvester import harvest_topics
@@ -39,7 +40,7 @@ async def get_topics(category: str | None = None, db: AsyncSession = Depends(get
     return {"items": items}
 
 
-@router.post("/refresh")
+@router.post("/refresh", dependencies=[Depends(rate_limit("topics_refresh"))])
 async def refresh_topics(db: AsyncSession = Depends(get_db)):
     """Harvest fresh topics from Google Trends + Reddit (deduped by content hash)."""
     return await harvest_topics(db)

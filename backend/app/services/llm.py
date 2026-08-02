@@ -107,10 +107,17 @@ async def generate_json(
             detail="No LLM provider configured (set GEMINI_API_KEY or OPENAI_API_KEY)",
         )
 
+    from app.core.retry import with_retries
+
     last_error: Exception | None = None
     for name, own_key in providers:
         try:
-            return await _PROVIDER_FUNCS[name](system, user, temperature, api_key=own_key)
+            # Transient blips (503 overload, timeouts) retry within the SAME
+            # provider before we fall through to the next one.
+            return await with_retries(
+                lambda n=name, k=own_key: _PROVIDER_FUNCS[n](system, user, temperature, api_key=k),
+                attempts=3, base_delay=2.0, label=f"llm:{name}",
+            )
         except json.JSONDecodeError as exc:
             logger.warning("%s returned unparseable JSON: %s", name, exc)
             last_error = exc

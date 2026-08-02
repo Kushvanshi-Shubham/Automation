@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24h; refresh flow lands with frontend session work
 
+    # Ops kill-switch; tests disable it (they hammer endpoints as one user).
+    RATE_LIMITS_ENABLED: bool = True
+
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None

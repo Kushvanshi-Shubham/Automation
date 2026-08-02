@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.middleware.auth import get_current_user
+from app.middleware.rate_limit import rate_limit
 from app.models.asset import Asset
 from app.models.credit import CreditLedger
 from app.models.pipeline_job import PipelineJob
@@ -29,6 +30,23 @@ MAX_ASSETS_PER_USER = 10  # until object storage exists
 CLIP_CREDIT_COST = 1
 MIN_CLIP_SECONDS = 5
 MAX_CLIP_SECONDS = 90
+
+
+def _looks_like_media(head: bytes, ext: str) -> bool:
+    """Magic-byte sniff of the first upload chunk — the extension alone is
+    attacker-controlled. Kept permissive (containers vary); ffprobe in the
+    worker is the final arbiter."""
+    if len(head) < 12:
+        return False
+    if ext in (".mp4", ".mov", ".m4a"):
+        return head[4:8] == b"ftyp"
+    if ext in (".webm", ".mkv"):
+        return head[:4] == b"\x1a\x45\xdf\xa3"
+    if ext == ".mp3":
+        return head[:3] == b"ID3" or (head[0] == 0xFF and (head[1] & 0xE0) == 0xE0)
+    if ext == ".wav":
+        return head[:4] == b"RIFF" and head[8:12] == b"WAVE"
+    return False
 
 
 class AssetResponse(BaseModel):
@@ -50,7 +68,7 @@ def _uploads_dir(user_id) -> Path:
     return d
 
 
-@router.post("", response_model=AssetResponse)
+@router.post("", response_model=AssetResponse, dependencies=[Depends(rate_limit("media_upload"))])
 async def upload_asset(
     file: UploadFile,
     current_user: User = Depends(get_current_user),
@@ -73,8 +91,18 @@ async def upload_asset(
     asset_id = uuid_mod.uuid4()
     dest = _uploads_dir(current_user.id) / f"{asset_id}{ext}"
     size = 0
+    first_chunk = True
     with open(dest, "wb") as out:
         while chunk := await file.read(4 * 1024 * 1024):
+            if first_chunk:
+                first_chunk = False
+                if not _looks_like_media(chunk[:16], ext):
+                    out.close()
+                    dest.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail="File content doesn't match its extension",
+                    )
             size += len(chunk)
             if size > MAX_SIZE_BYTES:
                 out.close()
@@ -135,7 +163,7 @@ class ClipCreateRequest(BaseModel):
     aspect_ratio: Optional[str] = None
 
 
-@router.post("/{asset_id}/clips")
+@router.post("/{asset_id}/clips", dependencies=[Depends(rate_limit("clip_create"))])
 async def create_clip(
     asset_id: UUID,
     req: ClipCreateRequest,
