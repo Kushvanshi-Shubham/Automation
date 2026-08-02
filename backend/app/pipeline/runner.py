@@ -29,10 +29,17 @@ logger = logging.getLogger("kliptos.runner")
 MUSIC_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "music"
 
 
-def _pick_music() -> Path | None:
+# Filename keywords per mood; a format's music_mood narrows the pick.
+MOOD_KEYWORDS = {"calm": ("wallpaper", "calm", "ambient"), "energetic": ("carefree", "upbeat", "energetic")}
+
+
+def _pick_music(mood: str | None = None) -> Path | None:
     if not MUSIC_DIR.is_dir():
         return None
     tracks = sorted(MUSIC_DIR.glob("*.mp3"))
+    if mood in MOOD_KEYWORDS:
+        matching = [t for t in tracks if any(k in t.stem.lower() for k in MOOD_KEYWORDS[mood])]
+        tracks = matching or tracks
     return random.choice(tracks) if tracks else None
 
 
@@ -213,7 +220,10 @@ async def run(job_id: str) -> dict:
                                                   target_w=aspect["w"], target_h=aspect["h"])
                     used_ids.add(int(seg["media_id"]))
                 else:
-                    query = seg.get("visual_prompt") or seg["text"]
+                    # Formats like Reddit Story use ONE background theme for the
+                    # whole video (used_ids still varies the actual clips).
+                    bg_query = (video.script_data or {}).get("background_query")
+                    query = bg_query or seg.get("visual_prompt") or seg["text"]
                     await pexels.fetch_clip(client, query, clip_path, used_ids,
                                             orientation=aspect["orientation"],
                                             target_w=aspect["w"], target_h=aspect["h"])
@@ -250,7 +260,7 @@ async def run(job_id: str) -> dict:
 
         # Stage 4: music — background bed for narrated, THE soundtrack for visual
         final_path = out_dir / "final.mp4"
-        music = _pick_music()
+        music = _pick_music((video.script_data or {}).get("music_mood"))
         attribution = None
         if music is not None:
             _publish(job_key, "running", "music", 90)

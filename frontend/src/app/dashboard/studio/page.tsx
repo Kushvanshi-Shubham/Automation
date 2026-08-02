@@ -29,6 +29,8 @@ interface Script {
   segments: Segment[]
   total_duration: number
   output_type: string
+  format?: string | null
+  defaults?: { voice_id?: string; caption_style?: string } | null
 }
 
 interface Voice {
@@ -77,6 +79,15 @@ const OUTPUT_TYPES = [
   { value: "script", label: "📝 Script only", desc: "Just the script — film it yourself", badge: "FREE · 5/day" },
 ]
 
+interface Format {
+  key: string
+  label: string
+  emoji: string
+  desc: string
+  output_type: string
+  available: boolean
+}
+
 function EmptyStudio() {
   const router = useRouter()
   const [mode, setMode] = useState<"idea" | "own">("idea")
@@ -84,6 +95,7 @@ function EmptyStudio() {
   const [ownScript, setOwnScript] = useState("")
   const [style, setStyle] = useState("viral_story")
   const [outputType, setOutputType] = useState("narrated")
+  const [format, setFormat] = useState<string>("viral_story")  // format key, or "custom"
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [model, setModel] = useState("auto")
   const [tone, setTone] = useState(TONE_PRESETS[0])
@@ -101,6 +113,11 @@ function EmptyStudio() {
     queryFn: () => fetchApi("/scripts/voices"),
     staleTime: Infinity,
   })
+  const { data: formats } = useQuery<{ items: Format[] }>({
+    queryKey: ["formats"],
+    queryFn: () => fetchApi("/scripts/formats"),
+    staleTime: Infinity,
+  })
 
   const create = useMutation({
     mutationFn: () =>
@@ -111,12 +128,11 @@ function EmptyStudio() {
             ? { custom_script: ownScript, model, output_type: outputType }
             : {
                 custom_prompt: prompt,
-                style,
                 model,
-                output_type: outputType,
                 language,
                 tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
                 custom_instructions: instructions.trim() || undefined,
+                ...(format === "custom" ? { style, output_type: outputType } : { format }),
               }
         ),
       }),
@@ -154,31 +170,97 @@ function EmptyStudio() {
       </div>
 
       <div className="rounded-2xl bg-zinc-900 border border-white/5 p-6 space-y-5">
-        {/* Output type — WHAT are we making? */}
-        <div>
-          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">What do you want to make?</label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {OUTPUT_TYPES.map(t => (
+        {/* Format — the editing pipeline recipe (idea mode). Own-script mode picks a raw output type. */}
+        {mode === "idea" ? (
+          <div>
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">Pick a format</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(formats?.items ?? []).map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => f.available && setFormat(f.key)}
+                  disabled={!f.available}
+                  title={f.available ? f.desc : `${f.desc} — coming soon`}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    format === f.key
+                      ? "bg-violet-500/10 border-violet-500/40"
+                      : f.available
+                        ? "bg-black/20 border-white/10 hover:border-white/20"
+                        : "bg-black/10 border-white/5 opacity-50 cursor-not-allowed"
+                  }`}
+                >
+                  <p className="text-sm font-medium">{f.emoji} {f.label}</p>
+                  <p className="text-[11px] text-zinc-500 mt-1 leading-snug">
+                    {f.available ? f.desc : "Coming soon"}
+                  </p>
+                </button>
+              ))}
               <button
-                key={t.value}
-                onClick={() => setOutputType(t.value)}
+                onClick={() => setFormat("custom")}
                 className={`p-3 rounded-xl border text-left transition-all ${
-                  outputType === t.value
+                  format === "custom"
                     ? "bg-violet-500/10 border-violet-500/40"
                     : "bg-black/20 border-white/10 hover:border-white/20"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{t.label}</p>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${t.value === "script" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-zinc-400"}`}>
-                    {t.badge}
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">{t.desc}</p>
+                <p className="text-sm font-medium">🛠️ Custom</p>
+                <p className="text-[11px] text-zinc-500 mt-1 leading-snug">Pick output type &amp; style yourself</p>
               </button>
-            ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div>
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">What do you want to make?</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {OUTPUT_TYPES.map(t => (
+                <button
+                  key={t.value}
+                  onClick={() => setOutputType(t.value)}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    outputType === t.value
+                      ? "bg-violet-500/10 border-violet-500/40"
+                      : "bg-black/20 border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{t.label}</p>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${t.value === "script" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-zinc-400"}`}>
+                      {t.badge}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">{t.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {mode === "idea" && format === "custom" && (
+          <div>
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">What do you want to make?</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {OUTPUT_TYPES.map(t => (
+                <button
+                  key={t.value}
+                  onClick={() => setOutputType(t.value)}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    outputType === t.value
+                      ? "bg-violet-500/10 border-violet-500/40"
+                      : "bg-black/20 border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{t.label}</p>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${t.value === "script" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-zinc-400"}`}>
+                      {t.badge}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">{t.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {mode === "idea" ? (
           <>
@@ -202,25 +284,27 @@ function EmptyStudio() {
                 {(voiceData?.languages ?? ["English"]).map(l => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">Video style</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {STYLES.map(s => (
-                  <button
-                    key={s.value}
-                    onClick={() => setStyle(s.value)}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      style === s.value
-                        ? "bg-violet-500/10 border-violet-500/40"
-                        : "bg-black/20 border-white/10 hover:border-white/20"
-                    }`}
-                  >
-                    <p className="text-sm font-medium">{s.label}</p>
-                    <p className="text-xs text-zinc-500 mt-0.5">{s.desc}</p>
-                  </button>
-                ))}
+            {format === "custom" && (
+              <div>
+                <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">Video style</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {STYLES.map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => setStyle(s.value)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        style === s.value
+                          ? "bg-violet-500/10 border-violet-500/40"
+                          : "bg-black/20 border-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{s.label}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">{s.desc}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <div>
@@ -359,6 +443,11 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     queryFn: () => fetchApi("/pipeline/aspect-ratios"),
     staleTime: Infinity,
   })
+  const { data: editorFormats } = useQuery<{ items: Format[] }>({
+    queryKey: ["formats"],
+    queryFn: () => fetchApi("/scripts/formats"),
+    staleTime: Infinity,
+  })
 
   const { data: voiceData } = useQuery<{ voices: Voice[] }>({
     queryKey: ["voices"],
@@ -393,6 +482,9 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     setSyncedData(data)
     setSegments(data.segments)
     setDirty(false)
+    // The format's render defaults seed the pickers (still user-editable).
+    if (data.defaults?.voice_id) setVoiceId(data.defaults.voice_id)
+    if (data.defaults?.caption_style) setCaptionStyle(data.defaults.caption_style)
   }
 
   const save = useMutation({
@@ -454,6 +546,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
 
   const totalDuration = segments.reduce((sum, s) => sum + (s.duration_estimate || 0), 0)
   const outputType = data?.output_type ?? "narrated"
+  const editorFormat = editorFormats?.items.find(f => f.key === data?.format)
 
   const updateSegment = (index: number, patch: Partial<Segment>) => {
     setSegments(prev => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
@@ -472,7 +565,9 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
             Create
             <span className="text-xs font-medium px-2 py-1 rounded-md bg-white/5 border border-white/10 text-zinc-400">
-              {outputType === "script" ? "📝 Script only" : outputType === "visual" ? "🎵 Visual short" : outputType === "image" ? "🖼️ Image post" : "🎙️ Narrated short"}
+              {editorFormat
+                ? `${editorFormat.emoji} ${editorFormat.label}`
+                : outputType === "script" ? "📝 Script only" : outputType === "visual" ? "🎵 Visual short" : outputType === "image" ? "🖼️ Image post" : "🎙️ Narrated short"}
             </span>
           </h1>
           <p className="text-zinc-400 mt-1 flex items-center gap-2">

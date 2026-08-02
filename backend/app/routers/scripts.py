@@ -31,6 +31,18 @@ IMAGE_TYPE_NOTE = (
 )
 
 
+@router.get("/formats")
+async def list_formats():
+    """The format catalog: each format is a full pipeline recipe."""
+    from app.services.formats import FORMATS
+
+    return {"items": [
+        {"key": k, "label": f["label"], "emoji": f["emoji"], "desc": f["desc"],
+         "output_type": f["output_type"], "available": f["available"], "controls": f["controls"]}
+        for k, f in FORMATS.items()
+    ]}
+
+
 @router.get("/voices")
 async def list_voices():
     """Curated narration voices + supported script languages."""
@@ -75,6 +87,26 @@ async def generate_script(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a script from a topic, a custom prompt, or the user's own script text."""
+    from app.services.formats import DEFAULT_TONE, FORMATS, render_defaults
+
+    fmt = None
+    if req.format:
+        fmt = FORMATS.get(req.format)
+        if fmt is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown format")
+        if not fmt["available"]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"The {fmt['label']} format isn't available yet",
+            )
+        # The format IS the recipe: it decides engine, style, and defaults.
+        req.output_type = fmt["output_type"]
+        req.style = fmt["style"]
+        if req.tone == DEFAULT_TONE and fmt.get("tone"):
+            req.tone = fmt["tone"]
+        if req.language == "English" and fmt.get("language"):
+            req.language = fmt["language"]
+
     if req.style not in script_gen.STYLE_PROMPTS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
     if req.model not in VALID_MODELS:
@@ -105,6 +137,8 @@ async def generate_script(
         instructions = f"{VISUAL_TYPE_NOTE}\n{instructions or ''}".strip()
     elif req.output_type == "image":
         instructions = f"{IMAGE_TYPE_NOTE}\n{instructions or ''}".strip()
+    if fmt is not None and fmt.get("script_recipe"):
+        instructions = f"{fmt['script_recipe']}\n{instructions or ''}".strip()
 
     hook_hint = None
     if req.custom_script:
@@ -143,6 +177,17 @@ async def generate_script(
             language=req.language,
         )
 
+    script_data = {
+        "subject": subject,
+        "tone": req.tone,
+        "style": "custom" if req.custom_script else req.style,
+        "segments": script["segments"],
+        "total_duration": script["total_duration"],
+    }
+    if fmt is not None:
+        script_data["format"] = req.format
+        script_data.update(render_defaults(fmt))
+
     video = Video(
         user_id=current_user.id,
         status="script_ready",
@@ -150,13 +195,7 @@ async def generate_script(
         title=script.get("title"),
         description=script.get("description"),
         tags=script.get("tags"),
-        script_data={
-            "subject": subject,
-            "tone": req.tone,
-            "style": "custom" if req.custom_script else req.style,
-            "segments": script["segments"],
-            "total_duration": script["total_duration"],
-        },
+        script_data=script_data,
     )
     db.add(video)
     await db.commit()
@@ -167,6 +206,8 @@ async def generate_script(
         "segments": script["segments"],
         "total_duration": script["total_duration"],
         "output_type": video.output_type,
+        "format": req.format,
+        "defaults": render_defaults(fmt) if fmt else None,
     }
 
 
@@ -178,11 +219,14 @@ async def get_script(
 ):
     video = await _get_owned_video(video_id, db, current_user)
     data = video.script_data or {}
+    defaults = {k: data[k] for k in ("voice_id", "caption_style", "music_mood", "background_query") if data.get(k)}
     return {
         "video_id": video.id,
         "segments": data.get("segments", []),
         "total_duration": data.get("total_duration", 0.0),
         "output_type": video.output_type,
+        "format": data.get("format"),
+        "defaults": defaults or None,
     }
 
 

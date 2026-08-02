@@ -10,6 +10,9 @@ class ScriptGenerateRequest(BaseModel):
     custom_script: Optional[str] = None
     # script (free, no render) | narrated (voice) | visual (on-screen text, no voice)
     output_type: str = "narrated"
+    # Format = full pipeline recipe (reddit_story, fake_text, …). When set it
+    # drives output_type/style/defaults; output_type above is then ignored.
+    format: Optional[str] = None
     # viral_story | news_update | educational | commentary
     style: str = "viral_story"
     tone: str = "engaging and curious"
@@ -36,6 +39,10 @@ class ScriptResponse(BaseModel):
     segments: List[ScriptSegment]
     total_duration: float
     output_type: str = "narrated"
+    format: Optional[str] = None
+    # Render defaults the format contributed (voice_id, caption_style, …) so
+    # the studio initializes its pickers to match instead of overriding them.
+    defaults: Optional[dict] = None
 
 
 class ScriptUpdateRequest(BaseModel):
