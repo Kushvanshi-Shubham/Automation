@@ -159,6 +159,61 @@ async def _run_clip(job_key: str, job_uuid, video, out_dir: Path, workdir: Path)
     return {"video_url": f"/media/{video.id}/final.mp4", "duration": duration}
 
 
+async def _run_fake_text(job_key: str, job_uuid, video, segments: list[dict], out_dir: Path, workdir: Path, aspect: dict) -> dict:
+    """Fake-text-conversation branch: chat bubbles with typing beats over one
+    looped background clip; music is the only audio."""
+    from app.pipeline import fake_text
+
+    messages = fake_text.parse_messages(segments)
+    if len(messages) < 2:
+        raise RuntimeError("fake text conversation needs at least 2 messages")
+
+    _publish(job_key, "running", "chat", 15)
+    ass_path, duration = fake_text.write_chat_ass(messages, workdir / "chat.ass",
+                                                  play_res=(aspect["w"], aspect["h"]))
+
+    _publish(job_key, "running", "visuals", 35)
+    bg_query = (video.script_data or {}).get("background_query") or "aesthetic blurred city night bokeh"
+    clip_path = workdir / "bg.mp4"
+    async with httpx.AsyncClient(timeout=60) as client:
+        await pexels.fetch_clip(client, bg_query, clip_path, set(),
+                                orientation=aspect["orientation"],
+                                target_w=aspect["w"], target_h=aspect["h"])
+
+    _publish(job_key, "running", "assembly", 60)
+    silent_path = workdir / "chat_silent.mp4"
+    assembler.render_segment_silent(clip_path, duration, silent_path, ass_path=ass_path,
+                                    width=aspect["w"], height=aspect["h"])
+
+    final_path = (out_dir / "final.mp4").resolve()
+    music = _pick_music((video.script_data or {}).get("music_mood"))
+    attribution = None
+    if music is not None:
+        _publish(job_key, "running", "music", 85)
+        # Quieter than visual shorts — the viewer is reading.
+        assembler.add_music_track(silent_path, music, final_path, music_volume=0.55)
+        attribution = _music_attribution(music)
+    else:
+        shutil.move(str(silent_path), str(final_path))
+    duration = assembler.probe_duration(final_path)
+
+    async with AsyncSessionLocal() as db:
+        job = await db.get(PipelineJob, job_uuid)
+        video_row = await db.get(Video, job.video_id)
+        video_row.status = "ready"
+        video_row.video_url = f"/media/{video_row.id}/final.mp4"
+        if attribution and attribution not in (video_row.description or ""):
+            video_row.description = f"{video_row.description or ''}\n\n{attribution}".strip()
+        job.status = "completed"
+        job.completed_at = datetime.now(timezone.utc)
+        job.progress = {"stage": "completed", "percent": 100, "duration": duration}
+        await db.commit()
+
+    _publish(job_key, "completed", "completed", 100)
+    logger.info("fake text render complete: %s (%.1fs, %d messages)", final_path, duration, len(messages))
+    return {"video_url": f"/media/{video.id}/final.mp4", "duration": duration}
+
+
 async def run(job_id: str) -> dict:
     job_uuid = UUID(str(job_id))
     async with AsyncSessionLocal() as db:
@@ -187,6 +242,8 @@ async def run(job_id: str) -> dict:
     try:
         if output_type == "clip":
             return await _run_clip(job_key, job_uuid, video, out_dir, workdir)
+        if output_type == "fake_text":
+            return await _run_fake_text(job_key, job_uuid, video, segments, out_dir, workdir, aspect)
         if output_type == "image":
             return await _run_image_post(job_key, job_uuid, video, segments, out_dir)
 

@@ -516,7 +516,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           video_id: videoId,
           visual_engine: outputType === "image" ? "stock_image" : "pexels",
           voice_id: outputType === "narrated" ? voiceId : undefined,
-          caption_style: outputType !== "image" ? captionStyle : undefined,
+          caption_style: outputType !== "image" && outputType !== "fake_text" ? captionStyle : undefined,
           aspect_ratio: aspectRatio,
         }),
       }),
@@ -610,6 +610,12 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           sound in the YouTube/Instagram editor when you post.
         </div>
       )}
+      {outputType === "fake_text" && (
+        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs">
+          💬 Fake text convo: each line is one chat message (keep the A: / B: prefixes — A is grey, B is blue).
+          Messages appear as bubbles with typing beats over background footage.
+        </div>
+      )}
 
       {outputType !== "script" && (
         <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 space-y-3">
@@ -636,7 +642,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
               </button>
             </div>
           )}
-          {outputType !== "image" && (
+          {outputType !== "image" && outputType !== "fake_text" && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">💬 Captions</label>
               <select

@@ -41,7 +41,7 @@ FORMATS: dict[str, dict] = {
         "desc": "A chat conversation plays out in text bubbles with typing beats",
         "output_type": "fake_text",
         "style": "viral_story",
-        "available": False,  # renderer lands next — flag flips when it ships
+        "available": True,
         "script_recipe": (
             "FORMAT: text-message conversation between exactly TWO people. Each segment is ONE chat "
             "message. text = the message exactly as typed (casual, lowercase ok, emoji ok, under 15 "

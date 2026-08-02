@@ -17,7 +17,7 @@ from app.services.user_keys import get_user_keys
 
 router = APIRouter(prefix="/scripts", tags=["Scripts"], dependencies=[Depends(get_current_user)])
 
-OUTPUT_TYPES = {"script", "narrated", "visual", "image"}
+OUTPUT_TYPES = {"script", "narrated", "visual", "image", "fake_text"}
 FREE_SCRIPT_ONLY_PER_DAY = 5
 
 VISUAL_TYPE_NOTE = (

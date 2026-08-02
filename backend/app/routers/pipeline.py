@@ -20,6 +20,7 @@ ENGINE_CREDIT_COST = {"pexels": 1, "stock": 1, "stock_image": 1, "ai_image": 2}
 TYPE_ENGINES = {
     "narrated": {"pexels", "stock"},
     "visual": {"pexels", "stock"},
+    "fake_text": {"pexels", "stock"},
     "image": {"stock_image", "ai_image"},
 }
 
