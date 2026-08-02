@@ -2,6 +2,16 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — 📐 Aspect ratios shipped: 9:16 / 1:1 / 16:9 (commit 942caf7)
+- **Every render path is now format-aware**: narrated, visual, image posts, and creator clips take `aspect_ratio` ("9:16" default, "1:1" square, "16:9" widescreen) — stored in `script_data`, zero migrations
+- **The plumbing**: `ASPECT_RATIOS` map in assembler (dimensions + Pexels orientation), parametrized ffmpeg crop filter, ASS caption resolution parametrized with styles scaled by height/1920 (captions keep the same relative size in any frame), Pexels searches by matching orientation with a graceful fallback (the crop filter covers any input)
+- **API**: `GET /pipeline/aspect-ratios` catalog; `pipeline/start` + clip creation validate the value; videos API exposes it so the preview player frame adapts (16:9 gets a wider column)
+- **UI**: 📐 Format picker in Create (📱 9:16 · ⬜ 1:1 · 🖥️ 16:9) shown for every renderable type
+- Live E2E: same clean-source highlight rendered at 1920×1080 and 1080×1080, caption scaling frame-verified; live Pexels landscape search returned real 2732×1138 footage
+- Observed during testing: Gemini `gemini-flash-latest` threw transient 503 "high demand" on large prompts (small prompts fine) — our Gemini→OpenAI fallback chain degraded cleanly to a 502; no code change needed
+- Known polish item: media-swap thumbnails still search portrait-only (renders fine via crop)
+- 98 backend tests green (new module leaves the shared test user pristine — it runs alphabetically first); CI green
+
 ## 2026-08-02 — ✂️ Creator-clip Phase B shipped: highlight → 9:16 short (commit 09d91f1)
 - **New output type "clip"**: `assembler.render_clip` = single-pass ffmpeg trim + center-crop 1080×1920 + caption burn, **original audio kept** (the whole point — the creator's own voice)
 - **Word-synced captions from whisper**: `transcribe.words_in_range` slices the transcript's word events to the clip range and shifts times to 0 → same cue grouping/style packs as narrated shorts
