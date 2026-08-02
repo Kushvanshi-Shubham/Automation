@@ -7,6 +7,7 @@ class PipelineStartRequest(BaseModel):
     visual_engine: str = "stock"
     voice_id: Optional[str] = None
     caption_style: Optional[str] = None
+    aspect_ratio: Optional[str] = None
 
 class PipelineStatusResponse(BaseModel):
     job_id: UUID

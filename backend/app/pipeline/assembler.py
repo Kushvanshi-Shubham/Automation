@@ -13,7 +13,21 @@ from pathlib import Path
 
 logger = logging.getLogger("kliptos.assembler")
 
-VF = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p"
+# Output aspect ratios. w/h drive the ffmpeg crop and the ASS caption
+# resolution; orientation drives Pexels search so footage fits the frame.
+ASPECT_RATIOS: dict[str, dict] = {
+    "9:16": {"w": 1080, "h": 1920, "orientation": "portrait", "label": "Vertical", "desc": "Shorts · Reels · TikTok"},
+    "1:1": {"w": 1080, "h": 1080, "orientation": "square", "label": "Square", "desc": "Feed posts"},
+    "16:9": {"w": 1920, "h": 1080, "orientation": "landscape", "label": "Widescreen", "desc": "YouTube · X"},
+}
+DEFAULT_ASPECT = "9:16"
+
+
+def _vf(width: int, height: int) -> str:
+    return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},fps=30,format=yuv420p"
+
+
+VF = _vf(1080, 1920)  # legacy default (9:16)
 
 
 def _run(args: list[str], cwd: Path | None = None) -> None:
@@ -35,14 +49,16 @@ def render_segment(
     duration: float,
     out_path: Path,
     ass_path: Path | None = None,
+    width: int = 1080,
+    height: int = 1920,
 ) -> None:
-    """Video looped/trimmed to narration duration, 9:16, with segment audio
-    and optional burned-in captions."""
-    vf = VF
+    """Video looped/trimmed to narration duration, cropped to the target
+    aspect, with segment audio and optional burned-in captions."""
+    vf = _vf(width, height)
     if ass_path is not None:
         # Run with cwd = the ASS file's directory and reference it by bare
         # filename — sidesteps Windows drive-letter escaping in filter args.
-        vf = f"{VF},ass={ass_path.name}"
+        vf = f"{vf},ass={ass_path.name}"
     _run(
         [
             "-stream_loop", "-1",
@@ -64,11 +80,13 @@ def render_segment_silent(
     duration: float,
     out_path: Path,
     ass_path: Path | None = None,
+    width: int = 1080,
+    height: int = 1920,
 ) -> None:
     """Visual-only segment: no narration track (music is added after concat)."""
-    vf = VF
+    vf = _vf(width, height)
     if ass_path is not None:
-        vf = f"{VF},ass={ass_path.name}"
+        vf = f"{vf},ass={ass_path.name}"
     _run(
         [
             "-stream_loop", "-1",
@@ -104,12 +122,14 @@ def render_clip(
     end: float,
     out_path: Path,
     ass_path: Path | None = None,
+    width: int = 1080,
+    height: int = 1920,
 ) -> None:
-    """Cut [start, end] from creator footage: 9:16 center-crop, captions
-    burned in, ORIGINAL audio kept (that's the point of creator clips)."""
-    vf = VF
+    """Cut [start, end] from creator footage: center-crop to the target
+    aspect, captions burned in, ORIGINAL audio kept."""
+    vf = _vf(width, height)
     if ass_path is not None:
-        vf = f"{VF},ass={ass_path.name}"
+        vf = f"{vf},ass={ass_path.name}"
     _run(
         [
             "-ss", f"{start:.2f}",

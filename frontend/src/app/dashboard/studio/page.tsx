@@ -352,6 +352,13 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [voiceId, setVoiceId] = useState("en-US-ChristopherNeural")
   const [previewLoading, setPreviewLoading] = useState(false)
   const [captionStyle, setCaptionStyle] = useState("classic")
+  const [aspectRatio, setAspectRatio] = useState("9:16")
+
+  const { data: aspectRatios } = useQuery<{ items: { key: string; label: string; desc: string }[] }>({
+    queryKey: ["aspect-ratios"],
+    queryFn: () => fetchApi("/pipeline/aspect-ratios"),
+    staleTime: Infinity,
+  })
 
   const { data: voiceData } = useQuery<{ voices: Voice[] }>({
     queryKey: ["voices"],
@@ -418,6 +425,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           visual_engine: outputType === "image" ? "stock_image" : "pexels",
           voice_id: outputType === "narrated" ? voiceId : undefined,
           caption_style: outputType !== "image" ? captionStyle : undefined,
+          aspect_ratio: aspectRatio,
         }),
       }),
     onSuccess: (data: { job_id: string }) => {
@@ -508,7 +516,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
         </div>
       )}
 
-      {(outputType === "narrated" || outputType === "visual") && (
+      {outputType !== "script" && (
         <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 space-y-3">
           {outputType === "narrated" && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -533,17 +541,39 @@ function ScriptEditor({ videoId }: { videoId: string }) {
               </button>
             </div>
           )}
+          {outputType !== "image" && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">💬 Captions</label>
+              <select
+                value={captionStyle}
+                onChange={e => setCaptionStyle(e.target.value)}
+                className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+              >
+                {(captionStyles?.items ?? [{ key: "classic", label: "Classic Bold", desc: "" }]).map(s => (
+                  <option key={s.key} value={s.key}>{s.label} — {s.desc}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">💬 Captions</label>
-            <select
-              value={captionStyle}
-              onChange={e => setCaptionStyle(e.target.value)}
-              className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
-            >
-              {(captionStyles?.items ?? [{ key: "classic", label: "Classic Bold", desc: "" }]).map(s => (
-                <option key={s.key} value={s.key}>{s.label} — {s.desc}</option>
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">📐 Format</label>
+            <div className="flex gap-2 flex-wrap">
+              {(aspectRatios?.items ?? [{ key: "9:16", label: "Vertical", desc: "Shorts · Reels · TikTok" }]).map(a => (
+                <button
+                  key={a.key}
+                  onClick={() => setAspectRatio(a.key)}
+                  className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                    aspectRatio === a.key
+                      ? "bg-violet-600/20 border-violet-500/50 text-violet-200"
+                      : "bg-black/20 border-white/10 text-zinc-400 hover:bg-white/5"
+                  }`}
+                  title={a.desc}
+                >
+                  <span className="mr-1.5">{a.key === "9:16" ? "📱" : a.key === "1:1" ? "⬜" : "🖥️"}</span>
+                  {a.key} <span className="text-zinc-500 font-normal">· {a.label}</span>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
         </div>
       )}

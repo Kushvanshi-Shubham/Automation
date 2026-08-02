@@ -50,6 +50,7 @@ async def get_video(
     video = await _get_owned_video(id, db, current_user)
     resp = VideoResponse.model_validate(video)
     resp.images = (video.script_data or {}).get("images")
+    resp.aspect_ratio = (video.script_data or {}).get("aspect_ratio")
     return resp
 
 

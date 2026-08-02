@@ -20,6 +20,7 @@ from app.models.pipeline_job import PipelineJob
 from app.models.user import User
 from app.models.video import Video
 from app.pipeline import assembler, captions, tts
+from app.pipeline.assembler import ASPECT_RATIOS
 from app.pipeline.visuals import pexels
 from app.services.progress import publish_progress
 
@@ -60,6 +61,9 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
     from app.services.user_keys import get_user_keys
 
     engine = video.visual_engine or "stock_image"
+    orientation = ASPECT_RATIOS.get(
+        (video.script_data or {}).get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT]
+    )["orientation"]
     slides = segments[:8]
     images: list[str] = []
 
@@ -79,7 +83,7 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
                 await pexels.fetch_photo_by_id(client, int(seg["media_id"]), out_path)
                 used_ids.add(int(seg["media_id"]))
             else:
-                await pexels.fetch_photo(client, prompt, out_path, used_ids)
+                await pexels.fetch_photo(client, prompt, out_path, used_ids, orientation=orientation)
             images.append(f"/media/{video.id}/{out_path.name}")
 
     async with AsyncSessionLocal() as db:
@@ -119,15 +123,18 @@ async def _run_clip(job_key: str, job_uuid, video, out_dir: Path, workdir: Path)
         raise RuntimeError("source file is missing on disk — re-upload it")
 
     _publish(job_key, "running", "captions", 20)
+    aspect = ASPECT_RATIOS.get((video.script_data or {}).get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT])
     caption_style = (video.script_data or {}).get("caption_style") or captions.DEFAULT_CAPTION_STYLE
     words = transcribe.words_in_range(transcript, start, end)
     ass_path = None
     if words:
-        ass_path = captions.write_ass(captions.group_words(words), workdir / "clip.ass", style=caption_style)
+        ass_path = captions.write_ass(captions.group_words(words), workdir / "clip.ass",
+                                      style=caption_style, play_res=(aspect["w"], aspect["h"]))
 
     _publish(job_key, "running", "assembly", 45)
     final_path = (out_dir / "final.mp4").resolve()  # ffmpeg cwd is the workdir
-    assembler.render_clip(source, start, end, final_path, ass_path=ass_path)
+    assembler.render_clip(source, start, end, final_path, ass_path=ass_path,
+                          width=aspect["w"], height=aspect["h"])
     duration = assembler.probe_duration(final_path)
 
     async with AsyncSessionLocal() as db:
@@ -165,6 +172,7 @@ async def run(job_id: str) -> dict:
 
     job_key = str(job_id)
     output_type = video.output_type or "narrated"
+    aspect = ASPECT_RATIOS.get((video.script_data or {}).get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT])
     out_dir = Path(settings.OUTPUT_DIR) / str(video.id)
     out_dir.mkdir(parents=True, exist_ok=True)
     workdir = Path(tempfile.mkdtemp(prefix="kliptos_"))
@@ -200,11 +208,15 @@ async def run(job_id: str) -> dict:
             for i, seg in enumerate(segments):
                 clip_path = workdir / f"clip_{i:02d}.mp4"
                 if seg.get("media_id"):  # user pinned a specific clip in the studio
-                    await pexels.fetch_clip_by_id(client, int(seg["media_id"]), clip_path)
+                    await pexels.fetch_clip_by_id(client, int(seg["media_id"]), clip_path,
+                                                  orientation=aspect["orientation"],
+                                                  target_w=aspect["w"], target_h=aspect["h"])
                     used_ids.add(int(seg["media_id"]))
                 else:
                     query = seg.get("visual_prompt") or seg["text"]
-                    await pexels.fetch_clip(client, query, clip_path, used_ids)
+                    await pexels.fetch_clip(client, query, clip_path, used_ids,
+                                            orientation=aspect["orientation"],
+                                            target_w=aspect["w"], target_h=aspect["h"])
                 clips.append(clip_path)
                 _publish(job_key, "running", "visuals", 35 + (i + 1) / len(segments) * 25)
 
@@ -220,12 +232,15 @@ async def run(job_id: str) -> dict:
                 duration=seg_audio["duration"],
                 out_path=workdir / f"cap_{i:02d}.ass",
                 style=caption_style,
+                play_res=(aspect["w"], aspect["h"]),
             )
             if output_type == "visual":
-                assembler.render_segment_silent(clip, seg_audio["duration"], seg_out, ass_path=ass_path)
+                assembler.render_segment_silent(clip, seg_audio["duration"], seg_out, ass_path=ass_path,
+                                                width=aspect["w"], height=aspect["h"])
             else:
                 assembler.render_segment(
-                    clip, Path(seg_audio["audio_path"]), seg_audio["duration"], seg_out, ass_path=ass_path
+                    clip, Path(seg_audio["audio_path"]), seg_audio["duration"], seg_out, ass_path=ass_path,
+                    width=aspect["w"], height=aspect["h"],
                 )
             rendered.append(seg_out)
             _publish(job_key, "running", "assembly", 65 + (i + 1) / len(segments) * 20)

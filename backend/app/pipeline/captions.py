@@ -59,8 +59,8 @@ DEFAULT_CAPTION_STYLE = "classic"
 
 _HEADER_TMPL = """[Script Info]
 ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: {play_x}
+PlayResY: {play_y}
 WrapStyle: 0
 ScaledBorderAndShadow: yes
 
@@ -146,9 +146,19 @@ def _karaoke_text(cue: dict, uppercase: bool) -> str:
     return " ".join(parts) if parts else _escape(cue["text"], uppercase)
 
 
-def write_ass(cues: list[dict], out_path: Path, style: str = DEFAULT_CAPTION_STYLE) -> Path:
-    cfg = CAPTION_STYLES.get(style, CAPTION_STYLES[DEFAULT_CAPTION_STYLE])
-    lines = [_HEADER_TMPL.format(**cfg)]
+def write_ass(
+    cues: list[dict],
+    out_path: Path,
+    style: str = DEFAULT_CAPTION_STYLE,
+    play_res: tuple[int, int] = (1080, 1920),
+) -> Path:
+    cfg = dict(CAPTION_STYLES.get(style, CAPTION_STYLES[DEFAULT_CAPTION_STYLE]))
+    # Style values are tuned for a 1920-high frame; scale to the actual
+    # height so captions keep the same relative size in 1:1 / 16:9.
+    s = play_res[1] / 1920
+    for key in ("fontsize", "outline", "margin_v"):
+        cfg[key] = max(1, round(cfg[key] * s)) if cfg[key] else cfg[key]
+    lines = [_HEADER_TMPL.format(play_x=play_res[0], play_y=play_res[1], **cfg)]
     for cue in cues:
         text = _karaoke_text(cue, cfg["uppercase"]) if cfg["karaoke"] else _escape(cue["text"], cfg["uppercase"])
         lines.append(
@@ -164,6 +174,7 @@ def build_segment_captions(
     duration: float,
     out_path: Path,
     style: str = DEFAULT_CAPTION_STYLE,
+    play_res: tuple[int, int] = (1080, 1920),
 ) -> Path:
     cues = group_words(words) if words else fallback_cues(text, duration)
-    return write_ass(cues, out_path, style=style)
+    return write_ass(cues, out_path, style=style, play_res=play_res)

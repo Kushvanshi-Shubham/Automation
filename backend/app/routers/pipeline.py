@@ -32,6 +32,17 @@ async def list_caption_styles():
     return {"items": [{"key": k, "label": v["label"], "desc": v["desc"]} for k, v in CAPTION_STYLES.items()]}
 
 
+@router.get("/aspect-ratios")
+async def list_aspect_ratios():
+    """Available output aspect ratios for the studio picker."""
+    from app.pipeline.assembler import ASPECT_RATIOS
+
+    return {"items": [
+        {"key": k, "label": v["label"], "desc": v["desc"], "width": v["w"], "height": v["h"]}
+        for k, v in ASPECT_RATIOS.items()
+    ]}
+
+
 @router.post("/start", response_model=PipelineStatusResponse)
 async def start_pipeline(
     req: PipelineStartRequest,
@@ -79,6 +90,13 @@ async def start_pipeline(
         if req.caption_style not in CAPTION_STYLES:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown caption style")
         video.script_data = {**(video.script_data or {}), "caption_style": req.caption_style}
+
+    if req.aspect_ratio:
+        from app.pipeline.assembler import ASPECT_RATIOS
+
+        if req.aspect_ratio not in ASPECT_RATIOS:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown aspect ratio")
+        video.script_data = {**(video.script_data or {}), "aspect_ratio": req.aspect_ratio}
 
     # Atomically CLAIM the video (idempotency: double-clicks / concurrent
     # requests both pass the read check above, but only one wins this update).

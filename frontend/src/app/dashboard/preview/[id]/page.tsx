@@ -22,6 +22,7 @@ interface VideoData {
   thumbnail_url: string | null
   youtube_video_id: string | null
   images: string[] | null
+  aspect_ratio: string | null
 }
 
 interface Channel {
@@ -70,10 +71,14 @@ function PreviewContent() {
     )
   }
 
+  const aspect = video.aspect_ratio ?? "9:16"
+  const aspectClass = aspect === "16:9" ? "aspect-video" : aspect === "1:1" ? "aspect-square" : "aspect-[9/16]"
+  const playerWidth = aspect === "16:9" ? "max-w-xl" : "max-w-sm"
+
   return (
     <div className="flex flex-col lg:flex-row gap-10 pb-12 max-w-5xl">
       {/* Player column */}
-      <div className="w-full max-w-sm mx-auto lg:mx-0 flex-shrink-0">
+      <div className={`w-full ${playerWidth} mx-auto lg:mx-0 flex-shrink-0`}>
         {video.output_type === "image" && video.status === "ready" && (video.images ?? []).length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {(video.images ?? []).map((img, i) => (
@@ -85,7 +90,7 @@ function PreviewContent() {
             ))}
           </div>
         ) : (
-        <div className="aspect-[9/16] rounded-3xl overflow-hidden bg-zinc-900 border border-white/10 relative shadow-2xl">
+        <div className={`${aspectClass} rounded-3xl overflow-hidden bg-zinc-900 border border-white/10 relative shadow-2xl`}>
           {video.status === "ready" && video.video_url ? (
             <video
               src={`${MEDIA_ORIGIN}${video.video_url}`}

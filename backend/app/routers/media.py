@@ -132,6 +132,7 @@ class ClipCreateRequest(BaseModel):
     end: float
     title: Optional[str] = None
     caption_style: Optional[str] = None
+    aspect_ratio: Optional[str] = None
 
 
 @router.post("/{asset_id}/clips")
@@ -177,6 +178,12 @@ async def create_clip(
         if req.caption_style not in CAPTION_STYLES:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown caption style")
 
+    if req.aspect_ratio:
+        from app.pipeline.assembler import ASPECT_RATIOS
+
+        if req.aspect_ratio not in ASPECT_RATIOS:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown aspect ratio")
+
     if current_user.credit_balance < CLIP_CREDIT_COST:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Not enough credits")
 
@@ -184,6 +191,8 @@ async def create_clip(
     script_data: dict = {"clip": {"asset_id": str(asset.id), "start": start, "end": end}}
     if req.caption_style:
         script_data["caption_style"] = req.caption_style
+    if req.aspect_ratio:
+        script_data["aspect_ratio"] = req.aspect_ratio
     video = Video(
         user_id=current_user.id,
         title=(req.title or f"Clip from {asset.filename}")[:100],

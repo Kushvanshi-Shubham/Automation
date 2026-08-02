@@ -15,6 +15,8 @@ class VideoResponse(BaseModel):
     youtube_video_id: Optional[str] = None
     # image-post output type: media URLs of the generated slides
     images: Optional[List[str]] = None
+    # render format ("9:16" default) — drives the preview player frame
+    aspect_ratio: Optional[str] = None
     scheduled_at: Optional[datetime]
     published_at: Optional[datetime]
     created_at: Optional[datetime]
