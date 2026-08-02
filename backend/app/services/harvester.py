@@ -241,30 +241,35 @@ async def classify_titles(titles: list[str]) -> list[str]:
     return result[: len(titles)]
 
 
-VALID_FORMATS = {"narrated", "visual", "image"}
+def _format_prompt() -> tuple[set, str]:
+    """Recommendation targets come straight from the format registry, so a new
+    format automatically becomes recommendable."""
+    from app.services.formats import FORMATS
 
-_FORMAT_SYSTEM = (
-    "You are a short-form content strategist. For each trending topic, recommend the SINGLE best "
-    "short format:\n"
-    "- narrated: story/explainer where context and facts matter (news, updates, how/why topics)\n"
-    "- visual: music-led, emotional or aesthetic trends where on-screen text + vibe beat narration "
-    "(music releases, aesthetic moments, hype)\n"
-    "- image: listy/insight topics that work as a swipeable carousel (facts, tips, rankings)\n"
-    'Respond ONLY with JSON: {"formats": [{"format": "narrated", "why": "<max 8 words>"}, ...]} '
-    "— one entry per input, same order."
-)
+    keys = {k for k, f in FORMATS.items() if f["available"]}
+    lines = "\n".join(f"- {k}: {FORMATS[k]['when']}" for k in FORMATS if k in keys)
+    system = (
+        "You are a short-form content strategist. For each trending topic, recommend the SINGLE "
+        "best format from this catalog:\n"
+        f"{lines}\n"
+        'Respond ONLY with JSON: {"formats": [{"format": "<key>", "why": "<max 8 words>"}, ...]} '
+        "— one entry per input, same order."
+    )
+    return keys, system
 
 
 async def recommend_formats(titles: list[str]) -> list[dict]:
-    """LLM-recommend the best output format per topic; empty dicts on failure."""
+    """LLM-recommend the best FORMAT (pipeline recipe key) per topic;
+    empty dicts on failure."""
     if not titles:
         return []
     from app.services.llm import generate_json
 
+    valid, system = _format_prompt()
     numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(titles))
     try:
         data = await generate_json(
-            system=_FORMAT_SYSTEM,
+            system=system,
             user=f"Recommend formats for these {len(titles)} trending topics:\n{numbered}",
             temperature=0.0,
         )
@@ -275,7 +280,7 @@ async def recommend_formats(titles: list[str]) -> list[dict]:
     out = []
     for item in raw[: len(titles)]:
         fmt = (item or {}).get("format", "")
-        if fmt in VALID_FORMATS:
+        if fmt in valid:
             out.append({"best_format": fmt, "format_reason": str((item or {}).get("why", ""))[:120]})
         else:
             out.append({})

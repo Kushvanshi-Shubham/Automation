@@ -17,6 +17,7 @@ FORMATS: dict[str, dict] = {
         "label": "Reddit Story",
         "emoji": "👽",
         "desc": "First-person storytime over immersive background footage",
+        "when": "personal drama, confessions, wild it-happened-to-me stories",
         "output_type": "narrated",
         "style": "viral_story",
         "available": True,
@@ -39,6 +40,7 @@ FORMATS: dict[str, dict] = {
         "label": "Fake Text Convo",
         "emoji": "💬",
         "desc": "A chat conversation plays out in text bubbles with typing beats",
+        "when": "two-person drama or twists that land as a chat screenshot",
         "output_type": "fake_text",
         "style": "viral_story",
         "available": True,
@@ -61,6 +63,7 @@ FORMATS: dict[str, dict] = {
         "label": "Viral Story",
         "emoji": "🎬",
         "desc": "“You missed this” — hook-driven narrated storytelling",
+        "when": "surprising facts, hidden details, stories where context matters",
         "output_type": "narrated",
         "style": "viral_story",
         "available": True,
@@ -77,6 +80,7 @@ FORMATS: dict[str, dict] = {
         "label": "Breaking-News Explainer",
         "emoji": "🚨",
         "desc": "Urgent, factual — what happened and why it matters",
+        "when": "news, world events, releases, results — anything time-sensitive",
         "output_type": "narrated",
         "style": "news_update",
         "available": True,
@@ -98,6 +102,7 @@ FORMATS: dict[str, dict] = {
         "label": "Motivational Quote",
         "emoji": "🔥",
         "desc": "Big on-screen lines over cinematic footage — no narration",
+        "when": "mindset, discipline, self-improvement, inspirational themes",
         "output_type": "visual",
         "style": "viral_story",
         "available": True,
@@ -115,10 +120,28 @@ FORMATS: dict[str, dict] = {
         "tone": "calm and powerful",
         "controls": ["captions", "aspect", "scenes"],
     },
+    "music_visual": {
+        "label": "Music / Trend Visual",
+        "emoji": "🎵",
+        "desc": "On-screen text + vibe footage — attach the trending sound when posting",
+        "when": "music releases, aesthetic moments, hype trends where vibe beats narration",
+        "output_type": "visual",
+        "style": "viral_story",
+        "available": True,
+        "script_recipe": None,  # the visual output type already carries its recipe
+        "background_query": None,
+        "caption_style": "neon",
+        "voice_id": None,
+        "language": None,
+        "music_mood": "energetic",
+        "tone": "hype and energetic",
+        "controls": ["captions", "aspect", "scenes"],
+    },
     "shayari": {
         "label": "Shayari / Poetry",
         "emoji": "🌙",
         "desc": "Original Hindi shayari, slow narration over aesthetic footage",
+        "when": "poetry, romance, melancholy, Hindi-audience emotional topics",
         "output_type": "narrated",
         "style": "viral_story",
         "available": True,
@@ -141,6 +164,7 @@ FORMATS: dict[str, dict] = {
         "label": "Gaming Update",
         "emoji": "🎮",
         "desc": "Patch notes and game news with hype pacing",
+        "when": "game patches, esports, gaming culture and releases",
         "output_type": "narrated",
         "style": "news_update",
         "available": True,
@@ -163,6 +187,7 @@ FORMATS: dict[str, dict] = {
         "label": "Image Carousel",
         "emoji": "🖼️",
         "desc": "3–6 slide photo post with punchy captions",
+        "when": "lists, tips, rankings, facts that work as swipeable slides",
         "output_type": "image",
         "style": "viral_story",
         "available": True,
@@ -178,6 +203,10 @@ FORMATS: dict[str, dict] = {
 }
 
 DEFAULT_TONE = "engaging and curious"  # matches ScriptGenerateRequest default
+
+# Topics harvested before the format pack stored raw engine names in
+# best_format — map them to the closest format key.
+LEGACY_FORMAT_MAP = {"narrated": "viral_story", "visual": "music_visual", "image": "image_carousel"}
 
 
 def render_defaults(fmt: dict) -> dict:

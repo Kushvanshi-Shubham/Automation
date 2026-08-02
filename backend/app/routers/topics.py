@@ -20,13 +20,23 @@ async def list_niches():
 
 @router.get("", response_model=TopicListResponse)
 async def get_topics(category: str | None = None, db: AsyncSession = Depends(get_db)):
+    from app.schemas.topic import TopicResponse
+    from app.services.formats import LEGACY_FORMAT_MAP
+
     query = select(Topic).order_by(Topic.score.desc()).limit(60)
     if category:
         if category not in VALID_CATEGORIES:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown category")
         query = query.where(Topic.category == category)
     result = await db.execute(query)
-    return {"items": result.scalars().all()}
+    items = []
+    for t in result.scalars().all():
+        row = TopicResponse.model_validate(t)
+        # Rows harvested before the format pack stored engine names.
+        if row.best_format in LEGACY_FORMAT_MAP:
+            row.best_format = LEGACY_FORMAT_MAP[row.best_format]
+        items.append(row)
+    return {"items": items}
 
 
 @router.post("/refresh")

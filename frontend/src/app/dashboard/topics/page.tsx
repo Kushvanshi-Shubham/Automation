@@ -20,10 +20,12 @@ interface Topic {
   discovered_at: string | null
 }
 
-const FORMAT_META: Record<string, { label: string; emoji: string }> = {
-  narrated: { label: "Story / explainer", emoji: "🎙️" },
-  visual: { label: "Music-led visual", emoji: "🎵" },
-  image: { label: "Swipeable carousel", emoji: "🖼️" },
+interface Format {
+  key: string
+  label: string
+  emoji: string
+  desc: string
+  available: boolean
 }
 
 interface Niche {
@@ -44,13 +46,24 @@ export default function TopicsPage() {
     mutationFn: ({ topicId, format }: { topicId: string; format: string }) =>
       fetchApi("/scripts/generate", {
         method: "POST",
-        body: JSON.stringify({ topic_id: topicId, style, output_type: format }),
+        body: JSON.stringify(
+          format === "script"
+            ? { topic_id: topicId, style, output_type: "script" }
+            : { topic_id: topicId, format }
+        ),
       }),
     onSuccess: (data: { video_id: string }) => {
       router.push(`/dashboard/studio?video=${data.video_id}`)
     },
     onSettled: () => setCreatingId(null),
   })
+
+  const { data: formats } = useQuery<{ items: Format[] }>({
+    queryKey: ["formats"],
+    queryFn: () => fetchApi("/scripts/formats"),
+    staleTime: Infinity,
+  })
+  const formatMeta = (key: string | null) => formats?.items.find(f => f.key === key)
 
   const { data: niches } = useQuery<{ items: Niche[] }>({
     queryKey: ["niches"],
@@ -84,26 +97,28 @@ export default function TopicsPage() {
           <select
             value={outputType}
             onChange={e => setOutputType(e.target.value)}
-            title="What gets created when you hit Create Short"
+            title="Which format gets created when you hit Create"
             className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
           >
             <option value="auto">✨ Best format (auto)</option>
-            <option value="narrated">🎙️ Narrated</option>
-            <option value="visual">🎵 Visual</option>
-            <option value="image">🖼️ Image post</option>
+            {(formats?.items ?? []).filter(f => f.available).map(f => (
+              <option key={f.key} value={f.key}>{f.emoji} {f.label}</option>
+            ))}
             <option value="script">📝 Script only</option>
           </select>
-          <select
-            value={style}
-            onChange={e => setStyle(e.target.value)}
-            title="Script style used when you hit Create Short"
-            className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
-          >
-            <option value="viral_story">🎬 Viral Story</option>
-            <option value="news_update">📰 News / Update</option>
-            <option value="educational">🎓 Educational</option>
-            <option value="commentary">🎙️ Commentary</option>
-          </select>
+          {outputType === "script" && (
+            <select
+              value={style}
+              onChange={e => setStyle(e.target.value)}
+              title="Script style used for script-only creations"
+              className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
+            >
+              <option value="viral_story">🎬 Viral Story</option>
+              <option value="news_update">📰 News / Update</option>
+              <option value="educational">🎓 Educational</option>
+              <option value="commentary">🎙️ Commentary</option>
+            </select>
+          )}
           <button
             onClick={() => refresh.mutate()}
             disabled={refresh.isPending}
@@ -201,12 +216,12 @@ export default function TopicsPage() {
                 {topic.title}
               </h3>
 
-              {topic.best_format && FORMAT_META[topic.best_format] && (
+              {topic.best_format && formatMeta(topic.best_format) && (
                 <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-violet-500/5 border border-violet-500/15">
-                  <span className="text-base">{FORMAT_META[topic.best_format].emoji}</span>
+                  <span className="text-base">{formatMeta(topic.best_format)!.emoji}</span>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-violet-300">
-                      ✨ Best format: {FORMAT_META[topic.best_format].label}
+                      ✨ Best format: {formatMeta(topic.best_format)!.label}
                     </p>
                     {topic.format_reason && (
                       <p className="text-[11px] text-zinc-500 truncate">{topic.format_reason}</p>
@@ -234,7 +249,9 @@ export default function TopicsPage() {
             <div className="p-4 border-t border-white/5 bg-zinc-950/50">
               <button
                 onClick={() => {
-                  const format = outputType === "auto" ? (topic.best_format ?? "narrated") : outputType
+                  const format = outputType === "auto"
+                    ? (formatMeta(topic.best_format)?.key ?? "viral_story")
+                    : outputType
                   setCreatingId(topic.id)
                   createShort.mutate({ topicId: topic.id, format })
                 }}
@@ -244,7 +261,7 @@ export default function TopicsPage() {
                 {creatingId === topic.id ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Writing script…</>
                 ) : (
-                  <><Zap className="w-4 h-4" /> Create {outputType === "auto" && topic.best_format && FORMAT_META[topic.best_format] ? FORMAT_META[topic.best_format].emoji : "Short"}</>
+                  <><Zap className="w-4 h-4" /> Create {outputType === "auto" && formatMeta(topic.best_format) ? `${formatMeta(topic.best_format)!.emoji} ${formatMeta(topic.best_format)!.label}` : "Short"}</>
                 )}
               </button>
             </div>

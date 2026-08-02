@@ -7,7 +7,7 @@ def test_format_catalog(client, auth_headers):
     items = {i["key"]: i for i in resp.json()["items"]}
     assert set(items) == {
         "reddit_story", "fake_text", "viral_story", "breaking_news",
-        "motivational", "shayari", "gaming_update", "image_carousel",
+        "motivational", "music_visual", "shayari", "gaming_update", "image_carousel",
     }
     assert all(i["available"] for i in items.values())
     assert items["reddit_story"]["output_type"] == "narrated"

@@ -11,7 +11,8 @@ class Topic(Base):
     source = Column(String, nullable=True)
     # niche key from app.services.niches (e.g. "gaming"), "general" if unknown
     category = Column(String, nullable=True, index=True)
-    # recommended output type for this trend: narrated | visual | image
+    # recommended FORMAT key for this trend (see services/formats.py);
+    # pre-format-pack rows hold legacy engine names, mapped at the API layer
     best_format = Column(String, nullable=True)
     format_reason = Column(String, nullable=True)
     keywords = Column(JSON, nullable=True)

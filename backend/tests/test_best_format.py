@@ -34,5 +34,26 @@ def test_topics_expose_best_format(client, auth_headers, monkeypatch):
 
     items = client.get("/api/topics?category=music", headers=auth_headers).json()["items"]
     row = next(t for t in items if "KATSEYE" in t["title"])
-    assert row["best_format"] == "visual"
+    # Legacy engine value in the DB surfaces as its format key.
+    assert row["best_format"] == "music_visual"
     assert "music-led" in row["format_reason"]
+
+
+def test_recommend_formats_uses_format_keys(monkeypatch):
+    from app.services import harvester
+
+    async def fake_generate(system, user, temperature=0.0, model="auto", user_keys=None):
+        # The prompt must offer format keys, not raw engines
+        assert "reddit_story" in system and "music_visual" in system
+        assert "- narrated:" not in system
+        return {"formats": [
+            {"format": "gaming_update", "why": "patch notes hype"},
+            {"format": "narrated", "why": "legacy engine name is invalid now"},
+            {"format": "shayari", "why": "emotional hindi audience"},
+        ]}
+
+    monkeypatch.setattr("app.services.llm.generate_json", fake_generate)
+    out = asyncio.run(harvester.recommend_formats(["t1", "t2", "t3"]))
+    assert out[0] == {"best_format": "gaming_update", "format_reason": "patch notes hype"}
+    assert out[1] == {}  # invalid keys are dropped, not stored
+    assert out[2]["best_format"] == "shayari"
