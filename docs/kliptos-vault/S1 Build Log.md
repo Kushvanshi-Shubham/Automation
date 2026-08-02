@@ -2,6 +2,16 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — 🔁 Series formats: autopilot runs full recipes (7fbdf89)
+Formats now cover all four surfaces: **discovery** (Topics recommends) · **creation** (Create grid) · **repurposing** (Clips pickers) · **autopilot** (Series).
+- `series.format` (migration 0009); NULL = custom, so every existing series keeps working unchanged
+- The recipe is derived at **run time**, not stored per-series — improve a format's recipe and every future episode of every series picks it up automatically
+- Fixed a pre-existing gap along the way: visual series episodes never received the on-screen-text prompt note; they do now
+- Only video-producing formats are series-able (image carousels can't auto-publish to YouTube)
+- Series page: format select (Custom reveals the old style/output pickers), voice picker follows the format's engine, list rows show format labels
+- Live E2E: a reddit_story series produced the autopilot episode **"My Neighbor Reported My Fence For 2 Inches... So I Took His Garage"** — perfect first-person recipe voice, background theme + music mood carried in script_data, rendered ready. (Test series left paused.)
+- 110 backend tests green; CI green
+
 ## 2026-08-02 — ✨ Best-format upgrade: the loop is complete (0e034db)
 **Trend → recommended format → creator-specific draft** now runs end to end on format keys.
 - New 9th format 🎵 **Music / Trend Visual** (`music_visual`): the music-forward visual short as a first-class format (neon captions, energetic mood) — music trends finally have a real recommendation target
