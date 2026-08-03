@@ -150,7 +150,7 @@ export default function ClipsPage() {
       {clipError && <p className="text-sm text-rose-400">{clipError}</p>}
 
       {/* Clip render settings — applied to every "Create clip" */}
-      <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="p-4 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex-shrink-0">💬 Captions</label>
           <select
@@ -184,11 +184,11 @@ export default function ClipsPage() {
       </div>
 
       {/* Assets */}
-      {isLoading && <div className="h-28 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />}
+      {isLoading && <div className="h-28 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />}
 
       <div className="space-y-4">
         {(assets ?? []).map(asset => (
-          <div key={asset.id} className="rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden">
+          <div key={asset.id} className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-white/5">
               <div className="min-w-0">
                 <p className="font-medium truncate">{asset.filename}</p>

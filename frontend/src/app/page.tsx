@@ -73,9 +73,12 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 border-b border-white/5 bg-zinc-950/70 backdrop-blur-xl">
         <div className="flex items-center justify-between px-6 py-3.5 max-w-6xl mx-auto">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center font-bold text-lg shadow-[0_0_18px_rgba(139,92,246,0.45)]">
-              K
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static brand asset */}
+            <img
+              src="/brand/kliptos-logo-2k.jpeg"
+              alt="Kliptos"
+              className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow-[0_0_18px_rgba(139,92,246,0.45)]"
+            />
             <span className="font-bold text-lg tracking-tight">Kliptos</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
@@ -146,7 +149,7 @@ export default function LandingPage() {
               </motion.p>
             </div>
 
-            {/* Phone mockup */}
+            {/* Phone playing a REAL Kliptos render — no mockup */}
             <motion.div
               initial={{ opacity: 0, y: 40, rotate: 2 }}
               animate={{ opacity: 1, y: 0, rotate: 0 }}
@@ -154,38 +157,19 @@ export default function LandingPage() {
               className="relative mx-auto w-[270px]"
             >
               <div className="absolute -inset-8 bg-gradient-to-tr from-violet-600/30 to-blue-600/20 blur-3xl rounded-full" aria-hidden />
-              <div className="relative aspect-[9/19] rounded-[2.6rem] border-[6px] border-zinc-800 bg-zinc-900 overflow-hidden shadow-2xl">
-                <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-black/60 to-transparent z-10" />
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,#312e81_0%,#0c0a1d_60%)]" />
-                <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center z-10">
-                  <motion.p
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.9 }}
-                    className="text-[22px] font-black uppercase leading-tight drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
-                  >
-                    The ocean hides
-                    <span className="text-violet-300"> a river</span>
-                  </motion.p>
-                </div>
-                <div className="absolute bottom-5 inset-x-4 z-10 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 rounded-md bg-emerald-400/15 border border-emerald-400/25 text-emerald-300 text-[10px] font-semibold">
-                      ✓ Rendered · 42s
-                    </span>
-                    <span className="px-2 py-1 rounded-md bg-white/10 border border-white/15 text-zinc-300 text-[10px] font-semibold">
-                      🎙️ AI voice
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                    <motion.div
-                      initial={{ width: "0%" }}
-                      animate={{ width: "100%" }}
-                      transition={{ duration: 2.4, delay: 1.1, ease: "easeInOut" }}
-                      className="h-full bg-gradient-to-r from-violet-500 to-blue-500"
-                    />
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-medium">Publishing to YouTube…</p>
+              <div className="relative aspect-[9/16] rounded-[2.6rem] border-[6px] border-zinc-800 bg-zinc-900 overflow-hidden shadow-2xl">
+                <video
+                  src="/demos/demo-reddit.mp4"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute bottom-4 inset-x-4 z-10 flex items-center gap-2">
+                  <span className="px-2 py-1 rounded-md bg-emerald-400/15 border border-emerald-400/25 text-emerald-300 text-[10px] font-semibold backdrop-blur-sm">
+                    ✓ Made by Kliptos — untouched
+                  </span>
                 </div>
               </div>
             </motion.div>
@@ -205,6 +189,37 @@ export default function LandingPage() {
                 <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-blue-400">{stat}</p>
                 <p className="text-xs text-zinc-500 mt-1">{label}</p>
               </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Format demos — real renders, straight out of the pipeline */}
+        <section className="px-6 py-24 max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">Every video here was made by Kliptos.</h2>
+            <p className="text-zinc-400 max-w-xl mx-auto">
+              Different trends need different formats. Pick one — script, visuals, captions, pacing and music are all part of the recipe.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              { src: "/demos/demo-reddit.mp4", label: "👽 Reddit Story", desc: "First-person storytime over satisfying footage" },
+              { src: "/demos/demo-chat.mp4", label: "💬 Fake Text Convo", desc: "A chat escalates in bubbles with typing beats" },
+              { src: "/demos/demo-story.mp4", label: "🎬 Viral Story", desc: "Hook-driven narration with word-synced captions" },
+            ].map(d => (
+              <motion.div
+                key={d.src}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                className="text-center"
+              >
+                <div className="relative aspect-[9/16] rounded-[2rem] border-[5px] border-zinc-800 bg-zinc-900 overflow-hidden shadow-xl mb-4 mx-auto max-w-[220px]">
+                  <video src={d.src} autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover" />
+                </div>
+                <p className="font-semibold">{d.label}</p>
+                <p className="text-xs text-zinc-500 mt-1">{d.desc}</p>
+              </motion.div>
             ))}
           </div>
         </section>

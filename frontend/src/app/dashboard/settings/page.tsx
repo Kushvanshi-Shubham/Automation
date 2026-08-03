@@ -16,7 +16,7 @@ interface Channel {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="h-40 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse max-w-2xl" />}>
+    <Suspense fallback={<div className="h-40 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse max-w-2xl" />}>
       <SettingsContent />
     </Suspense>
   )
@@ -75,7 +75,7 @@ function SettingsContent() {
         </div>
       )}
 
-      <section className="rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden">
+      <section className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
         <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
@@ -159,7 +159,7 @@ function InstagramSection() {
   })
 
   return (
-    <section className="rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden">
+    <section className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
       <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-base">
@@ -249,7 +249,7 @@ function ApiKeysSection() {
   const saved = new Map((data?.items ?? []).map(i => [i.provider, i.masked]))
 
   return (
-    <section className="rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden">
+    <section className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
       <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
           <KeyRound className="w-5 h-5 text-violet-400" />

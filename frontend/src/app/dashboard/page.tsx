@@ -83,7 +83,7 @@ export default function DashboardHome() {
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-36 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />
+              <div key={i} className="h-36 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />
             ))}
           </div>
         )}
@@ -113,7 +113,7 @@ export default function DashboardHome() {
               : `/dashboard/preview/${video.id}`
             return (
               <Link key={video.id} href={href}>
-                <div className="group rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden hover:border-white/15 transition-all hover:-translate-y-1 p-5 space-y-3">
+                <div className="group rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden hover:border-white/15 transition-all hover:-translate-y-1 p-5 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border ${badge.cls}`}>
                       <BadgeIcon className={`w-3.5 h-3.5 ${["rendering", "publishing"].includes(video.status) ? "animate-spin" : ""}`} />
@@ -150,7 +150,7 @@ function StatCard({ title, value, icon: Icon, color, subtitle }: {
   }
 
   return (
-    <motion.div variants={itemVariants} className="p-6 rounded-2xl bg-zinc-900 border border-white/5 hover:bg-zinc-800/80 transition-colors">
+    <motion.div variants={itemVariants} className="p-6 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 hover:bg-zinc-800/80 transition-colors">
       <div className="flex justify-between items-start mb-4">
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${colorMap[color]}`}>
           <Icon className="w-6 h-6" />

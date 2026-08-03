@@ -91,7 +91,7 @@ export default function SeriesPage() {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />
+            <div key={i} className="h-28 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />
           ))}
         </div>
       )}
@@ -116,7 +116,7 @@ export default function SeriesPage() {
 
       <div className="space-y-3">
         {(series ?? []).map(s => (
-          <div key={s.id} className="p-5 rounded-2xl bg-zinc-900 border border-white/5">
+          <div key={s.id} className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

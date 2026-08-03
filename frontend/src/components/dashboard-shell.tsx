@@ -39,10 +39,16 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-50 overflow-hidden font-sans">
+      {/* Ambient brand glow behind the glass surfaces */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute -top-32 left-1/3 w-[700px] h-[400px] bg-violet-600/15 blur-[140px] rounded-full" />
+        <div className="absolute bottom-0 -right-40 w-[500px] h-[400px] bg-blue-600/10 blur-[140px] rounded-full" />
+      </div>
+
       {/* Sidebar */}
       <motion.aside
         animate={{ width: isCollapsed ? 80 : 260 }}
-        className="h-full bg-zinc-900 border-r border-white/5 flex flex-col relative flex-shrink-0 z-20 transition-all duration-300"
+        className="h-full bg-zinc-900/60 backdrop-blur-xl border-r border-white/10 flex flex-col relative flex-shrink-0 z-20 transition-all duration-300"
       >
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -52,9 +58,12 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
         </button>
 
         <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center font-bold flex-shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.5)]">
-            K
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- small static brand asset */}
+          <img
+            src="/brand/kliptos-logo-2k.jpeg"
+            alt="Kliptos"
+            className="w-9 h-9 rounded-xl object-cover flex-shrink-0 border border-white/10 shadow-[0_0_14px_rgba(139,92,246,0.45)]"
+          />
           <AnimatePresence>
             {!isCollapsed && (
               <motion.span
@@ -145,7 +154,7 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative z-10 overflow-hidden">
         {/* Topbar */}
-        <header className="h-20 border-b border-white/5 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-between px-8 flex-shrink-0 z-10">
+        <header className="h-20 border-b border-white/10 bg-zinc-950/60 backdrop-blur-xl flex items-center justify-between px-8 flex-shrink-0 z-10">
           <h1 className="text-2xl font-semibold tracking-tight">{activePage}</h1>
           <div className="flex items-center gap-4">
             <button className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors">

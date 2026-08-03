@@ -154,7 +154,7 @@ export default function TopicsPage() {
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-64 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />
+            <div key={i} className="h-64 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />
           ))}
         </div>
       )}
@@ -184,7 +184,7 @@ export default function TopicsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(i * 0.05, 0.5) }}
-            className="flex flex-col rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden hover:border-white/20 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-black/50 group"
+            className="flex flex-col rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden hover:border-white/20 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-black/50 group"
           >
             <div className="p-6 flex-1">
               <div className="flex justify-between items-start mb-4">

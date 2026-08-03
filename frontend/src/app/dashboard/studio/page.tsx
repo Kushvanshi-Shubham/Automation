@@ -43,7 +43,7 @@ interface Voice {
 
 export default function StudioPage() {
   return (
-    <Suspense fallback={<div className="h-64 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />}>
+    <Suspense fallback={<div className="h-64 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />}>
       <StudioContent />
     </Suspense>
   )
@@ -169,7 +169,7 @@ function EmptyStudio() {
         </button>
       </div>
 
-      <div className="rounded-2xl bg-zinc-900 border border-white/5 p-6 space-y-5">
+      <div className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 p-6 space-y-5">
         {/* Format — the editing pipeline recipe (idea mode). Own-script mode picks a raw output type. */}
         {mode === "idea" ? (
           <div>
@@ -530,7 +530,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     return (
       <div className="space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-32 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />
+          <div key={i} className="h-32 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />
         ))}
       </div>
     )
@@ -618,7 +618,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
       )}
 
       {outputType !== "script" && (
-        <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 space-y-3">
+        <div className="p-4 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 space-y-3">
           {outputType === "narrated" && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">🎙️ Voice</label>
@@ -692,7 +692,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(i * 0.05, 0.4) }}
-            className="rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden"
+            className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden"
           >
             <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between bg-zinc-950/40">
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">

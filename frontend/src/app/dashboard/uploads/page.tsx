@@ -40,7 +40,7 @@ export default function UploadsPage() {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse" />
+            <div key={i} className="h-20 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />
           ))}
         </div>
       )}
@@ -60,7 +60,7 @@ export default function UploadsPage() {
           const style = STATUS_STYLE[video.status] ?? STATUS_STYLE.publishing
           const StatusIcon = style.icon
           return (
-            <div key={video.id} className="p-5 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-between gap-4">
+            <div key={video.id} className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="font-medium truncate">{video.title ?? "Untitled short"}</p>
                 <p className="text-xs text-zinc-500 mt-1">

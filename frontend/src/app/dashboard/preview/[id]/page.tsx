@@ -32,7 +32,7 @@ interface Channel {
 
 export default function PreviewPage() {
   return (
-    <Suspense fallback={<div className="h-96 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse max-w-sm mx-auto" />}>
+    <Suspense fallback={<div className="h-96 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse max-w-sm mx-auto" />}>
       <PreviewContent />
     </Suspense>
   )
@@ -61,7 +61,7 @@ function PreviewContent() {
   }, [pipeline.status, id, queryClient])
 
   if (isLoading) {
-    return <div className="h-96 rounded-2xl bg-zinc-900 border border-white/5 animate-pulse max-w-sm mx-auto" />
+    return <div className="h-96 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse max-w-sm mx-auto" />
   }
   if (error || !video) {
     return (
@@ -138,7 +138,7 @@ function PreviewContent() {
         </div>
 
         {video.description && (
-          <div className="p-4 rounded-xl bg-zinc-900 border border-white/5">
+          <div className="p-4 rounded-xl bg-zinc-900/60 backdrop-blur-md border border-white/10">
             <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Description</p>
             <p className="text-sm text-zinc-300 whitespace-pre-line">{video.description}</p>
           </div>
@@ -154,7 +154,7 @@ function PreviewContent() {
         </div>
 
         {video.output_type === "image" && video.status === "ready" && (
-          <div className="p-4 rounded-xl bg-zinc-900 border border-white/5 text-sm text-zinc-400">
+          <div className="p-4 rounded-xl bg-zinc-900/60 backdrop-blur-md border border-white/10 text-sm text-zinc-400">
             🖼️ Image post ready — click any slide to open full size and download. Direct Instagram
             carousel publishing arrives with the Meta app setup.
           </div>
@@ -239,7 +239,7 @@ function InstagramPanel({ video }: { video: VideoData }) {
   const igPublish = (publishes?.items ?? []).find(p => p.platform === "instagram")
 
   return (
-    <div className="p-5 rounded-2xl bg-zinc-900 border border-white/5 space-y-3">
+    <div className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 space-y-3">
       <h3 className="font-semibold text-sm flex items-center gap-2">📸 Publish to Instagram (Reel)</h3>
 
       {igPublish?.status === "published" && (
@@ -339,7 +339,7 @@ function PublishPanel({ video }: { video: VideoData }) {
 
   if (!channels || channels.length === 0) {
     return (
-      <div className="p-4 rounded-xl bg-zinc-900 border border-white/5 text-sm text-zinc-400">
+      <div className="p-4 rounded-xl bg-zinc-900/60 backdrop-blur-md border border-white/10 text-sm text-zinc-400">
         <Link href="/dashboard/settings" className="text-violet-400 hover:text-violet-300 font-medium">
           Connect a YouTube channel
         </Link>{" "}
@@ -349,7 +349,7 @@ function PublishPanel({ video }: { video: VideoData }) {
   }
 
   return (
-    <div className="p-5 rounded-2xl bg-zinc-900 border border-white/5 space-y-4">
+    <div className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 space-y-4">
       <h3 className="font-semibold text-sm flex items-center gap-2">
         <Tv className="w-4 h-4 text-rose-500" /> Publish to YouTube
       </h3>
