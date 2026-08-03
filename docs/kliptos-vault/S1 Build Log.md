@@ -2,7 +2,12 @@
 
 Running log of actual build work. Newest first.
 
-## 2026-08-03 — 📜 Legal pages shipped: /terms, /privacy, /refunds (0505ea8)
+## 2026-08-04 — 🔗 Create from a link + feedback memory (dfdb023) · Library/Preview redesign done (3c732f7)
+- **Create from a link**: paste any public URL → SSRF-guarded text extraction (`link_ingest.py`, YouTube via official Data API — media never downloaded) → script written from the source facts, optional creator angle. Studio grew a third mode.
+- **Your footage in any scene**: segments can pin an uploaded asset (`asset_id` + start second); renderer cuts that piece via `assembler.cut_source` instead of Pexels — the clips feature and the script pipeline are now fused.
+- **Feedback memory**: "For next time" notes on the preview page (per format / global, migration 0010) auto-append to every future generation incl. series autopilot — the self-improving loop from the owner's reference video.
+- Redesign P5 landed the same day: Library (summary line, filter pills, thumbnail cards) + Preview (humanized 5-step progress, themed publish/Instagram panels) in THE LINE system.
+- Full plan + remaining work (Teach-a-style, HeyGen presenter): see [[AI Content System]]. 154 backend tests green; CI green ×2.
 Razorpay onboarding requires public policy URLs — done, written for what Kliptos ACTUALLY does:
 - **Terms**: AI-draft/human-publisher responsibility split, credit semantics, YouTube API Services agreement language (+ Google revocation link), Pexels/music licensing, BYO-key terms, liability cap, India/Varanasi jurisdiction
 - **Privacy**: data inventory (tokens encrypted, keys never shown back), **Google Limited Use disclosure** (required for YouTube-scope OAuth verification!), processor list, 30-day deletion, essential-cookies-only, DPDP 2023 alignment + grievance contact
