@@ -48,7 +48,11 @@ async def synth_segment(text: str, out_path: Path, voice: str = DEFAULT_VOICE) -
     Returns (duration_seconds, words) where words is
     [{"word": str, "start": float, "end": float}] in segment-local seconds.
     """
-    return await with_retries(lambda: _synth_once(text, out_path, voice), label="edge-tts")
+    result = await with_retries(lambda: _synth_once(text, out_path, voice), label="edge-tts")
+    from app.services.costs import track
+
+    track("tts_segment")
+    return result
 
 
 async def synth_script(

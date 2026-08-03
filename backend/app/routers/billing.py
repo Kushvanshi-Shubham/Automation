@@ -30,6 +30,52 @@ async def get_ledger(
     return result.scalars().all()
 
 
+@router.get("/economics")
+async def platform_economics(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Owner-only: credits moved vs. real API cost vs. implied margin."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import func
+
+    from app.config import settings
+    from app.services import costs
+
+    if (current_user.email or "").lower() not in settings.ADMIN_EMAILS:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner only")
+
+    month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    rows = (
+        await db.execute(
+            select(CreditLedger.type, func.count(CreditLedger.id), func.sum(CreditLedger.amount))
+            .where(CreditLedger.created_at >= month_start)
+            .group_by(CreditLedger.type)
+        )
+    ).all()
+    credits = {t: {"entries": c, "credits": int(s or 0)} for t, c, s in rows}
+    debited = abs(credits.get("video_debit", {}).get("credits", 0))
+    refunded = credits.get("refund", {}).get("credits", 0)
+    net_spent = debited - refunded
+
+    usage = costs.month_usage()
+    est = costs.estimated_cost_usd(usage)
+    implied_revenue = round(net_spent * settings.CREDIT_PRICE_USD, 2)
+
+    return {
+        "month": month_start.strftime("%Y-%m"),
+        "credits": {"debited": debited, "refunded": refunded, "net_spent": net_spent,
+                    "granted": credits.get("subscription_grant", {}).get("credits", 0)},
+        "usage": usage,
+        "estimated_cost_usd": est,
+        "credit_price_usd": settings.CREDIT_PRICE_USD,
+        "implied_revenue_usd": implied_revenue,  # if every net credit were paid
+        "implied_margin_usd": round(implied_revenue - est["total"], 2),
+        "note": "Costs are the platform-key unit-cost model (BYO usage excluded). Revenue is implied until billing is live.",
+    }
+
+
 @router.post("/checkout")
 async def create_checkout_session(req: CheckoutRequest):
     # Implemented in the Stripe/Razorpay milestone of S1.

@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 
 from app.config import settings
 from app.core.retry import get_with_retries
+from app.services.costs import track
 
 logger = logging.getLogger("kliptos.pexels")
 
@@ -77,6 +78,7 @@ async def fetch_clip(
         out_path.write_bytes(download.content)
         used_ids.add(video["id"])
         logger.info("pexels clip %s (%dx%d) for query %r", video["id"], chosen["width"], chosen["height"], query)
+        track("pexels_clip")
         return video["id"]
 
     raise RuntimeError(f"no usable {orientation} clip found on Pexels for query: {query!r}")
@@ -144,6 +146,7 @@ async def fetch_clip_by_id(
     download.raise_for_status()
     out_path.write_bytes(download.content)
     logger.info("pexels pinned clip %s downloaded", video_id)
+    track("pexels_clip")
     return video_id
 
 
@@ -162,6 +165,7 @@ async def fetch_photo_by_id(client: httpx.AsyncClient, photo_id: int, out_path: 
     download.raise_for_status()
     out_path.write_bytes(download.content)
     logger.info("pexels pinned photo %s downloaded", photo_id)
+    track("pexels_photo")
     return photo_id
 
 
@@ -195,6 +199,7 @@ async def fetch_photo(
         out_path.write_bytes(download.content)
         used_ids.add(photo["id"])
         logger.info("pexels photo %s for query %r", photo["id"], query)
+        track("pexels_photo")
         return photo["id"]
 
     raise RuntimeError(f"no usable {orientation} photo found on Pexels for query: {query!r}")

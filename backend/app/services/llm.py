@@ -161,10 +161,15 @@ async def generate_json(
         try:
             # Transient blips (503 overload, timeouts) retry within the SAME
             # provider before we fall through to the next one.
-            return await with_retries(
+            result = await with_retries(
                 lambda n=name, k=own_key: _PROVIDER_FUNCS[n](system, user, temperature, api_key=k),
                 attempts=3, base_delay=2.0, label=f"llm:{name}",
             )
+            if own_key is None:  # meter only platform-key usage — BYO is the user's spend
+                from app.services.costs import track
+
+                track(f"llm:{name}")
+            return result
         except json.JSONDecodeError as exc:
             logger.warning("%s returned unparseable JSON: %s", name, exc)
             last_error = exc

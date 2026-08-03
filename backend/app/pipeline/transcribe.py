@@ -48,6 +48,9 @@ def transcribe(source: Path) -> dict:
                     for w in (seg.words or [])
                 ],
             })
+    from app.services.costs import track
+
+    track("whisper_job")
     return {"language": info.language, "segments": segments}
 
 

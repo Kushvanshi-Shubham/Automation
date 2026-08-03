@@ -27,6 +27,18 @@ class Settings(BaseSettings):
     # Ops kill-switch; tests disable it (they hammer endpoints as one user).
     RATE_LIMITS_ENABLED: bool = True
 
+    # Owner emails allowed to see platform economics (comma-separated).
+    ADMIN_EMAILS: Annotated[List[str], NoDecode] = []
+    # What one credit sells for once billing is live — drives IMPLIED revenue.
+    CREDIT_PRICE_USD: float = 0.10
+
+    @field_validator("ADMIN_EMAILS", mode="before")
+    @classmethod
+    def parse_admin_emails(cls, v):
+        if isinstance(v, str):
+            return [e.strip().lower() for e in v.split(",") if e.strip()]
+        return v
+
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None

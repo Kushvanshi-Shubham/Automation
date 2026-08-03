@@ -98,3 +98,41 @@ def test_magic_byte_sniffer():
     assert not _looks_like_media(b"#!/bin/sh\nrm -rf /", ".mp4")
     assert not _looks_like_media(b"MZ\x90\x00" + b"\x00" * 12, ".mp3")  # PE executable
     assert not _looks_like_media(b"", ".mp4")
+
+
+def test_cost_tracking_counters():
+    from app.services import costs
+
+    month = "203307"  # synthetic month so real counters stay untouched
+    key = costs._month_key("pexels_clip", month)
+    import redis as redis_sync
+
+    from app.config import settings
+
+    r = redis_sync.Redis.from_url(settings.REDIS_URL, decode_responses=True, protocol=2)
+    r.delete(key)
+    try:
+        r.incrbyfloat(key, 3)
+        usage = costs.month_usage(month)
+        assert usage["pexels_clip"] == 3.0
+        assert usage["llm:gemini"] == 0.0
+        est = costs.estimated_cost_usd({"llm:openai": 10, "pexels_clip": 3})
+        assert est["llm:openai"] == 0.2   # 10 * $0.02
+        assert est["pexels_clip"] == 0.0  # free API
+        assert est["total"] == 0.2
+    finally:
+        r.delete(key)
+
+
+def test_economics_endpoint_owner_gated(client, auth_headers, monkeypatch):
+    from app.config import settings
+
+    resp = client.get("/api/billing/economics", headers=auth_headers)
+    assert resp.status_code == 403  # not an owner
+
+    monkeypatch.setattr(settings, "ADMIN_EMAILS", ["creator@example.com"])
+    resp = client.get("/api/billing/economics", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert "credits" in body and "estimated_cost_usd" in body
+    assert body["implied_revenue_usd"] == body["credits"]["net_spent"] * body["credit_price_usd"]
