@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-03 — 🎨 UI revamp pass 1: logo, glass, the product demos itself (8f75d0d)
+- **Logo everywhere**: landing nav, dashboard sidebar, favicon + app icons (Pillow-generated RGBA — ffmpeg's ICO output is rejected by Next's decoder, worth remembering)
+- **The landing hero phone now plays a REAL render** (the Reddit Story from the hardening smoke), badge: "Made by Kliptos — untouched"
+- **New format-demo section**: three phone frames looping real pipeline output — Reddit Story, Fake Text Convo, Viral Story — each trimmed to ~12s / 540×960 / 0.4–1.6MB in `public/demos/`
+- **Glassmorphism pass**: sidebar + topbar translucent with backdrop-blur over ambient violet/blue glows; all 28 dashboard card surfaces swept to glass
+- Production build + CI green
+- Pass 2 (later): dashboard-home module redesign, remaining emoji-as-chrome cleanup, motion polish
+
 ## 2026-08-02 — 🛡️ Hardening sprint shipped (a0410e0) + logo delivered
 Owner priorities session: security, error handling, network blips, rate limiting first — plus the logo (geometric K clapperboard, violet→blue) landed in `frontend/public/brand/`.
 - **Retry-with-backoff** on every external call: all Pexels requests, edge-tts per segment (free service, drops connections), and each LLM provider retries 3× on transient errors (503/429/timeouts) BEFORE falling to the next provider — the Gemini-503 fragility we saw live is closed
