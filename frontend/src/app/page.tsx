@@ -369,15 +369,17 @@ export default function LandingPage() {
       <footer className="border-t border-white/5 bg-black/40 relative z-10">
         <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center font-bold text-sm">
-              K
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static brand asset */}
+            <img src="/brand/kliptos-logo-2k.jpeg" alt="Kliptos" className="w-7 h-7 rounded-lg object-cover border border-white/10" />
             <span className="font-semibold">Kliptos</span>
           </div>
           <p className="text-zinc-600 text-sm">AI-assisted shorts, human-approved. © 2026 Kliptos.</p>
-          <div className="flex gap-6 text-sm text-zinc-500">
+          <div className="flex gap-6 text-sm text-zinc-500 flex-wrap justify-center">
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/refunds" className="hover:text-white transition-colors">Refunds</Link>
             <Link href="/sign-in" className="hover:text-white transition-colors">Sign in</Link>
           </div>
         </div>
