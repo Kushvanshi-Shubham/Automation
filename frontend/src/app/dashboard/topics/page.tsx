@@ -1,19 +1,17 @@
 "use client"
 
 /**
- * Discover — trends with an opinion. Two ways to read the same signals:
- * FIELD: a momentum board — one column per niche, hotter trends sit higher
- *        and heavier; select one and its dossier opens on the right.
- * LIST:  dense ranked rows for fast scanning.
- * Everything the old page did is still here: niche + source filters,
- * harvest, format override, script-only, hooks, keywords.
+ * Discover — trends with an opinion.
+ * Rich cards (the anatomy that worked: title, recommendation + reason,
+ * hook, keywords, one clear action) in the new design system, plus a
+ * compact list for fast scanning. Light + dark, Material icons.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import {
-  MdOutlineAutoAwesome, MdOutlineBolt, MdOutlineGridView, MdOutlineMovieFilter,
-  MdOutlineRefresh, MdOutlineViewList, MdOutlineWhatshot,
+  MdOutlineAutoAwesome, MdOutlineBolt, MdOutlineGridView,
+  MdOutlineMovieFilter, MdOutlineRefresh, MdOutlineViewList,
 } from "react-icons/md"
 import { fetchApi } from "@/lib/api-client"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
@@ -23,23 +21,17 @@ interface Topic {
   best_format: string | null; format_reason: string | null
   keywords: string[] | null; score: number | null; hook_text: string | null
 }
-interface Format { key: string; label: string; emoji: string; desc: string; available: boolean; output_type: string }
+interface Format { key: string; label: string; desc: string; available: boolean; output_type: string }
 
-const FAMILY_COLOR: Record<string, string> = {
-  narrated: L.make, visual: L.live, fake_text: L.working, image: L.ready,
-}
-
-const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 8 }
-const clamp2: React.CSSProperties = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
+const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
 
 export default function DiscoverPage() {
   const qc = useQueryClient()
   const router = useRouter()
-  const [view, setView] = useState<"field" | "list">("field")
+  const [view, setView] = useState<"cards" | "list">("cards")
   const [niche, setNiche] = useState<string | null>(null)
   const [source, setSource] = useState<string>("all")
   const [createAs, setCreateAs] = useState("auto")
-  const [selected, setSelected] = useState<Topic | null>(null)
   const [creatingId, setCreatingId] = useState<string | null>(null)
 
   const { data: topicsData, isLoading } = useQuery<{ items: Topic[] }>({
@@ -79,22 +71,11 @@ export default function DiscoverPage() {
     [topicsData, source]
   )
   const maxScore = Math.max(1, ...topics.map(t => t.score ?? 0))
-
-  const columns = useMemo(() => {
-    const by = new Map<string, Topic[]>()
-    for (const t of topics) {
-      const k = t.category && t.category !== "general" ? t.category : "other"
-      if (!by.has(k)) by.set(k, [])
-      by.get(k)!.push(t)
-    }
-    return [...by.entries()]
-      .map(([k, list]) => ({ key: k, list: list.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 8) }))
-      .sort((a, b) => (b.list[0]?.score ?? 0) - (a.list[0]?.score ?? 0))
-      .slice(0, 6)
-  }, [topics])
-
-  const nicheLabel = (k: string) => niches?.items.find(n => n.key === k)?.label.replace(/^[^\s]+\s/, "") ?? (k === "other" ? "Other" : k)
+  const nicheLabel = (k: string | null) => (k ? niches?.items.find(n => n.key === k)?.label.replace(/^[^\s]+\s/, "") ?? k : null)
   const doCreate = (t: Topic) => { setCreatingId(t.id); create.mutate(t) }
+  const createLabel = (t: Topic) =>
+    createAs === "script" ? "Write the script — free"
+      : `Create ${createAs === "auto" ? (fmt(t.best_format)?.label ?? "short") : (fmt(createAs)?.label ?? "short")}`
 
   const pill = (on: boolean): React.CSSProperties => ({
     background: on ? L.benchRaised : "transparent", border: `1px solid ${on ? L.ink : L.rule}`,
@@ -122,7 +103,7 @@ export default function DiscoverPage() {
             <option value="script">Create as: script only (free)</option>
           </select>
           <div style={{ display: "flex", border: `1px solid ${L.rule}`, borderRadius: 6, overflow: "hidden" }}>
-            {([["field", MdOutlineGridView, "Field"], ["list", MdOutlineViewList, "List"]] as const).map(([v, Icon, label]) => (
+            {([["cards", MdOutlineGridView, "Cards"], ["list", MdOutlineViewList, "List"]] as const).map(([v, Icon, label]) => (
               <button key={v} onClick={() => setView(v)} aria-pressed={view === v}
                 style={{ display: "flex", alignItems: "center", gap: 6, background: view === v ? L.benchRaised : L.bench, border: "none", color: view === v ? L.ink : L.ash, fontFamily: grotesque, fontSize: 13, padding: "8px 12px", cursor: "pointer" }}>
                 <Icon size={16} /> {label}
@@ -138,7 +119,7 @@ export default function DiscoverPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
         <button onClick={() => setNiche(null)} style={pill(niche === null)}>All niches</button>
         {(niches?.items ?? []).map(n => (
           <button key={n.key} onClick={() => setNiche(n.key)} style={pill(niche === n.key)}>{n.label.replace(/^[^\s]+\s/, "")}</button>
@@ -152,8 +133,8 @@ export default function DiscoverPage() {
       </div>
 
       {isLoading && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-          {Array.from({ length: 8 }).map((_, i) => <div key={i} style={{ ...card, height: 120, opacity: 0.5 }} />)}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} style={{ ...card, height: 260, opacity: 0.5 }} />)}
         </div>
       )}
 
@@ -171,109 +152,83 @@ export default function DiscoverPage() {
         </div>
       )}
 
-      {/* ================= FIELD ================= */}
-      {!isLoading && topics.length > 0 && view === "field" && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_340px]" style={{ alignItems: "start" }}>
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(Math.min(columns.length, 6), 1)}, 1fr)`, gap: 10 }}>
-            {columns.map(col => (
-              <div key={col.key} style={{ minWidth: 0 }}>
-                <p style={{ margin: "0 0 8px", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: L.ash, textTransform: "capitalize" }}>
-                  <MdOutlineWhatshot size={14} color={L.working} /> {nicheLabel(col.key)}
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {col.list.map((t, i) => {
-                    const heat = (t.score ?? 0) / maxScore
-                    const famColor = FAMILY_COLOR[fmt(t.best_format)?.output_type ?? ""] ?? L.dust
-                    const isSel = selected?.id === t.id
-                    return (
-                      <button key={t.id} onClick={() => setSelected(t)}
-                        style={{
-                          ...card,
-                          borderColor: isSel ? L.make : alpha(famColor, 30 + Math.round(heat * 30)),
-                          borderLeft: `3px solid ${isSel ? L.make : famColor}`,
-                          textAlign: "left", cursor: "pointer", width: "100%",
-                          padding: i === 0 ? "13px" : "10px 13px",
-                          background: isSel ? L.benchRaised : L.bench,
-                        }}>
-                        <span style={{ ...clamp2, fontSize: i === 0 ? 14.5 : 13, fontWeight: i === 0 ? 600 : 500, lineHeight: 1.35, color: L.ink }}>
-                          {t.title}
-                        </span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                          <span style={{ flex: 1, height: 3, background: L.ruleFaint, borderRadius: 2, overflow: "hidden" }}>
-                            <span style={{ display: "block", width: `${Math.max(heat * 100, 6)}%`, height: "100%", background: L.working }} />
-                          </span>
-                          <span style={{ fontFamily: mono, fontSize: 10, color: L.dust }}>{Math.round(t.score ?? 0)}</span>
-                        </span>
-                      </button>
-                    )
-                  })}
+      {/* ============ CARDS — the anatomy that works, in the new skin ============ */}
+      {!isLoading && topics.length > 0 && view === "cards" && (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {topics.slice(0, 24).map(t => {
+            const f = fmt(t.best_format)
+            const heat = (t.score ?? 0) / maxScore
+            return (
+              <div key={t.id} style={{ ...card, display: "flex", flexDirection: "column", padding: "20px 22px", transition: "border-color 120ms" }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = L.ash)}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--k-rule)")}>
+                {/* Meta row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: t.source === "youtube" ? L.refused : L.live, border: `1px solid ${alpha(t.source === "youtube" ? L.refused : L.live, 30)}`, padding: "3px 8px", borderRadius: 5 }}>
+                      {t.source === "youtube" ? "YouTube" : "Google Trends"}
+                    </span>
+                    {t.category && t.category !== "general" && (
+                      <span style={{ fontSize: 11.5, color: L.ash, textTransform: "capitalize" }}>{nicheLabel(t.category)}</span>
+                    )}
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 44, height: 4, background: L.ruleFaint, borderRadius: 2, overflow: "hidden" }}>
+                      <span style={{ display: "block", width: `${Math.max(heat * 100, 8)}%`, height: "100%", background: L.working }} />
+                    </span>
+                    <span style={{ fontFamily: mono, fontSize: 11.5, color: L.ash }}>{Math.round(t.score ?? 0)}</span>
+                  </span>
                 </div>
-              </div>
-            ))}
-          </div>
 
-          {/* Dossier rail */}
-          <aside style={{ ...card, padding: 20, position: "sticky", top: 16 }}>
-            {selected ? (
-              <>
-                <p style={{ margin: "0 0 8px", fontSize: 16.5, fontWeight: 650, lineHeight: 1.35 }}>{selected.title}</p>
-                <p style={{ margin: "0 0 14px", fontSize: 12, color: L.dust }}>
-                  {selected.source === "youtube" ? "YouTube signal" : "Google Trends signal"}
-                  {selected.category && selected.category !== "general" ? ` · ${nicheLabel(selected.category)}` : ""}
-                  {" · "}score <span style={{ fontFamily: mono }}>{Math.round(selected.score ?? 0)}</span>
-                </p>
-                {fmt(selected.best_format) && (
-                  <div style={{ border: `1px solid ${alpha(L.make, 30)}`, background: alpha(L.make, 6), borderRadius: 6, padding: "10px 12px", marginBottom: 12 }}>
+                {/* Title */}
+                <h3 style={{ margin: "0 0 12px", fontSize: 18.5, fontWeight: 650, lineHeight: 1.3, letterSpacing: "-0.01em" }}>{t.title}</h3>
+
+                {/* Recommendation */}
+                {f && (
+                  <div style={{ border: `1px solid ${alpha(L.make, 25)}`, background: alpha(L.make, 6), borderRadius: 8, padding: "10px 13px", marginBottom: 12 }}>
                     <p style={{ margin: 0, display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: L.make }}>
-                      <MdOutlineAutoAwesome size={14} /> Best format: {fmt(selected.best_format)!.label}
+                      <MdOutlineAutoAwesome size={14} /> Best format: {f.label}
                     </p>
-                    {selected.format_reason && <p style={{ margin: "4px 0 0", fontSize: 12.5, color: L.ash }}>{selected.format_reason}</p>}
+                    {t.format_reason && <p style={{ margin: "3px 0 0", fontSize: 12.5, lineHeight: 1.45, color: L.ash }}>{t.format_reason}</p>}
                   </div>
                 )}
-                {selected.hook_text && (
+
+                {/* Hook */}
+                {t.hook_text && (
                   <div style={{ borderLeft: `2px solid ${L.rule}`, paddingLeft: 10, marginBottom: 12 }}>
-                    <p style={{ margin: 0, fontSize: 11, color: L.dust }}>Suggested hook</p>
-                    <p style={{ margin: "2px 0 0", fontSize: 13, fontStyle: "italic", color: L.ash }}>&quot;{selected.hook_text}&quot;</p>
+                    <p style={{ margin: 0, fontSize: 10.5, letterSpacing: "0.04em", color: L.dust, textTransform: "uppercase" }}>Suggested hook</p>
+                    <p style={{ margin: "3px 0 0", fontSize: 13, lineHeight: 1.45, fontStyle: "italic", color: L.ash }}>&quot;{t.hook_text}&quot;</p>
                   </div>
                 )}
-                {(selected.keywords ?? []).length > 0 && (
-                  <p style={{ margin: "0 0 16px", fontSize: 12, color: L.dust }}>
-                    {(selected.keywords ?? []).slice(0, 6).map(k => `#${k}`).join("  ")}
+
+                {/* Keywords */}
+                {(t.keywords ?? []).length > 0 && (
+                  <p style={{ margin: "0 0 14px", fontSize: 12, color: L.dust, lineHeight: 1.7 }}>
+                    {(t.keywords ?? []).slice(0, 5).map(k => `#${k}`).join("  ")}
                   </p>
                 )}
-                <button onClick={() => doCreate(selected)} disabled={create.isPending}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", background: L.make, border: "none", color: "#fff", fontFamily: grotesque, fontSize: 14, fontWeight: 600, padding: "11px 16px", borderRadius: 6, cursor: "pointer" }}>
-                  <MdOutlineBolt size={18} />
-                  {creatingId === selected.id ? "Writing the script…" : createAs === "script" ? "Write the script (free)" : `Create ${createAs === "auto" ? (fmt(selected.best_format)?.label ?? "short") : fmt(createAs)?.label ?? "short"}`}
+
+                {/* Action */}
+                <button onClick={() => doCreate(t)} disabled={create.isPending}
+                  style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", background: "transparent", border: `1px solid ${alpha(L.make, 45)}`, color: L.make, fontFamily: grotesque, fontSize: 13.5, fontWeight: 600, padding: "10px 14px", borderRadius: 7, cursor: "pointer", transition: "background 120ms, color 120ms" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = L.make; e.currentTarget.style.color = "#fff" }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--k-make)" }}>
+                  <MdOutlineBolt size={17} />
+                  {creatingId === t.id ? "Writing the script…" : createLabel(t)}
                 </button>
-                <p style={{ margin: "10px 0 0", fontSize: 11.5, color: L.dust, textAlign: "center" }}>
-                  {createAs === "script" ? "Free · 5 per day" : "The script opens for your edits before anything renders"}
-                </p>
-              </>
-            ) : (
-              <>
-                <p style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 600 }}>Pick a trend</p>
-                <p style={{ margin: "0 0 14px", fontSize: 13, lineHeight: 1.6, color: L.ash }}>
-                  Hotter topics sit higher in each column. Select one to see why it&apos;s moving, the hook we&apos;d
-                  open with, and the format it deserves.
-                </p>
-                <button onClick={() => router.push("/dashboard/studio")}
-                  style={{ display: "flex", alignItems: "center", gap: 7, background: "transparent", border: `1px solid ${L.rule}`, color: L.ink, fontFamily: grotesque, fontSize: 13, padding: "9px 14px", borderRadius: 6, cursor: "pointer" }}>
-                  <MdOutlineMovieFilter size={16} /> Or start from your own idea
-                </button>
-              </>
-            )}
-          </aside>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* ================= LIST ================= */}
+      {/* ============ LIST ============ */}
       {!isLoading && topics.length > 0 && view === "list" && (
         <div style={{ ...card, overflow: "hidden" }}>
           {topics.slice(0, 30).map((t, i) => {
             const f = fmt(t.best_format)
             return (
-              <div key={t.id} className="grid items-center gap-3.5 px-4 py-3 sm:grid-cols-[44px_1fr_190px_130px_150px]" style={{ borderTop: i ? `1px solid ${L.ruleFaint}` : "none" }}>
+              <div key={t.id} className="grid items-center gap-3.5 px-5 py-3.5 sm:grid-cols-[44px_1fr_190px_130px_170px]" style={{ borderTop: i ? `1px solid ${L.ruleFaint}` : "none" }}>
                 <span style={{ fontFamily: mono, fontSize: 12, color: i < 3 ? L.working : L.dust }}>{String(i + 1).padStart(2, "0")}</span>
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 14.5, fontWeight: i < 3 ? 600 : 500, color: L.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</span>
@@ -287,13 +242,21 @@ export default function DiscoverPage() {
                   <span style={{ fontFamily: mono, fontSize: 11, color: L.dust }}>{Math.round(t.score ?? 0)}</span>
                 </span>
                 <button onClick={() => doCreate(t)} disabled={create.isPending}
-                  style={{ background: i === 0 ? L.make : "transparent", border: i === 0 ? "none" : `1px solid ${L.rule}`, color: i === 0 ? "#fff" : L.ink, fontFamily: grotesque, fontSize: 12.5, fontWeight: 600, padding: "8px 12px", borderRadius: 6, cursor: "pointer" }}>
+                  style={{ background: "transparent", border: `1px solid ${alpha(L.make, 45)}`, color: L.make, fontFamily: grotesque, fontSize: 12.5, fontWeight: 600, padding: "8px 12px", borderRadius: 6, cursor: "pointer" }}>
                   {creatingId === t.id ? "Writing…" : "Create"}
                 </button>
               </div>
             )
           })}
         </div>
+      )}
+
+      {/* Own idea */}
+      {!isLoading && topics.length > 0 && (
+        <button onClick={() => router.push("/dashboard/studio")}
+          style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 7, background: "transparent", border: `1px dashed ${L.rule}`, color: L.ash, fontFamily: grotesque, fontSize: 13, padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+          <MdOutlineMovieFilter size={16} /> None of these? Start from your own idea
+        </button>
       )}
     </div>
   )
