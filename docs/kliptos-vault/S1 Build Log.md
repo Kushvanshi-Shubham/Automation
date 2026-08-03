@@ -2,6 +2,18 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-02 — 🛡️ Hardening sprint shipped (a0410e0) + logo delivered
+Owner priorities session: security, error handling, network blips, rate limiting first — plus the logo (geometric K clapperboard, violet→blue) landed in `frontend/public/brand/`.
+- **Retry-with-backoff** on every external call: all Pexels requests, edge-tts per segment (free service, drops connections), and each LLM provider retries 3× on transient errors (503/429/timeouts) BEFORE falling to the next provider — the Gemini-503 fragility we saw live is closed
+- **Rate limiting** (Redis fixed-window, fail-open, kill-switch): generation 10/min, renders 8/min, uploads 5/5min, clips 10/min, topic refresh 2/min, login 15/min per IP, series 6/min — live-verified (16th login in a minute → 429 + Retry-After)
+- **Upload content sniffing**: magic bytes must match the extension (a shell script named .mp4 is rejected before it touches disk permanently)
+- **Security headers** on API + frontend (nosniff, frame DENY, referrer-policy, permissions-policy)
+- **`docs/SECURITY_CHECKLIST.md`**: complete secret-rotation table (every key exchanged in chat rotates at deploy), deploy-time items, known upstream issues (next@16.2.12 bundled postcss/sharp highs — no stable fix yet; ecdsa advisory on unused path)
+- Audits run: pip 25.2→26.2; npm audit clean except the documented Next bundle
+- Full reddit_story render verified through the retry-wrapped pipeline; 117 backend tests green; CI green
+- GitHub invoice reviewed: $18.48 Copilot usage, settled, $0 due
+- NEXT (owner-approved): UI revamp with the logo → HuggingFace fallback provider → cost-vs-credit tracking → ToS/Privacy/Refund drafts
+
 ## 2026-08-02 — 🔁 Series formats: autopilot runs full recipes (7fbdf89)
 Formats now cover all four surfaces: **discovery** (Topics recommends) · **creation** (Create grid) · **repurposing** (Clips pickers) · **autopilot** (Series).
 - `series.format` (migration 0009); NULL = custom, so every existing series keeps working unchanged
