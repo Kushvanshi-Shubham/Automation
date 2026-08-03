@@ -1,10 +1,12 @@
 """Provider-agnostic JSON-mode LLM calls.
 
-Order of preference: Gemini 2.5 Flash (free tier) → GPT-4o (paid fallback).
-Both are asked for strict JSON; the caller gets a parsed dict or an HTTPException.
+Order of preference: Gemini Flash (free tier) → GPT-4o → Hugging Face
+(open models via the HF router). All are asked for strict JSON; the caller
+gets a parsed dict or an HTTPException.
 """
 import json
 import logging
+import re
 
 from fastapi import HTTPException, status
 
@@ -16,6 +18,23 @@ logger = logging.getLogger("kliptos.llm")
 # break when Google retires a specific version.
 GEMINI_MODEL = "gemini-flash-latest"
 OPENAI_MODEL = "gpt-4o"
+HF_MODEL = "meta-llama/Llama-3.3-70B-Instruct"
+HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions"
+
+
+def _lenient_json(text: str) -> dict:
+    """Open models sometimes wrap JSON in code fences or prose — extract it."""
+    text = text.strip()
+    fence = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+    if fence:
+        text = fence.group(1).strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            return json.loads(text[start:end + 1])
+        raise
 
 
 async def _gemini_json(system: str, user: str, temperature: float, api_key: str | None = None) -> dict:
@@ -51,14 +70,42 @@ async def _openai_json(system: str, user: str, temperature: float, api_key: str 
     return json.loads(resp.choices[0].message.content)
 
 
-VALID_MODELS = {"auto", "gemini", "openai"}
+async def _hf_json(system: str, user: str, temperature: float, api_key: str | None = None) -> dict:
+    """Open models through the Hugging Face router (OpenAI-compatible)."""
+    import httpx
 
-_PROVIDER_FUNCS = {"gemini": _gemini_json, "openai": _openai_json}
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(
+            HF_ROUTER_URL,
+            headers={"Authorization": f"Bearer {api_key or settings.HUGGINGFACE_API_KEY}"},
+            json={
+                "model": HF_MODEL,
+                "messages": [
+                    {"role": "system", "content": system + "\nRespond with JSON only — no prose, no code fences."},
+                    {"role": "user", "content": user},
+                ],
+                "temperature": temperature,
+                "max_tokens": 4096,
+            },
+        )
+        resp.raise_for_status()
+        return _lenient_json(resp.json()["choices"][0]["message"]["content"])
+
+
+VALID_MODELS = {"auto", "gemini", "openai", "huggingface"}
+
+_PROVIDER_ORDER = ("gemini", "openai", "huggingface")
+_PROVIDER_FUNCS = {"gemini": _gemini_json, "openai": _openai_json, "huggingface": _hf_json}
 _PLATFORM_KEYS = {
     "gemini": lambda: settings.GEMINI_API_KEY,
     "openai": lambda: settings.OPENAI_API_KEY,
+    "huggingface": lambda: settings.HUGGINGFACE_API_KEY,
 }
-_LABELS = {"gemini": f"Gemini ({GEMINI_MODEL})", "openai": f"OpenAI ({OPENAI_MODEL})"}
+_LABELS = {
+    "gemini": f"Gemini ({GEMINI_MODEL})",
+    "openai": f"OpenAI ({OPENAI_MODEL})",
+    "huggingface": f"Open models (HF · {HF_MODEL.split('/')[-1]})",
+}
 
 
 def available_models(user_keys: dict[str, str] | None = None) -> list[dict]:
@@ -66,7 +113,7 @@ def available_models(user_keys: dict[str, str] | None = None) -> list[dict]:
     key OR the user brought their own (own=True marks BYO usage)."""
     user_keys = user_keys or {}
     models = [{"key": "auto", "label": "Auto (best available)", "own": False}]
-    for provider in ("gemini", "openai"):
+    for provider in _PROVIDER_ORDER:
         own = provider in user_keys
         if own or _PLATFORM_KEYS[provider]():
             label = _LABELS[provider] + (" — your key" if own else "")
@@ -86,7 +133,7 @@ async def generate_json(
     precedence over the platform key for that provider. Raises 502/503."""
     user_keys = user_keys or {}
     all_providers: list[tuple[str, str | None]] = []
-    for provider in ("gemini", "openai"):
+    for provider in _PROVIDER_ORDER:
         key = user_keys.get(provider) or _PLATFORM_KEYS[provider]()
         if key:
             all_providers.append((provider, user_keys.get(provider)))

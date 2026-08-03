@@ -125,3 +125,77 @@ def test_delete_key(client, auth_headers, valid_key_check):
     )
     assert client.delete("/api/settings/api-keys/openai", headers=auth_headers).status_code == 204
     assert client.delete("/api/settings/api-keys/openai", headers=auth_headers).status_code == 404
+
+
+def test_lenient_json_parsing():
+    from app.services.llm import _lenient_json
+
+    assert _lenient_json('{"a": 1}') == {"a": 1}
+    assert _lenient_json('```json\n{"a": 1}\n```') == {"a": 1}
+    assert _lenient_json('Sure! Here is the JSON:\n{"a": 1}\nHope that helps!') == {"a": 1}
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        _lenient_json("no json here at all")
+
+
+def test_huggingface_provider_offered_with_byo_key():
+    from app.services.llm import available_models
+
+    # No platform keys in the test env: only BYO providers appear
+    models = available_models({"huggingface": "hf_usertoken"})
+    keys = {m["key"]: m for m in models}
+    assert "huggingface" in keys
+    assert keys["huggingface"]["own"] is True
+    assert "Llama" in keys["huggingface"]["label"]
+
+
+def test_huggingface_key_validation(monkeypatch):
+    import httpx
+
+    from app.services.user_keys import validate_key
+
+    class FakeResponse:
+        def __init__(self, code):
+            self.status_code = code
+
+    class FakeClient:
+        def __init__(self, code):
+            self._code = code
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None):
+            assert "whoami" in url
+            return FakeResponse(self._code)
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda timeout=10: FakeClient(200))
+    assert asyncio.run(validate_key("huggingface", "hf_good")) is True
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda timeout=10: FakeClient(401))
+    assert asyncio.run(validate_key("huggingface", "hf_bad")) is False
+
+
+def test_generate_json_falls_through_to_huggingface(monkeypatch):
+    """Gemini and OpenAI dead -> the HF provider still answers."""
+    from app.services import llm
+
+    async def dead(*a, **k):
+        raise ValueError("invalid api key")  # permanent -> no in-provider retry
+
+    async def hf_ok(system, user, temperature, api_key=None):
+        assert api_key == "hf_usertoken"
+        return {"ok": True}
+
+    monkeypatch.setitem(llm._PROVIDER_FUNCS, "gemini", dead)
+    monkeypatch.setitem(llm._PROVIDER_FUNCS, "openai", dead)
+    monkeypatch.setitem(llm._PROVIDER_FUNCS, "huggingface", hf_ok)
+
+    out = asyncio.run(llm.generate_json(
+        "sys", "user",
+        user_keys={"gemini": "g", "openai": "o", "huggingface": "hf_usertoken"},
+    ))
+    assert out == {"ok": True}

@@ -10,7 +10,7 @@ os.environ["GOOGLE_CLIENT_ID"] = "test-client-id.apps.googleusercontent.com"
 os.environ["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
 # Isolate tests from real API keys that may exist in backend/.env
 for _key in ("YOUTUBE_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY", "PEXELS_API_KEY",
-             "REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET"):
+             "HUGGINGFACE_API_KEY", "REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET"):
     os.environ[_key] = ""
 # Tests hammer endpoints as a single user — rate limits are tested explicitly.
 os.environ["RATE_LIMITS_ENABLED"] = "false"

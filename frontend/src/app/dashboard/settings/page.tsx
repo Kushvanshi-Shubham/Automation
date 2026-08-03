@@ -216,6 +216,7 @@ function InstagramSection() {
 const PROVIDERS = [
   { key: "gemini", label: "Gemini", hint: "aistudio.google.com — free tier available" },
   { key: "openai", label: "OpenAI", hint: "platform.openai.com — paid account" },
+  { key: "huggingface", label: "Hugging Face", hint: "huggingface.co/settings/tokens — open models (Llama & more)" },
 ]
 
 function ApiKeysSection() {

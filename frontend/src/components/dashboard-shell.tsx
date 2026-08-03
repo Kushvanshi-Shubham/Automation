@@ -39,10 +39,23 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-50 overflow-hidden font-sans">
-      {/* Ambient brand glow behind the glass surfaces */}
+      {/* Ambient brand glow behind the glass surfaces — needs to be strong
+          enough that backdrop-blur visibly frosts over it */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute -top-32 left-1/3 w-[700px] h-[400px] bg-violet-600/15 blur-[140px] rounded-full" />
-        <div className="absolute bottom-0 -right-40 w-[500px] h-[400px] bg-blue-600/10 blur-[140px] rounded-full" />
+        <div className="absolute -top-40 left-1/3 w-[800px] h-[500px] bg-violet-600/30 blur-[130px] rounded-full" />
+        <div className="absolute top-1/3 -left-48 w-[500px] h-[500px] bg-fuchsia-600/20 blur-[130px] rounded-full" />
+        <div className="absolute bottom-0 -right-40 w-[600px] h-[500px] bg-blue-600/25 blur-[130px] rounded-full" />
+        <div
+          className="absolute inset-0"
+          style={{
+            opacity: 0.04,
+            backgroundImage:
+              "linear-gradient(to right, rgba(255,255,255,0.7) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.7) 1px, transparent 1px)",
+            backgroundSize: "64px 64px",
+            maskImage: "radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent)",
+            WebkitMaskImage: "radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent)",
+          }}
+        />
       </div>
 
       {/* Sidebar */}

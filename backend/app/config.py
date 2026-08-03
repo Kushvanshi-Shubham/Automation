@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     YOUTUBE_API_KEY: Optional[str] = None
     PEXELS_API_KEY: Optional[str] = None
     GOOGLE_CLOUD_PROJECT: Optional[str] = None
+    HUGGINGFACE_API_KEY: Optional[str] = None
     HIGGSFIELD_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
 

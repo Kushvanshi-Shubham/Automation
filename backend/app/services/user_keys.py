@@ -9,7 +9,7 @@ from app.models.api_key import UserApiKey
 
 logger = logging.getLogger("kliptos.user_keys")
 
-SUPPORTED_PROVIDERS = {"gemini", "openai"}
+SUPPORTED_PROVIDERS = {"gemini", "openai", "huggingface"}
 
 
 async def get_user_keys(db: AsyncSession, user_id) -> dict[str, str]:
@@ -43,6 +43,15 @@ async def validate_key(provider: str, key: str) -> bool:
             client = AsyncOpenAI(api_key=key, timeout=10)
             await client.models.list()
             return True
+        if provider == "huggingface":
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    "https://huggingface.co/api/whoami-v2",
+                    headers={"Authorization": f"Bearer {key}"},
+                )
+            return resp.status_code == 200
     except Exception as exc:
         logger.info("key validation failed for %s: %s", provider, exc)
         return False
