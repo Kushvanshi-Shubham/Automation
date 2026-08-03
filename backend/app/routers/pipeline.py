@@ -134,6 +134,37 @@ async def start_pipeline(
     return {"job_id": job_id, "status": "queued", "progress": {"stage": "queued", "percent": 0}, "error_message": None}
 
 
+@router.get("/active")
+async def active_jobs(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """All of this user's in-flight render jobs with live progress — the
+    RAIL conveyor polls this to position every reel on real telemetry."""
+    from sqlalchemy import select
+
+    rows = (
+        await db.execute(
+            select(PipelineJob, Video)
+            .join(Video, PipelineJob.video_id == Video.id)
+            .where(PipelineJob.user_id == current_user.id, PipelineJob.status.in_(["queued", "running"]))
+            .order_by(Video.created_at.desc())
+            .limit(20)
+        )
+    ).all()
+    return {
+        "items": [
+            {
+                "job_id": job.id,
+                "video_id": video.id,
+                "status": job.status,
+                "progress": job.progress or {"stage": "queued", "percent": 0},
+            }
+            for job, video in rows
+        ]
+    }
+
+
 @router.get("/{job_id}", response_model=PipelineStatusResponse)
 async def get_pipeline_status(
     job_id: UUID,

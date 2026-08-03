@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
-import { Clapperboard, Clock, Loader2, PenTool, RefreshCw, Save, Sparkles } from "lucide-react"
+import { Clapperboard, Clock, Loader2, PenTool, Play, RefreshCw, Save, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
@@ -58,10 +58,10 @@ function StudioContent() {
 }
 
 const STYLES = [
-  { value: "viral_story", label: "🎬 Viral Story", desc: "Hook-driven storytelling (default)" },
-  { value: "news_update", label: "📰 News / Update", desc: "Patch notes, releases, results — facts first" },
-  { value: "educational", label: "🎓 Educational", desc: "Explain one concept with an analogy" },
-  { value: "commentary", label: "🎙️ Commentary", desc: "Opinionated take, invites comments" },
+  { value: "viral_story", label: "Viral Story", desc: "Hook-driven storytelling (default)" },
+  { value: "news_update", label: "News / Update", desc: "Patch notes, releases, results — facts first" },
+  { value: "educational", label: "Educational", desc: "Explain one concept with an analogy" },
+  { value: "commentary", label: "Commentary", desc: "Opinionated take, invites comments" },
 ]
 
 const TONE_PRESETS = [
@@ -73,10 +73,10 @@ const TONE_PRESETS = [
 ]
 
 const OUTPUT_TYPES = [
-  { value: "narrated", label: "🎙️ Narrated short", desc: "AI voice narrates over visuals", badge: "1 credit" },
-  { value: "visual", label: "🎵 Visual short", desc: "On-screen text + music, no voice — add trending audio when posting", badge: "1 credit" },
-  { value: "image", label: "🖼️ Image post", desc: "3–6 slide carousel with captions (stock photos)", badge: "1 credit" },
-  { value: "script", label: "📝 Script only", desc: "Just the script — film it yourself", badge: "FREE · 5/day" },
+  { value: "narrated", label: "Narrated short", desc: "AI voice narrates over visuals", badge: "1 credit" },
+  { value: "visual", label: "Visual short", desc: "On-screen text + music, no voice — add trending audio when posting", badge: "1 credit" },
+  { value: "image", label: "Image post", desc: "3–6 slide carousel with captions (stock photos)", badge: "1 credit" },
+  { value: "script", label: "Script only", desc: "Just the script — film it yourself", badge: "FREE · 5/day" },
 ]
 
 interface Format {
@@ -165,7 +165,7 @@ function EmptyStudio() {
           onClick={() => setMode("own")}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === "own" ? "bg-white/10 text-white" : "text-zinc-400 hover:text-zinc-200"}`}
         >
-          ✍️ I have my own script
+          I have my own script
         </button>
       </div>
 
@@ -189,7 +189,7 @@ function EmptyStudio() {
                         : "bg-black/10 border-white/5 opacity-50 cursor-not-allowed"
                   }`}
                 >
-                  <p className="text-sm font-medium">{f.emoji} {f.label}</p>
+                  <p className="text-sm font-medium">{f.label}</p>
                   <p className="text-[11px] text-zinc-500 mt-1 leading-snug">
                     {f.available ? f.desc : "Coming soon"}
                   </p>
@@ -203,7 +203,7 @@ function EmptyStudio() {
                     : "bg-black/20 border-white/10 hover:border-white/20"
                 }`}
               >
-                <p className="text-sm font-medium">🛠️ Custom</p>
+                <p className="text-sm font-medium">Custom</p>
                 <p className="text-[11px] text-zinc-500 mt-1 leading-snug">Pick output type &amp; style yourself</p>
               </button>
             </div>
@@ -327,7 +327,7 @@ function EmptyStudio() {
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="text-xs font-medium text-zinc-500 hover:text-zinc-300 uppercase tracking-wider transition-colors"
           >
-            ⚙️ Advanced options {showAdvanced ? "▲" : "▼"}
+            Advanced options {showAdvanced ? "▲" : "▼"}
           </button>
 
           {showAdvanced && (
@@ -566,8 +566,8 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             Create
             <span className="text-xs font-medium px-2 py-1 rounded-md bg-white/5 border border-white/10 text-zinc-400">
               {editorFormat
-                ? `${editorFormat.emoji} ${editorFormat.label}`
-                : outputType === "script" ? "📝 Script only" : outputType === "visual" ? "🎵 Visual short" : outputType === "image" ? "🖼️ Image post" : "🎙️ Narrated short"}
+                ? editorFormat.label
+                : outputType === "script" ? "Script only" : outputType === "visual" ? "Visual short" : outputType === "image" ? "Image post" : "Narrated short"}
             </span>
           </h1>
           <p className="text-zinc-400 mt-1 flex items-center gap-2">
@@ -588,7 +588,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
               onClick={copyScript}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-medium text-white text-sm"
             >
-              📋 Copy Script
+              Copy script
             </button>
           ) : (
             <button
@@ -606,13 +606,13 @@ function ScriptEditor({ videoId }: { videoId: string }) {
 
       {outputType === "visual" && (
         <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs">
-          🎵 Visual short: these lines appear as on-screen text with music — no narration. Tip: attach a trending
+          Visual short: these lines appear as on-screen text with music — no narration. Tip: attach a trending
           sound in the YouTube/Instagram editor when you post.
         </div>
       )}
       {outputType === "fake_text" && (
         <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs">
-          💬 Fake text convo: each line is one chat message (keep the A: / B: prefixes — A is grey, B is blue).
+          Fake text convo: each line is one chat message (keep the A: / B: prefixes — A is grey, B is blue).
           Messages appear as bubbles with typing beats over background footage.
         </div>
       )}
@@ -621,7 +621,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
         <div className="p-4 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 space-y-3">
           {outputType === "narrated" && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">🎙️ Voice</label>
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">Voice</label>
               <select
                 value={voiceId}
                 onChange={e => setVoiceId(e.target.value)}
@@ -638,13 +638,13 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                 disabled={previewLoading}
                 className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-medium transition-colors disabled:opacity-50"
               >
-                {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "▶"} Preview
+                {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Preview
               </button>
             </div>
           )}
           {outputType !== "image" && outputType !== "fake_text" && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">💬 Captions</label>
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">Captions</label>
               <select
                 value={captionStyle}
                 onChange={e => setCaptionStyle(e.target.value)}
@@ -657,7 +657,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             </div>
           )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">📐 Format</label>
+            <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider sm:w-28 flex-shrink-0">Aspect</label>
             <div className="flex gap-2 flex-wrap">
               {(aspectRatios?.items ?? [{ key: "9:16", label: "Vertical", desc: "Shorts · Reels · TikTok" }]).map(a => (
                 <button
@@ -670,7 +670,6 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                   }`}
                   title={a.desc}
                 >
-                  <span className="mr-1.5">{a.key === "9:16" ? "📱" : a.key === "1:1" ? "⬜" : "🖥️"}</span>
                   {a.key} <span className="text-zinc-500 font-normal">· {a.label}</span>
                 </button>
               ))}
@@ -696,7 +695,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           >
             <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between bg-zinc-950/40">
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                {i === 0 ? "🎣 Hook" : i === segments.length - 1 ? "🏁 Payoff" : `Segment ${i + 1}`}
+                {i === 0 ? "Hook" : i === segments.length - 1 ? "Payoff" : `Segment ${i + 1}`}
                 <span className="ml-3 text-zinc-600 normal-case font-medium">~{segment.duration_estimate}s</span>
               </span>
               <div className="flex items-center gap-1">
@@ -705,7 +704,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                     onClick={() => openSwap(i)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-300 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 transition-colors"
                   >
-                    🖼 {segment.media_id ? "Pinned" : "Swap visuals"}
+                    {segment.media_id ? "Visual pinned" : "Swap visuals"}
                   </button>
                 )}
                 <button

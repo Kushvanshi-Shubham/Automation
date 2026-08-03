@@ -17,6 +17,8 @@ class VideoResponse(BaseModel):
     images: Optional[List[str]] = None
     # render format ("9:16" default) — drives the preview player frame
     aspect_ratio: Optional[str] = None
+    # set when the video was produced by a standing order (autopilot)
+    series_id: Optional[UUID] = None
     scheduled_at: Optional[datetime]
     published_at: Optional[datetime]
     created_at: Optional[datetime]

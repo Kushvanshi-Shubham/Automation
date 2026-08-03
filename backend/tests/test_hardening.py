@@ -136,3 +136,34 @@ def test_economics_endpoint_owner_gated(client, auth_headers, monkeypatch):
     body = resp.json()
     assert "credits" in body and "estimated_cost_usd" in body
     assert body["implied_revenue_usd"] == body["credits"]["net_spent"] * body["credit_price_usd"]
+
+
+def test_pipeline_active_lists_running_jobs(client, auth_headers, monkeypatch):
+    """The RAIL conveyor endpoint: in-flight jobs only, with progress."""
+    async def fake_generate(topic, **kwargs):
+        return {"title": "Rail test", "description": "d", "tags": [],
+                "segments": [{"text": "hello world", "visual_prompt": "x", "duration_estimate": 2.0}],
+                "total_duration": 2.0}
+
+    monkeypatch.setattr("app.routers.scripts.script_gen.generate_script", fake_generate)
+    import app.pipeline.tasks as pt
+
+    class FakeTask:
+        id = "fake"
+
+    monkeypatch.setattr(pt.run_pipeline, "delay", lambda jid: FakeTask())
+
+    vid = client.post("/api/scripts/generate", headers=auth_headers,
+                      json={"custom_prompt": "rail conveyor active test"}).json()["video_id"]
+    assert client.post("/api/pipeline/start", headers=auth_headers,
+                       json={"video_id": vid, "visual_engine": "pexels"}).status_code == 200
+
+    items = client.get("/api/pipeline/active", headers=auth_headers).json()["items"]
+    mine = [i for i in items if i["video_id"] == vid]
+    assert len(mine) == 1
+    assert mine[0]["status"] == "queued"
+    assert mine[0]["progress"]["percent"] == 0
+
+    # video response now carries series_id (null here) for the reel tag
+    v = client.get(f"/api/videos/{vid}", headers=auth_headers).json()
+    assert "series_id" in v and v["series_id"] is None

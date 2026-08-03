@@ -1,7 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2, KeyRound, Loader2, Trash2, Tv } from "lucide-react"
+import { CheckCircle2, Camera, KeyRound, Loader2, Trash2, Tv } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 import { fetchApi } from "@/lib/api-client"
@@ -162,8 +162,8 @@ function InstagramSection() {
     <section className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
       <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-base">
-            📸
+          <div className="w-9 h-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+            <Camera className="w-5 h-5 text-pink-400" />
           </div>
           <div>
             <h2 className="font-semibold">Instagram Accounts</h2>
@@ -176,7 +176,7 @@ function InstagramSection() {
           title={!status?.enabled ? "Instagram app not configured yet — coming with deployment" : undefined}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-sm font-medium text-white disabled:opacity-40"
         >
-          {connect.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "📸"}
+          {connect.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
           Connect Instagram
         </button>
       </div>
@@ -277,7 +277,7 @@ function ApiKeysSection() {
                 {masked ? (
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
-                      {masked} ✓
+                      {masked}
                     </span>
                     <button
                       onClick={() => remove.mutate(p.key)}

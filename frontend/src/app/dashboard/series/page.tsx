@@ -30,10 +30,10 @@ const INTERVALS = [
 ]
 
 const STYLES = [
-  { value: "viral_story", label: "🎬 Viral Story" },
-  { value: "news_update", label: "📰 News / Update" },
-  { value: "educational", label: "🎓 Educational" },
-  { value: "commentary", label: "🎙️ Commentary" },
+  { value: "viral_story", label: "Viral Story" },
+  { value: "news_update", label: "News / Update" },
+  { value: "educational", label: "Educational" },
+  { value: "commentary", label: "Commentary" },
 ]
 
 export default function SeriesPage() {
@@ -52,7 +52,7 @@ export default function SeriesPage() {
   })
   const formatLabel = (key: string | null) => {
     const f = formatCatalog?.items.find(x => x.key === key)
-    return f ? `${f.emoji} ${f.label}` : null
+    return f ? f.label : null
   }
 
   const toggle = useMutation({
@@ -137,14 +137,14 @@ export default function SeriesPage() {
                 <p className="text-xs text-zinc-500 mt-1.5">
                   {s.topic_prompt ? `Theme: ${s.topic_prompt}` : `Niche: ${s.category ?? "all trends"}`}
                   {" · "}{INTERVALS.find(i => i.value === s.interval_hours)?.label ?? `${s.interval_hours}h`}
-                  {" · "}{formatLabel(s.format) ?? (s.output_type === "visual" ? "🎵 visual" : "🎙️ narrated")}
+                  {" · "}{formatLabel(s.format) ?? (s.output_type === "visual" ? "visual" : "narrated")}
                   {" · "}{s.language}
                   {" · "}{s.video_count} video{s.video_count === 1 ? "" : "s"} created
                 </p>
                 {s.next_run_at && s.is_active && (
                   <p className="text-xs text-zinc-600 mt-1">Next run: {new Date(s.next_run_at).toLocaleString()}</p>
                 )}
-                {s.last_error && <p className="text-xs text-amber-400 mt-1">⚠ {s.last_error}</p>}
+                {s.last_error && <p className="text-xs text-amber-400 mt-1">{s.last_error}</p>}
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -280,13 +280,13 @@ function CreateForm({ onDone }: { onDone: () => void }) {
             onClick={() => setMode("trends")}
             className={`px-3.5 py-2 rounded-lg text-sm font-medium border transition-all ${mode === "trends" ? "bg-violet-500/10 border-violet-500/40" : "bg-black/20 border-white/10"}`}
           >
-            🔥 Live trends
+            Live trends
           </button>
           <button
             onClick={() => setMode("theme")}
             className={`px-3.5 py-2 rounded-lg text-sm font-medium border transition-all ${mode === "theme" ? "bg-violet-500/10 border-violet-500/40" : "bg-black/20 border-white/10"}`}
           >
-            🎯 Fixed theme
+            Fixed theme
           </button>
         </div>
         {mode === "trends" ? (
@@ -295,7 +295,7 @@ function CreateForm({ onDone }: { onDone: () => void }) {
             onChange={e => setCategory(e.target.value)}
             className="w-full sm:w-64 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
           >
-            <option value="">🌐 All niches</option>
+            <option value="">All niches</option>
             {(niches?.items ?? []).map(n => <option key={n.key} value={n.key}>{n.label}</option>)}
           </select>
         ) : (
@@ -312,8 +312,8 @@ function CreateForm({ onDone }: { onDone: () => void }) {
         <select value={format} onChange={e => setFormat(e.target.value)}
                 title="The pipeline recipe every episode runs"
                 className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-          {seriesFormats.map(f => <option key={f.key} value={f.key}>{f.emoji} {f.label}</option>)}
-          <option value="custom">🛠️ Custom</option>
+          {seriesFormats.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+          <option value="custom">Custom</option>
         </select>
         {format === "custom" && (
           <>
@@ -323,8 +323,8 @@ function CreateForm({ onDone }: { onDone: () => void }) {
             </select>
             <select value={outputType} onChange={e => setOutputType(e.target.value)}
                     className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-              <option value="narrated">🎙️ Narrated</option>
-              <option value="visual">🎵 Visual</option>
+              <option value="narrated">Narrated</option>
+              <option value="visual">Visual</option>
             </select>
           </>
         )}

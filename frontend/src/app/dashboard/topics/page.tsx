@@ -100,11 +100,11 @@ export default function TopicsPage() {
             title="Which format gets created when you hit Create"
             className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
           >
-            <option value="auto">✨ Best format (auto)</option>
+            <option value="auto">Best format (auto)</option>
             {(formats?.items ?? []).filter(f => f.available).map(f => (
-              <option key={f.key} value={f.key}>{f.emoji} {f.label}</option>
+              <option key={f.key} value={f.key}>{f.label}</option>
             ))}
-            <option value="script">📝 Script only</option>
+            <option value="script">Script only</option>
           </select>
           {outputType === "script" && (
             <select
@@ -113,10 +113,10 @@ export default function TopicsPage() {
               title="Script style used for script-only creations"
               className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-violet-500/50"
             >
-              <option value="viral_story">🎬 Viral Story</option>
-              <option value="news_update">📰 News / Update</option>
-              <option value="educational">🎓 Educational</option>
-              <option value="commentary">🎙️ Commentary</option>
+              <option value="viral_story">Viral Story</option>
+              <option value="news_update">News / Update</option>
+              <option value="educational">Educational</option>
+              <option value="commentary">Commentary</option>
             </select>
           )}
           <button
@@ -132,7 +132,7 @@ export default function TopicsPage() {
 
       {/* Niche chips */}
       <div className="flex items-center gap-2 flex-wrap">
-        <NicheChip active={niche === null} label="🌐 All niches" onClick={() => setNiche(null)} />
+        <NicheChip active={niche === null} label="All niches" onClick={() => setNiche(null)} />
         {(niches?.items ?? []).map(n => (
           <NicheChip key={n.key} active={niche === n.key} label={n.label} onClick={() => setNiche(n.key)} />
         ))}
@@ -218,10 +218,9 @@ export default function TopicsPage() {
 
               {topic.best_format && formatMeta(topic.best_format) && (
                 <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-violet-500/5 border border-violet-500/15">
-                  <span className="text-base">{formatMeta(topic.best_format)!.emoji}</span>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-violet-300">
-                      ✨ Best format: {formatMeta(topic.best_format)!.label}
+                      Best format: {formatMeta(topic.best_format)!.label}
                     </p>
                     {topic.format_reason && (
                       <p className="text-[11px] text-zinc-500 truncate">{topic.format_reason}</p>
@@ -261,7 +260,7 @@ export default function TopicsPage() {
                 {creatingId === topic.id ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Writing script…</>
                 ) : (
-                  <><Zap className="w-4 h-4" /> Create {outputType === "auto" && formatMeta(topic.best_format) ? `${formatMeta(topic.best_format)!.emoji} ${formatMeta(topic.best_format)!.label}` : "Short"}</>
+                  <><Zap className="w-4 h-4" /> Create {outputType === "auto" && formatMeta(topic.best_format) ? formatMeta(topic.best_format)!.label : "Short"}</>
                 )}
               </button>
             </div>

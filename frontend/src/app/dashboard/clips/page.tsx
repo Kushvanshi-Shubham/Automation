@@ -152,7 +152,7 @@ export default function ClipsPage() {
       {/* Clip render settings — applied to every "Create clip" */}
       <div className="p-4 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex-shrink-0">💬 Captions</label>
+          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex-shrink-0">Captions</label>
           <select
             value={captionStyle}
             onChange={e => setCaptionStyle(e.target.value)}
@@ -164,7 +164,7 @@ export default function ClipsPage() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex-shrink-0">📐 Format</label>
+          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex-shrink-0">Aspect</label>
           <div className="flex gap-1.5">
             {(aspectRatios?.items ?? [{ key: "9:16", label: "Vertical" }]).map(a => (
               <button
@@ -176,7 +176,7 @@ export default function ClipsPage() {
                     : "bg-black/20 border-white/10 text-zinc-400 hover:bg-white/5"
                 }`}
               >
-                {a.key === "9:16" ? "📱" : a.key === "1:1" ? "⬜" : "🖥️"} {a.key}
+                {a.key}
               </button>
             ))}
           </div>

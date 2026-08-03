@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion } from "framer-motion"
-import { AlertCircle, Clapperboard, Clock, Loader2, Tv } from "lucide-react"
+import { AlertCircle, Clapperboard, Clock, Camera, Loader2, Tv } from "lucide-react"
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
@@ -155,7 +155,7 @@ function PreviewContent() {
 
         {video.output_type === "image" && video.status === "ready" && (
           <div className="p-4 rounded-xl bg-zinc-900/60 backdrop-blur-md border border-white/10 text-sm text-zinc-400">
-            🖼️ Image post ready — click any slide to open full size and download. Direct Instagram
+            Image post ready — click any slide to open full size and download. Direct Instagram
             carousel publishing arrives with the Meta app setup.
           </div>
         )}
@@ -168,7 +168,7 @@ function PreviewContent() {
         )}
         {video.status === "published" && (
           <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2"><Tv className="w-4 h-4" /> Published to YouTube 🎉</span>
+            <span className="flex items-center gap-2"><Tv className="w-4 h-4" /> Published to YouTube</span>
             {video.youtube_video_id && (
               <a
                 href={`https://www.youtube.com/watch?v=${video.youtube_video_id}`}
@@ -240,10 +240,10 @@ function InstagramPanel({ video }: { video: VideoData }) {
 
   return (
     <div className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 space-y-3">
-      <h3 className="font-semibold text-sm flex items-center gap-2">📸 Publish to Instagram (Reel)</h3>
+      <h3 className="font-semibold text-sm flex items-center gap-2"><Camera className="w-4 h-4" /> Publish to Instagram (Reel)</h3>
 
       {igPublish?.status === "published" && (
-        <p className="text-sm text-emerald-400">Published to Instagram ✓ (media {igPublish.external_id})</p>
+        <p className="text-sm text-emerald-400">Published to Instagram (media {igPublish.external_id})</p>
       )}
       {igPublish?.status === "publishing" && (
         <p className="text-sm text-blue-300 flex items-center gap-2">
@@ -276,7 +276,7 @@ function InstagramPanel({ video }: { video: VideoData }) {
               disabled={publish.isPending}
               className="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-sm font-medium text-white disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {publish.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "📸"}
+              {publish.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
               Publish Reel to @{accounts![0].username}
             </button>
             {publish.error && <p className="text-xs text-rose-400">{(publish.error as Error).message}</p>}

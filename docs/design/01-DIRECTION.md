@@ -187,3 +187,4 @@ grid: 8px base; station gutter 64px; bench padding 16/20
 ## 10. The final test (self-imposed)
 
 Before calling any phase done: place its screenshot beside ChatGPT, Notion, Linear, Vercel, AutoShorts, Crayo. If a stranger could mistake it for any of them, it does not ship.
+
