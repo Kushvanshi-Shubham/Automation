@@ -11,6 +11,18 @@ Razorpay onboarding requires public policy URLs — done, written for what Klipt
 - ⚠️ OWNER: get a CA/lawyer to review before payments go live; pages are accurate to current behavior but unreviewed
 - CI green
 
+## 2026-08-03 — 🖥️ THE DESK SHIPS: owner-designed UI implemented (b5fae8d + 3a3eb6e)
+Owner designed the entire product surface in Claude Design (6 screens, synced against this repo) and handed off the bundle. Decision: **parallel-then-flip** — old dashboard untouched until the owner approves.
+- **Front Door** (b5fae8d) — REPLACED the landing: "Every other tool starts with a blank prompt. Kliptos starts with an opinion." Desk preview, real demo reels w/ unmute, 6-stage pipeline strip, nine-format recipe grid, India-first section, ₹/$ pricing, "What it is not", sign-in modal → real Google flow. Design tokens (violet/blue, Archivo + JetBrains Mono) in `components/desk/tokens.ts`.
+- **Desk app at /desk** (3a3eb6e) — the three-surface IA wired to real APIs:
+  - **DESK**: top-5 bets from /topics w/ ✨format recommendation + reason, one-key ASSIGN (Enter) → generate → straight onto the line; own-idea input; awaiting-approval rows
+  - **LINE**: scene strip (width = duration), per-scene text/visual-direction editing, real Pexels thumbnails to pin, REWRITE (segment regen), HOLD 2s, recipe chips, SEND TO LINE · 1 CR → live 5-stage readout over the pipeline WS (the design's stage percentages ARE our runner's), 402 → credits sheet, ready → in-place preview player → APPROVE & PUBLISH
+  - **VAULT**: ledger w/ state vocabulary (LIVE/HOLDING/READY/REFUSED), standing orders (create + pause via /series), source material w/ highlight timeline + CUT · 1 CR (clip render)
+  - Right rail (lanes w/ stage bars, credits meter, identity), 4 sheets (publish/credits/channel/order), **CMD+K palette**, keyboard: Enter assign, Cmd+Enter advance, Esc
+- Adaptations from design→reality: sparkline momentum → SCORE n (score history = backend follow-up); "runs at 09:00" → cadence pills (time-of-day scheduling = follow-up); pack buys visible but disabled until Razorpay; vault views column → CREATED date until reporting scope.
+- REMAINING from the handoff: Account (5 tabs), Onboarding (niches→voice→cadence), Legal restyle, then FLIP.
+- Both commits CI green.
+
 ## 2026-08-03 — 💰 Cost-vs-credit tracking: the "are we making money?" layer (94e6d04)
 - **Usage metering with zero migrations**: monthly Redis counters bump on every Pexels download, TTS segment, Whisper job, and platform-key LLM call (BYO usage deliberately excluded — that's the user's spend)
 - **Honest unit-cost model** (`UNIT_COSTS_USD`): today's marginal cost is $0 on every service except OpenAI (~$0.02/call) — one dict to update when Veo/paid keys land
