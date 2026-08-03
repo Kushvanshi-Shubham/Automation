@@ -96,6 +96,7 @@ async def generate_script(
     model: str = "auto",
     user_keys: dict[str, str] | None = None,
     language: str = "English",
+    reference_text: str | None = None,
 ) -> dict:
     system = STYLE_PROMPTS.get(style, STYLE_PROMPTS[DEFAULT_STYLE])
     user_prompt = (
@@ -104,6 +105,11 @@ async def generate_script(
         f"Target duration: {duration_seconds} seconds\n"
         + (f"Write ALL narration text in {language}. Keep visual_prompt, title, description and tags in English.\n" if language != "English" else "")
         + (f"Hook inspiration (improve on it): {hook_hint}\n" if hook_hint else "")
+        + (
+            "Source material — base the script on the FACTS in it (do not invent numbers "
+            f"or claims beyond it):\n---\n{reference_text.strip()}\n---\n"
+            if reference_text else ""
+        )
         + (
             f"Additional creator instructions (follow them as long as they don't break the JSON format):\n{custom_instructions.strip()}\n"
             if custom_instructions else ""

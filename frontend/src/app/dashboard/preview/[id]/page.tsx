@@ -10,8 +10,8 @@ import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import {
-  MdOutlineEdit, MdOutlineErrorOutline, MdOutlineLiveTv,
-  MdOutlinePhotoCamera, MdOutlineSchedule,
+  MdOutlineClose, MdOutlineEdit, MdOutlineErrorOutline, MdOutlineLiveTv,
+  MdOutlinePhotoCamera, MdOutlineRateReview, MdOutlineSchedule,
 } from "react-icons/md"
 import { API_BASE_URL, fetchApi } from "@/lib/api-client"
 import { usePipeline } from "@/hooks/use-pipeline"
@@ -31,7 +31,7 @@ interface VideoData {
   id: string; status: string; output_type: string; title: string | null
   description: string | null; tags: string[] | null; video_url: string | null
   thumbnail_url: string | null; youtube_video_id: string | null
-  images: string[] | null; aspect_ratio: string | null
+  images: string[] | null; aspect_ratio: string | null; format: string | null
 }
 interface Channel { id: string; channel_name: string | null }
 interface PublishRecord { id: string; platform: string; status: string; external_id: string | null; error_message: string | null }
@@ -212,7 +212,107 @@ function PreviewContent() {
           </div>
         )}
         {video.status === "upload_failed" && <PublishPanel video={video} />}
+
+        {["ready", "published", "scheduled"].includes(video.status) && <FeedbackCard video={video} />}
       </div>
+    </div>
+  )
+}
+
+/* ==================== FEEDBACK MEMORY ==================== */
+interface FeedbackNote { id: string; format: string | null; note: string }
+
+function FeedbackCard({ video }: { video: VideoData }) {
+  const queryClient = useQueryClient()
+  const [note, setNote] = useState("")
+  const [scope, setScope] = useState<"format" | "all">(video.format ? "format" : "all")
+
+  const { data } = useQuery<{ items: FeedbackNote[] }>({
+    queryKey: ["feedback-notes", video.format],
+    queryFn: () => fetchApi(`/feedback-notes${video.format ? `?format=${video.format}` : ""}`),
+  })
+
+  const save = useMutation({
+    mutationFn: () => fetchApi("/feedback-notes", {
+      method: "POST",
+      body: JSON.stringify({
+        note: note.trim(),
+        format: scope === "format" ? video.format : null,
+      }),
+    }),
+    onSuccess: () => {
+      setNote("")
+      queryClient.invalidateQueries({ queryKey: ["feedback-notes"] })
+    },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => fetchApi(`/feedback-notes/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["feedback-notes"] }),
+  })
+
+  const notes = data?.items ?? []
+
+  return (
+    <div style={{ ...card, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+      <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 14.5, fontWeight: 650 }}>
+        <MdOutlineRateReview size={17} /> For next time
+      </h3>
+      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: L.ash }}>
+        Tell Kliptos what should be different in future videos — it remembers and applies
+        every note automatically.
+      </p>
+
+      <textarea value={note} onChange={e => setNote(e.target.value.slice(0, 300))} rows={2}
+        placeholder="e.g. Make the captions bigger. Never hold a static shot longer than a second."
+        style={{ ...field, resize: "none", fontSize: 13.5 }} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {video.format && (
+          <div style={{ display: "flex", gap: 6 }}>
+            {([["format", "This format only"], ["all", "Every video"]] as const).map(([k, text]) => (
+              <button key={k} onClick={() => setScope(k)}
+                style={{
+                  background: scope === k ? L.benchRaised : "transparent",
+                  border: `1px solid ${scope === k ? L.ink : L.rule}`,
+                  color: scope === k ? L.ink : L.ash, fontFamily: grotesque,
+                  fontSize: 12, padding: "5px 10px", borderRadius: 6, cursor: "pointer",
+                }}>
+                {text}
+              </button>
+            ))}
+          </div>
+        )}
+        <button onClick={() => save.mutate()} disabled={note.trim().length < 3 || save.isPending}
+          style={{
+            marginLeft: "auto", background: "transparent", border: `1px solid ${alpha(L.make, 45)}`,
+            color: L.make, fontFamily: grotesque, fontSize: 13, fontWeight: 600,
+            padding: "7px 14px", borderRadius: 7,
+            cursor: note.trim().length < 3 || save.isPending ? "default" : "pointer",
+            opacity: note.trim().length < 3 ? 0.55 : 1,
+          }}>
+          {save.isPending ? "Saving…" : "Remember this"}
+        </button>
+      </div>
+      {save.error && <p style={{ margin: 0, fontSize: 12.5, color: L.refused }}>{(save.error as Error).message}</p>}
+
+      {notes.length > 0 && (
+        <div style={{ borderTop: `1px solid ${L.ruleFaint}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          {notes.map(n => (
+            <div key={n.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: L.ash }}>
+              <span style={{ flex: 1, lineHeight: 1.5 }}>
+                {n.note}
+                {n.format === null && video.format && (
+                  <span style={{ color: L.dust }}> · every video</span>
+                )}
+              </span>
+              <button onClick={() => remove.mutate(n.id)} title="Forget this note"
+                style={{ background: "none", border: "none", color: L.dust, cursor: "pointer", padding: 2 }}>
+                <MdOutlineClose size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

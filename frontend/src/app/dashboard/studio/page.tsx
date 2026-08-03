@@ -12,7 +12,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 import {
   MdOutlineAutoAwesome, MdOutlineContentCopy, MdOutlineEditNote, MdOutlineImage,
-  MdOutlinePlayArrow, MdOutlineSave, MdOutlineSmartDisplay, MdOutlineTimer,
+  MdOutlineLink, MdOutlinePermMedia, MdOutlinePlayArrow, MdOutlineSave,
+  MdOutlineSmartDisplay, MdOutlineTimer,
 } from "react-icons/md"
 import { API_BASE_URL, fetchApi } from "@/lib/api-client"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
@@ -23,7 +24,10 @@ interface Segment {
   duration_estimate: number
   media_id?: number | null
   media_thumb?: string | null
+  asset_id?: string | null
+  asset_start?: number | null
 }
+interface AssetItem { id: string; filename: string; kind: string; status: string; duration: number | null }
 interface MediaOption { id: number; thumb: string; kind: string; duration?: number; photographer?: string }
 interface Script {
   video_id: string; segments: Segment[]; total_duration: number; output_type: string
@@ -91,8 +95,9 @@ function StudioContent() {
 /* ==================== START SCREEN ==================== */
 function EmptyStudio() {
   const router = useRouter()
-  const [mode, setMode] = useState<"idea" | "own">("idea")
+  const [mode, setMode] = useState<"idea" | "link" | "own">("idea")
   const [prompt, setPrompt] = useState("")
+  const [sourceUrl, setSourceUrl] = useState("")
   const [ownScript, setOwnScript] = useState("")
   const [style, setStyle] = useState("viral_story")
   const [outputType, setOutputType] = useState("narrated")
@@ -122,7 +127,10 @@ function EmptyStudio() {
           mode === "own"
             ? { custom_script: ownScript, model, output_type: outputType }
             : {
-                custom_prompt: prompt, model, language,
+                ...(mode === "link"
+                  ? { source_url: sourceUrl.trim(), custom_prompt: prompt.trim() || undefined }
+                  : { custom_prompt: prompt }),
+                model, language,
                 tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
                 custom_instructions: instructions.trim() || undefined,
                 ...(format === "custom" ? { style, output_type: outputType } : { format }),
@@ -132,7 +140,10 @@ function EmptyStudio() {
     onSuccess: (data: { video_id: string }) => router.push(`/dashboard/studio?video=${data.video_id}`),
   })
 
-  const canSubmit = mode === "own" ? ownScript.trim().length >= 40 : prompt.trim().length >= 10
+  const canSubmit =
+    mode === "own" ? ownScript.trim().length >= 40
+    : mode === "link" ? /^https?:\/\/\S+\.\S+/.test(sourceUrl.trim())
+    : prompt.trim().length >= 10
 
   const outputTypeGrid = (
     <div>
@@ -162,16 +173,16 @@ function EmptyStudio() {
 
       {/* Mode toggle */}
       <div style={{ display: "flex", gap: 2, background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10, padding: 4, width: "fit-content", margin: "0 auto 22px" }}>
-        {([["idea", "AI writes it"], ["own", "I have my own script"]] as const).map(([m, text]) => (
+        {([["idea", "AI writes it"], ["link", "From a link"], ["own", "I have my own script"]] as const).map(([m, text]) => (
           <button key={m} onClick={() => setMode(m)}
             style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 7, border: "none", cursor: "pointer", background: mode === m ? L.benchRaised : "transparent", color: mode === m ? L.ink : L.ash, fontFamily: grotesque, fontSize: 13.5, fontWeight: mode === m ? 600 : 400 }}>
-            <MdOutlineEditNote size={17} /> {text}
+            {m === "link" ? <MdOutlineLink size={17} /> : <MdOutlineEditNote size={17} />} {text}
           </button>
         ))}
       </div>
 
       <div style={{ ...card, padding: 26, display: "flex", flexDirection: "column", gap: 22 }}>
-        {mode === "idea" ? (
+        {mode !== "own" ? (
           <div>
             <span style={label}>Pick a format — each one is a full recipe: script rules, footage, captions, pacing, music</span>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -192,14 +203,27 @@ function EmptyStudio() {
           </div>
         ) : outputTypeGrid}
 
-        {mode === "idea" && format === "custom" && outputTypeGrid}
+        {mode !== "own" && format === "custom" && outputTypeGrid}
 
-        {mode === "idea" ? (
+        {mode !== "own" ? (
           <>
+            {mode === "link" && (
+              <div>
+                <span style={label}>Paste the link — a YouTube video, article, launch post, anything public</span>
+                <input value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
+                  placeholder="https://…" style={{ ...field, fontFamily: mono, fontSize: 13.5 }} />
+                <p style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.5, color: L.dust }}>
+                  The script is written from what the page says — facts, numbers, names. Nothing is
+                  downloaded from the link; to use its footage, upload your own copy on the Footage page.
+                </p>
+              </div>
+            )}
             <div>
-              <span style={label}>What&apos;s the video about?</span>
-              <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3}
-                placeholder="e.g. Apex Legends new season — everything that changed"
+              <span style={label}>
+                {mode === "link" ? <>Your angle <span style={{ fontWeight: 400, color: L.dust }}>(optional — what should the video focus on?)</span></> : "What's the video about?"}
+              </span>
+              <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={mode === "link" ? 2 : 3}
+                placeholder={mode === "link" ? "e.g. focus on what this means for small creators" : "e.g. Apex Legends new season — everything that changed"}
                 style={{ ...field, resize: "none", lineHeight: 1.5 }} />
             </div>
             <div>
@@ -248,7 +272,7 @@ function EmptyStudio() {
                     ))}
                   </select>
                 </div>
-                {mode === "idea" && (
+                {mode !== "own" && (
                   <div>
                     <span style={label}>Tone</span>
                     <select value={tone} onChange={e => setTone(e.target.value)} style={{ ...field, textTransform: "capitalize" }}>
@@ -258,11 +282,11 @@ function EmptyStudio() {
                   </div>
                 )}
               </div>
-              {mode === "idea" && tone === "__custom__" && (
+              {mode !== "own" && tone === "__custom__" && (
                 <input value={customTone} onChange={e => setCustomTone(e.target.value)}
                   placeholder="Describe the tone, e.g. 'sarcastic but warm'" style={field} />
               )}
-              {mode === "idea" && (
+              {mode !== "own" && (
                 <div>
                   <span style={label}>Custom instructions <span style={{ fontWeight: 400, color: L.dust }}>(optional · {600 - instructions.length} left)</span></span>
                   <textarea value={instructions} onChange={e => setInstructions(e.target.value.slice(0, 600))} rows={3}
@@ -278,7 +302,7 @@ function EmptyStudio() {
 
         <button onClick={() => create.mutate()} disabled={!canSubmit || create.isPending} style={{ ...primaryBtn(!canSubmit || create.isPending), width: "100%", padding: "13px 18px" }}>
           <MdOutlineAutoAwesome size={18} />
-          {create.isPending ? "Writing…" : mode === "own" ? "Structure my script" : "Generate the script"}
+          {create.isPending ? "Writing…" : mode === "own" ? "Structure my script" : mode === "link" ? "Generate from the link" : "Generate the script"}
         </button>
       </div>
     </div>
@@ -301,9 +325,12 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [captionStyle, setCaptionStyle] = useState("classic")
   const [aspectRatio, setAspectRatio] = useState("9:16")
 
+  const [footageStart, setFootageStart] = useState("")
+
   const openSwap = async (index: number) => {
     if (swapIndex === index) { setSwapIndex(null); return }
     setSwapIndex(index)
+    setFootageStart("")
     setMediaLoading(true)
     setMediaOptions([])
     try {
@@ -315,7 +342,19 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   }
   const pinMedia = (index: number, option: MediaOption | null) => {
     setSegments(prev => prev.map((s, i) =>
-      i === index ? { ...s, media_id: option?.id ?? null, media_thumb: option?.thumb ?? null } : s
+      i === index
+        ? { ...s, media_id: option?.id ?? null, media_thumb: option?.thumb ?? null, asset_id: null, asset_start: null }
+        : s
+    ))
+    setDirty(true)
+    setSwapIndex(null)
+  }
+  const pinAsset = (index: number, assetId: string) => {
+    const start = Math.max(0, parseFloat(footageStart) || 0)
+    setSegments(prev => prev.map((s, i) =>
+      i === index
+        ? { ...s, asset_id: assetId, asset_start: start, media_id: null, media_thumb: null }
+        : s
     ))
     setDirty(true)
     setSwapIndex(null)
@@ -333,6 +372,10 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const { data: captionStyles } = useQuery<{ items: { key: string; label: string; desc: string }[] }>({
     queryKey: ["caption-styles"], queryFn: () => fetchApi("/pipeline/caption-styles"), staleTime: Infinity,
   })
+  const { data: assetData } = useQuery<AssetItem[]>({
+    queryKey: ["media-assets"], queryFn: () => fetchApi("/media-assets"), enabled: swapIndex !== null,
+  })
+  const footage = (assetData ?? []).filter(a => a.kind === "video" && a.status === "ready")
 
   const playPreview = async () => {
     setPreviewLoading(true)
@@ -486,8 +529,8 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   {outputType !== "script" && (
                     <button onClick={() => openSwap(i)}
-                      style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", color: segment.media_id ? L.live : L.ash, fontFamily: grotesque, fontSize: 12.5, fontWeight: 500, padding: "6px 10px", borderRadius: 6, cursor: "pointer" }}>
-                      <MdOutlineImage size={15} /> {segment.media_id ? "Visual pinned" : "Swap visuals"}
+                      style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", color: segment.media_id || segment.asset_id ? L.live : L.ash, fontFamily: grotesque, fontSize: 12.5, fontWeight: 500, padding: "6px 10px", borderRadius: 6, cursor: "pointer" }}>
+                      <MdOutlineImage size={15} /> {segment.media_id || segment.asset_id ? "Visual pinned" : "Swap visuals"}
                     </button>
                   )}
                   <button onClick={() => setRegenIndex(regenIndex === i ? null : i)}
@@ -532,6 +575,19 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                   </div>
                 )}
 
+                {segment.asset_id && swapIndex !== i && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <MdOutlinePermMedia size={17} color={L.live} />
+                    <span style={{ fontSize: 12.5, color: L.live }}>
+                      Your footage plays here{(segment.asset_start ?? 0) > 0 ? ` (from ${segment.asset_start}s)` : ""}
+                    </span>
+                    <button onClick={() => pinMedia(i, null)}
+                      style={{ background: "transparent", border: "none", color: L.dust, fontFamily: grotesque, fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+                      unpin
+                    </button>
+                  </div>
+                )}
+
                 {swapIndex === i && (
                   <div>
                     <p style={{ margin: "0 0 8px", fontSize: 12.5, color: L.ash }}>
@@ -560,6 +616,41 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                         ))}
                         {mediaOptions.length === 0 && (
                           <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 12.5, color: L.dust }}>No portrait media found — try editing the visual direction.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {(outputType === "narrated" || outputType === "visual") && (
+                      <div style={{ marginTop: 14, borderTop: `1px solid ${L.ruleFaint}`, paddingTop: 12 }}>
+                        <p style={{ margin: "0 0 8px", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: L.ash }}>
+                          <MdOutlinePermMedia size={15} /> Your footage
+                        </p>
+                        {footage.length === 0 ? (
+                          <p style={{ margin: 0, fontSize: 12.5, color: L.dust }}>
+                            Upload your own video on the <Link href="/dashboard/clips" style={{ color: L.make }}>Footage</Link> page
+                            and it appears here — the scene will play your clip instead of stock.
+                          </p>
+                        ) : (
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                              <span style={{ fontSize: 12, color: L.dust }}>Start at second</span>
+                              <input value={footageStart} onChange={e => setFootageStart(e.target.value)}
+                                inputMode="decimal" placeholder="0"
+                                style={{ ...field, width: 72, padding: "5px 8px", fontSize: 12.5, fontFamily: mono }} />
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {footage.map(a => (
+                                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, color: L.ink }}>
+                                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.filename}</span>
+                                  {a.duration != null && <span style={{ fontFamily: mono, fontSize: 11, color: L.dust }}>{Math.round(a.duration)}s</span>}
+                                  <button onClick={() => pinAsset(i, a.id)}
+                                    style={{ background: "transparent", border: `1px solid ${alpha(L.live, 40)}`, color: L.live, fontFamily: grotesque, fontSize: 12, fontWeight: 600, padding: "4px 12px", borderRadius: 6, cursor: "pointer" }}>
+                                    Use
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </>
                         )}
                       </div>
                     )}

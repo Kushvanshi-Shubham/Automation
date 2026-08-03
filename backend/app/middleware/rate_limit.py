@@ -24,6 +24,7 @@ LIMITS: dict[str, tuple[int, int]] = {
     "topics_refresh": (2, 60),
     "auth_google": (15, 60),
     "series_create": (6, 60),
+    "feedback_note": (12, 60),
 }
 
 

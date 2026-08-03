@@ -8,6 +8,9 @@ class ScriptGenerateRequest(BaseModel):
     custom_prompt: Optional[str] = None
     # Bring-your-own-script: wording preserved, only segmented + visual-prompted.
     custom_script: Optional[str] = None
+    # Create from a link: reference text is extracted server-side (no media
+    # download); custom_prompt then acts as the optional angle.
+    source_url: Optional[str] = Field(default=None, max_length=2000)
     # script (free, no render) | narrated (voice) | visual (on-screen text, no voice)
     output_type: str = "narrated"
     # Format = full pipeline recipe (reddit_story, fake_text, …). When set it
@@ -32,6 +35,10 @@ class ScriptSegment(BaseModel):
     # User-pinned stock media for this scene (Pexels id + preview thumbnail)
     media_id: Optional[int] = None
     media_thumb: Optional[str] = None
+    # User-pinned creator footage (media-assets upload) — plays instead of
+    # stock, starting at asset_start seconds. Kept as str: script_data is JSON.
+    asset_id: Optional[str] = None
+    asset_start: Optional[float] = Field(default=None, ge=0)
 
 
 class ScriptResponse(BaseModel):

@@ -98,6 +98,11 @@ async def _run_one(series_id: str) -> dict:
 
         user_keys = await get_user_keys(db, user.id)
 
+        # Standing creator feedback applies to autopilot episodes too.
+        from app.services.feedback import feedback_block
+
+        notes = await feedback_block(db, user.id, series.format)
+
     variety_note = (
         "This video is part of the ongoing series "
         f"'{series.name}'. Avoid repeating these previous videos: {'; '.join(s for s in prev_subjects if s)[:600]}"
@@ -116,6 +121,8 @@ async def _run_one(series_id: str) -> dict:
         language = fmt["language"]
 
     instructions = [variety_note] if variety_note else []
+    if notes:
+        instructions.append(notes)
     if output_type == "visual":
         from app.routers.scripts import VISUAL_TYPE_NOTE
 

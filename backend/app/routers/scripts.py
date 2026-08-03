@@ -141,7 +141,15 @@ async def generate_script(
     if fmt is not None and fmt.get("script_recipe"):
         instructions = f"{fmt['script_recipe']}\n{instructions or ''}".strip()
 
+    # Standing creator feedback ("captions bigger") — the self-improving loop.
+    from app.services.feedback import feedback_block
+
+    notes = await feedback_block(db, current_user.id, req.format)
+    if notes:
+        instructions = f"{instructions or ''}\n\n{notes}".strip()
+
     hook_hint = None
+    reference_text = None
     if req.custom_script:
         if len(req.custom_script.strip()) < 40:
             raise HTTPException(
@@ -151,7 +159,18 @@ async def generate_script(
         subject = "user-written script"
         script = await script_gen.format_custom_script(req.custom_script, model=req.model, user_keys=user_keys)
     else:
-        if req.topic_id is not None:
+        if req.source_url:
+            # Create from a link: text/metadata only — media is never downloaded.
+            from app.services.link_ingest import LinkIngestError, extract_from_url
+
+            try:
+                extracted = await extract_from_url(req.source_url.strip())
+            except LinkIngestError as exc:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+            reference_text = extracted["text"]
+            # An angle from the creator beats the page title as the subject.
+            subject = (req.custom_prompt or "").strip() or extracted["title"] or extracted["source_url"]
+        elif req.topic_id is not None:
             topic = await db.get(Topic, req.topic_id)
             if topic is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
@@ -176,6 +195,7 @@ async def generate_script(
             model=req.model,
             user_keys=user_keys,
             language=req.language,
+            reference_text=reference_text,
         )
 
     script_data = {
@@ -188,6 +208,8 @@ async def generate_script(
     if fmt is not None:
         script_data["format"] = req.format
         script_data.update(render_defaults(fmt))
+    if req.source_url:
+        script_data["source_url"] = req.source_url.strip()
 
     video = Video(
         user_id=current_user.id,

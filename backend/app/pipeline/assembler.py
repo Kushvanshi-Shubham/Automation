@@ -144,6 +144,25 @@ def render_clip(
     )
 
 
+def cut_source(source: Path, start: float, duration: float, out_path: Path) -> None:
+    """Cut a piece of creator footage for use as ONE segment's visual.
+
+    Video only (narration/music own the soundtrack); scaling, cropping and
+    looping happen later in render_segment*. If the requested start is past
+    the end of the footage, the cut is pulled back so something plays."""
+    total = probe_duration(source)
+    start = max(0.0, min(start, max(0.0, total - 1.0)))
+    _run([
+        "-ss", f"{start:.2f}",
+        "-t", f"{max(0.5, duration):.2f}",
+        "-i", str(source),
+        "-an",
+        "-vf", "fps=30,format=yuv420p",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        str(out_path),
+    ])
+
+
 def mix_music(video_path: Path, music_path: Path, out_path: Path, music_volume: float = 0.12) -> None:
     """Loop background music under the narration, ducked to music_volume."""
     _run([

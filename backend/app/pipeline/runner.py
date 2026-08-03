@@ -266,12 +266,37 @@ async def run(job_id: str) -> dict:
 
         # Stage 2: visuals
         _publish(job_key, "running", "visuals", 35)
+
+        # Creator-footage pins (asset_id) resolve up front: ownership and the
+        # file itself are checked once, before any stock is downloaded.
+        asset_paths: dict[str, Path] = {}
+        pinned_asset_ids = {str(s["asset_id"]) for s in segments if s.get("asset_id")}
+        if pinned_asset_ids:
+            from app.models.asset import Asset
+
+            async with AsyncSessionLocal() as adb:
+                for aid in pinned_asset_ids:
+                    asset = await adb.get(Asset, UUID(aid))
+                    if asset is None or asset.user_id != video.user_id or asset.kind != "video":
+                        raise RuntimeError("pinned footage no longer exists — unpin that scene and retry")
+                    src = Path(asset.path).resolve()
+                    if not src.exists():
+                        raise RuntimeError("pinned footage file is missing on disk — re-upload it")
+                    asset_paths[aid] = src
+
         used_ids: set[int] = set()
         clips = []
         async with httpx.AsyncClient(timeout=60) as client:
             for i, seg in enumerate(segments):
                 clip_path = workdir / f"clip_{i:02d}.mp4"
-                if seg.get("media_id"):  # user pinned a specific clip in the studio
+                if seg.get("asset_id"):  # the creator's own footage beats stock
+                    assembler.cut_source(
+                        asset_paths[str(seg["asset_id"])],
+                        float(seg.get("asset_start") or 0.0),
+                        voiced[i]["duration"] + 0.5,
+                        clip_path,
+                    )
+                elif seg.get("media_id"):  # user pinned a specific clip in the studio
                     await pexels.fetch_clip_by_id(client, int(seg["media_id"]), clip_path,
                                                   orientation=aspect["orientation"],
                                                   target_w=aspect["w"], target_h=aspect["h"])
