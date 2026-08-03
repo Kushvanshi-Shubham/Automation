@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-03 — 💰 Cost-vs-credit tracking: the "are we making money?" layer (94e6d04)
+- **Usage metering with zero migrations**: monthly Redis counters bump on every Pexels download, TTS segment, Whisper job, and platform-key LLM call (BYO usage deliberately excluded — that's the user's spend)
+- **Honest unit-cost model** (`UNIT_COSTS_USD`): today's marginal cost is $0 on every service except OpenAI (~$0.02/call) — one dict to update when Veo/paid keys land
+- **`GET /billing/economics`** (owner-gated via `ADMIN_EMAILS`): month's credits debited/refunded/net/granted, usage counts, estimated real cost, implied revenue @ `CREDIT_PRICE_USD` ($0.10 default), implied margin
+- **Billing page rebuilt from stub**: balance + ledger for everyone; violet owner panel (economics) appears only for admin emails
+- Live numbers for August already: 17 credits debited, 2 auto-refunded, 15 net → $1.50 implied revenue vs $0.00 real cost. When billing goes live, this page is the pricing decision.
+- 123 backend tests green; CI green
+
 ## 2026-08-03 — 🤗 Hugging Face: third LLM lane (a23698a) + login incident resolved
 - **Provider chain is now gemini → openai → huggingface** (Llama-3.3-70B via the HF router, OpenAI-compatible endpoint). Each provider retries transient errors internally before falling through — a Gemini 503 + OpenAI quota-out at the same time can no longer stop script generation once any HF key exists.
 - Lenient JSON parsing for open models (code fences / prose stripped); BYO `huggingface` keys end to end: live whoami validation, Fernet at rest, own-key precedence, Settings card ("open models — Llama & more")
