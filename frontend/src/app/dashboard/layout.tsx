@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
-import DashboardShell from "@/components/dashboard-shell"
+import LineShell from "@/components/line/line-shell"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
@@ -9,5 +9,5 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/sign-in")
   }
 
-  return <DashboardShell user={session.user}>{children}</DashboardShell>
+  return <LineShell>{children}</LineShell>
 }
