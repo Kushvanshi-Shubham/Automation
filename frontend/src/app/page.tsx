@@ -1,385 +1,502 @@
 "use client"
 
-// Kliptos Front Door — implemented from the Claude Design handoff
-// (Kliptos Front Door.dc.html). Landing + sign-in for the assignment desk.
+import { motion } from "framer-motion"
+import {
+  ArrowRight,
+  Captions,
+  ChevronDown,
+  Clapperboard,
+  Globe2,
+  KeyRound,
+  Mic,
+  Music,
+  PenTool,
+  Sparkles,
+  TrendingUp,
+  UploadCloud,
+} from "lucide-react"
 import Link from "next/link"
-import { signIn } from "next-auth/react"
 import { useState } from "react"
-import { T, mono } from "@/components/desk/tokens"
 
-const FORMATS = [
-  { label: "Reddit Story", code: "NR", desc: "First-person storytime over immersive background footage", when: "personal drama, confessions, wild it-happened-to-me stories" },
-  { label: "Fake Text Convo", code: "TX", desc: "A chat conversation plays out in text bubbles with typing beats", when: "two-person drama or twists that land as a chat screenshot" },
-  { label: "Viral Story", code: "NR", desc: "“You missed this” — hook-driven narrated storytelling", when: "surprising facts, hidden details, stories where context matters" },
-  { label: "Breaking-News Explainer", code: "NR", desc: "Urgent, factual — what happened and why it matters", when: "news, world events, releases, results — anything time-sensitive" },
-  { label: "Motivational Quote", code: "VS", desc: "Big on-screen lines over cinematic footage — no narration", when: "mindset, discipline, self-improvement, inspirational themes" },
-  { label: "Music / Trend Visual", code: "VS", desc: "On-screen text + vibe footage — attach the trending sound when posting", when: "music releases, aesthetic moments, hype trends where vibe beats narration" },
-  { label: "Shayari / Poetry", code: "NR", desc: "Original Hindi shayari, slow narration over aesthetic footage", when: "poetry, romance, melancholy, Hindi-audience emotional topics" },
-  { label: "Gaming Update", code: "NR", desc: "Patch notes and game news with hype pacing", when: "game patches, esports, gaming culture and releases" },
-  { label: "Image Carousel", code: "IM", desc: "3–6 slide photo post with punchy captions", when: "lists, tips, rankings, facts that work as swipeable slides" },
-]
-const CODE_COLORS: Record<string, string> = { NR: T.body, VS: T.live, TX: T.working, IM: T.signal }
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.55 },
+}
 
-const DEMOS = [
-  { key: "reddit", src: "/demos/demo-reddit.mp4", code: "NR · REDDIT STORY", label: "Reddit Story", desc: "First-person storytime over satisfying footage" },
-  { key: "chat", src: "/demos/demo-chat.mp4", code: "TX · FAKE TEXT CONVO", label: "Fake Text Convo", desc: "A chat escalates in bubbles with typing beats" },
-  { key: "story", src: "/demos/demo-story.mp4", code: "NR · VIRAL STORY", label: "Viral Story", desc: "Hook-driven narration with word-synced captions" },
-]
-
-const STAGES = [
-  { name: "QUEUED", at: "0%", note: "Credit reserved, job durable before a worker touches it.", color: T.text },
-  { name: "VOICE", at: "10%", note: "14 curated neural voices across English, Hindi, Spanish, Portuguese.", color: T.text },
-  { name: "VISUALS", at: "35%", note: "Licensed stock per scene, or the exact clip you pinned.", color: T.text },
-  { name: "ASSEMBLY", at: "65%", note: "Captions burned in — five styles, word-timed from the voice.", color: T.text },
-  { name: "MUSIC", at: "90%", note: "Creative-Commons bed, mood-matched, credit written into your description.", color: T.text },
-  { name: "READY", at: "100%", note: "Nothing publishes until you approve it. A failed render refunds the credit.", color: T.ready },
-]
-
-const NOTS = [
-  { t: "Not a timeline editor", d: "Editing here means: change the line, change the visual, regenerate the scene. If you want keyframes, use CapCut — we are the other half of that workflow." },
-  { t: "Not a spam machine", d: "Review-before-publish is the default, and it stays. Autopilot exists so you skip the work, not so you skip the judgement." },
-  { t: "Not trending audio, baked in", d: "Nobody can license that server-side. Visual shorts render clean so you attach the trending sound in the YouTube or Instagram editor — which the algorithm prefers anyway." },
-  { t: "Not other people's footage", d: "Trends are a signal, not a source. Every render uses licensed stock, generated images, or your own uploads." },
+const FAQS = [
+  {
+    q: "Do I need to show my face or record anything?",
+    a: "No. Kliptos builds fully faceless shorts: AI writes the script, a neural voice narrates it (or on-screen text for music-style videos), stock footage is matched to every line, and captions + music are added automatically.",
+  },
+  {
+    q: "What exactly does one credit get me?",
+    a: "One rendered short (narrated or visual) or one image carousel. Script-only generations are free (5 per day). Premium AI-video engines will cost more credits when they launch — you always see the price before rendering.",
+  },
+  {
+    q: "Can I use my own script or my own AI keys?",
+    a: "Yes to both. Paste your own script and Kliptos only adds structure and visuals — your wording stays untouched. And you can plug in your own Gemini or OpenAI API key to generate on your own quota.",
+  },
+  {
+    q: "How does publishing work?",
+    a: "Connect your YouTube channel once, then publish or schedule directly from Kliptos with an AI-written title, description and tags — all editable before upload. Instagram Reels publishing is next.",
+  },
+  {
+    q: "Will YouTube penalize AI content?",
+    a: "YouTube rewards videos people watch, and penalizes mass-produced spam. Kliptos is built for the former: real trending topics, editable scripts, styles and custom instructions so every short is genuinely yours. We recommend reviewing every video before publishing.",
+  },
 ]
 
-const micro = (color: string = T.dim, ls = "0.1em"): React.CSSProperties => ({ fontFamily: mono, fontSize: 10, letterSpacing: ls, color })
-const panel: React.CSSProperties = { border: `1px solid ${T.rule}`, borderRadius: 8, background: T.panel }
-
-export default function FrontDoor() {
-  const [signInOpen, setSignInOpen] = useState(false)
-  const [signingIn, setSigningIn] = useState(false)
-  const [inr, setInr] = useState(true)
-  const [unmuted, setUnmuted] = useState<string | null>(null)
-
-  const doSignIn = () => {
-    setSigningIn(true)
-    signIn("google", { callbackUrl: "/dashboard" })
-  }
-  const pill = (on: boolean): React.CSSProperties => ({
-    background: on ? T.signal : "transparent", border: `1px solid ${on ? T.signal : T.strong}`,
-    color: on ? T.bg : T.dim, fontSize: 12.5, padding: "9px 14px", cursor: "pointer", borderRadius: 6,
-  })
-  const monoBtn = (primary: boolean): React.CSSProperties => ({
-    background: primary ? T.signal : "transparent", border: primary ? "none" : `1px solid ${T.strong}`,
-    color: primary ? T.bg : T.body, fontFamily: mono, fontSize: 12, letterSpacing: "0.06em",
-    padding: primary ? "15px 22px" : "14px 20px", cursor: "pointer", borderRadius: 6,
-  })
-
-  const plans = [
-    { name: "Free", price: inr ? "₹0" : "$0", credits: "3 RENDERS / MONTH", includes: "Stock footage and edge-tts voices, watermarked. Script-only mode is unlimited-ish at five a day and costs nothing.", hot: false, cta: "START HERE" },
-    { name: "Pro", price: inr ? "₹499" : "$19", credits: "50 RENDERS / MONTH", includes: "No watermark, every engine, standing orders, all nine formats, caption styles and aspect ratios.", hot: true, cta: "MOST CHANNELS PICK THIS" },
-    { name: "Studio", price: inr ? "₹1,299" : "$49", credits: "150 RENDERS / MONTH", includes: "Priority render queue, bulk queueing, media kit — for multiple channels or a small team.", hot: false, cta: "FOR SEVERAL CHANNELS" },
-  ]
-
+export default function LandingPage() {
   return (
-    <div style={{ background: T.bg, color: T.text, fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif", minHeight: "100vh" }}>
-      {/* Top strip */}
-      <div className="sticky top-0 z-50 flex h-[34px] items-center justify-between px-4 sm:px-6" style={{ background: T.panel, borderBottom: `1px solid ${T.rule}`, ...micro() }}>
-        <div className="flex items-center gap-3 sm:gap-[18px] min-w-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/kliptos-logo-2k.jpeg" alt="Kliptos" style={{ width: 20, height: 20, borderRadius: 5, objectFit: "cover", flexShrink: 0 }} />
-          <span style={{ color: T.text }}>KLIPTOS</span>
-          <span className="hidden md:inline" style={{ color: "#474E5E" }}>|</span>
-          <span className="hidden md:inline truncate">THE ASSIGNMENT DESK FOR SHORT VIDEO</span>
-        </div>
-        <div className="flex items-center gap-3 sm:gap-[18px]">
-          <span className="hidden lg:inline" style={{ color: T.ready }}>FREE PLAN · 3 RENDERS / MONTH</span>
-          <span className="hidden sm:inline">SCRIPT-ONLY IS FREE</span>
-          <button onClick={() => setSignInOpen(true)} style={{ background: T.signal, border: "none", color: T.bg, fontFamily: mono, fontSize: 10, letterSpacing: "0.06em", padding: "6px 12px", cursor: "pointer", borderRadius: 6 }}>SIGN IN</button>
-        </div>
+    <div className="min-h-screen bg-zinc-950 relative overflow-x-clip text-zinc-50 font-sans selection:bg-violet-500/30">
+      {/* Ambient background */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-violet-600/25 blur-[160px] rounded-full" />
+        <div className="absolute top-[38rem] -left-64 w-[600px] h-[400px] bg-blue-600/15 blur-[140px] rounded-full" />
+        <div className="absolute bottom-0 -right-64 w-[600px] h-[500px] bg-fuchsia-600/10 blur-[160px] rounded-full" />
+        <div
+          className="absolute inset-0"
+          style={{
+            opacity: 0.05,
+            backgroundImage:
+              "linear-gradient(to right, rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.6) 1px, transparent 1px)",
+            backgroundSize: "72px 72px",
+            maskImage: "radial-gradient(ellipse 80% 50% at 50% 0%, black, transparent)",
+            WebkitMaskImage: "radial-gradient(ellipse 80% 50% at 50% 0%, black, transparent)",
+          }}
+        />
       </div>
 
-      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
-        {/* Hero */}
-        <div className="grid items-start gap-10 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:py-[88px]">
-          <div>
-            <div className="mb-6 flex items-center gap-3.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/kliptos-logo-2k.jpeg" alt="Kliptos" style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover" }} />
-              <p style={{ ...micro(T.signal, "0.14em"), fontSize: 11, margin: 0 }}>TRENDS IN · SHORTS OUT</p>
-            </div>
-            <h1 className="text-[42px] leading-[1.02] sm:text-[56px] lg:text-[68px] lg:leading-[0.98]" style={{ margin: 0, letterSpacing: "-0.035em", fontWeight: 700, maxWidth: "19ch", textWrap: "balance" }}>
-              Every other tool starts with a blank prompt. Kliptos starts with an opinion.
-            </h1>
-            <p style={{ margin: "28px 0 0", maxWidth: "56ch", fontSize: 18, lineHeight: 1.55, color: T.body, textWrap: "pretty" }}>
-              It reads what is trending in your niche, tells you which format that topic deserves, writes the script,
-              voices it, sources the footage, burns the captions, mixes the music and publishes it to your channel.
-              You assign, amend, approve. One credit, about six minutes.
-            </p>
-            <div className="mt-[34px] flex flex-wrap items-center gap-3">
-              <button onClick={() => setSignInOpen(true)} style={monoBtn(true)}>START FREE · 3 RENDERS</button>
-              <a href="#formats" style={{ ...monoBtn(false), display: "inline-block", textDecoration: "none", color: T.body }}>SEE THE NINE FORMATS</a>
-            </div>
-            <p style={{ ...micro(T.faint, "0.06em"), fontSize: 11, margin: "18px 0 0" }}>NO CARD · GOOGLE SIGN-IN · SCRIPT-ONLY MODE COSTS NOTHING</p>
+      {/* Nav */}
+      <nav className="sticky top-0 z-50 border-b border-white/5 bg-zinc-950/70 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-6 py-3.5 max-w-6xl mx-auto">
+          <div className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static brand asset */}
+            <img
+              src="/brand/kliptos-logo-2k.jpeg"
+              alt="Kliptos"
+              className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow-[0_0_18px_rgba(139,92,246,0.45)]"
+            />
+            <span className="font-bold text-lg tracking-tight">Kliptos</span>
           </div>
+          <div className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+            <a href="#how" className="hover:text-white transition-colors">How it works</a>
+            <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/sign-in" className="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white transition-colors">
+              Log in
+            </Link>
+            <Link
+              href="/sign-in"
+              className="px-4 py-2 text-sm font-semibold bg-white text-zinc-950 hover:bg-zinc-200 rounded-full transition-colors"
+            >
+              Start free
+            </Link>
+          </div>
+        </div>
+      </nav>
 
-          {/* Desk preview */}
-          <div style={{ ...panel, borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ height: 30, background: T.head, borderBottom: `1px solid ${T.rule}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", ...micro(T.dim, "0.1em"), fontSize: 9 }}>
-              <span style={{ display: "flex", gap: 14 }}><span style={{ color: T.text }}>DESK</span><span>LINE 2</span><span>VAULT</span></span>
-              <span style={{ display: "flex", gap: 14 }}><span style={{ color: T.working }}>1 WORKING</span><span style={{ color: T.ready }}>1 AWAITING YOU</span><span style={{ color: T.text }}>14 CR</span></span>
+      <main className="relative z-10">
+        {/* Hero */}
+        <section className="px-6 pt-20 pb-24 max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-[1.2fr_1fr] gap-16 items-center">
+            <div>
+              <motion.div {...fadeUp} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-violet-300 mb-6">
+                <Sparkles className="w-3.5 h-3.5" />
+                Faceless content, minus the 4 hours of editing
+              </motion.div>
+
+              <motion.h1
+                {...fadeUp}
+                className="text-5xl md:text-6xl xl:text-7xl font-bold tracking-tight leading-[1.05] mb-6"
+              >
+                The right trend, into
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400">
+                  the right Short.
+                </span>
+              </motion.h1>
+
+              <motion.p {...fadeUp} className="text-lg md:text-xl text-zinc-400 max-w-xl mb-8 leading-relaxed">
+                Kliptos finds what&apos;s trending in your niche, recommends the format that fits it — story,
+                music-led visual, or carousel — writes it, renders it with captions and voice, and publishes
+                to YouTube. You stay in control of every word.
+              </motion.p>
+
+              <motion.div {...fadeUp} className="flex flex-col sm:flex-row gap-3">
+                <Link
+                  href="/sign-in"
+                  className="group px-7 py-3.5 bg-gradient-to-r from-violet-600 to-blue-600 rounded-full font-semibold text-white shadow-[0_0_28px_rgba(124,58,237,0.35)] hover:shadow-[0_0_40px_rgba(124,58,237,0.55)] transition-all flex items-center justify-center gap-2"
+                >
+                  Create your first short free
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <a
+                  href="#how"
+                  className="px-7 py-3.5 rounded-full font-medium text-zinc-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                >
+                  See how it works
+                  <ChevronDown className="w-4 h-4" />
+                </a>
+              </motion.div>
+
+              <motion.p {...fadeUp} className="text-xs text-zinc-600 mt-5">
+                3 free credits on signup · no credit card · scripts are always free
+              </motion.p>
             </div>
-            <div style={{ padding: 18 }}>
-              <p style={{ margin: "0 0 3px", fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>Five bets for Monday</p>
-              <p style={{ ...micro(T.dim, "0.08em"), fontSize: 9, margin: "0 0 16px" }}>GAMING · TECH &amp; SCIENCE · HARVESTED 08:12 · GOOGLE TRENDS + YOUTUBE</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {[
-                  { n: "01", t: "Apex Legends patch notes revealed", r: "Best format: Gaming Update — covers game patches", s: "▁▂▃▅▇█ +41%", sc: T.ready, hot: true },
-                  { n: "02", t: "Why sleep debt never repays itself", r: "", s: "▁▂▄▅▅▄ +12%", sc: T.dim, hot: false },
-                  { n: "03", t: "शायरी: बारिश और पुरानी यादें", r: "", s: "▁▁▂▄▆▆ +9%", sc: T.dim, hot: false },
-                ].map(b => (
-                  <div key={b.n} style={{ border: `1px solid ${T.rule}`, borderLeft: b.hot ? `2px solid ${T.signal}` : `1px solid ${T.rule}`, borderRadius: 7, background: T.bg, padding: b.hot ? "12px 14px" : "11px 14px", display: "grid", gridTemplateColumns: "22px 1fr 96px 78px", gap: 12, alignItems: "center" }}>
-                    <span style={{ fontFamily: mono, fontSize: b.hot ? 13 : 11, color: b.hot ? T.signal : T.faint }}>{b.n}</span>
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: b.hot ? 15 : 14, fontWeight: b.hot ? 600 : 400 }}>{b.t}</span>
-                      {b.r && <span style={{ display: "block", marginTop: 3, fontSize: 11.5, color: T.dim }}>{b.r}</span>}
-                    </span>
-                    <span className="hidden sm:block" style={{ fontFamily: mono, fontSize: 10, color: b.sc }}>{b.s}</span>
-                    <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.06em", background: b.hot ? T.signal : "transparent", color: b.hot ? T.bg : T.dim, border: b.hot ? "none" : `1px solid ${T.strong}`, padding: b.hot ? "6px 8px" : "5px 8px", textAlign: "center", borderRadius: 5 }}>ASSIGN</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 14, borderTop: `1px solid ${T.rule}`, paddingTop: 14 }}>
-                <p style={{ ...micro(T.dim, "0.1em"), fontSize: 9, margin: "0 0 8px" }}>THE LINE</p>
-                <div style={{ border: `1px solid ${T.rule}`, borderLeft: `2px solid ${T.working}`, borderRadius: 7, background: T.bg, padding: "10px 12px" }}>
-                  <p style={{ margin: "0 0 5px", fontSize: 12.5, fontWeight: 500 }}>Apex Legends patch notes</p>
-                  <p style={{ ...micro(T.working, "0.06em"), fontSize: 9, margin: "0 0 7px" }}>VISUALS · 47%</p>
-                  <span style={{ display: "flex", gap: 2 }}>
-                    {[T.ready, T.ready, T.working, T.rule, T.rule, T.rule].map((c, i) => (
-                      <span key={i} style={{ flex: 1, height: 3, display: "block", background: c }} />
-                    ))}
+
+            {/* Phone playing a REAL Kliptos render — no mockup */}
+            <motion.div
+              initial={{ opacity: 0, y: 40, rotate: 2 }}
+              animate={{ opacity: 1, y: 0, rotate: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="relative mx-auto w-[270px]"
+            >
+              <div className="absolute -inset-8 bg-gradient-to-tr from-violet-600/30 to-blue-600/20 blur-3xl rounded-full" aria-hidden />
+              <div className="relative aspect-[9/16] rounded-[2.6rem] border-[6px] border-zinc-800 bg-zinc-900 overflow-hidden shadow-2xl">
+                <video
+                  src="/demos/demo-reddit.mp4"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute bottom-4 inset-x-4 z-10 flex items-center gap-2">
+                  <span className="px-2 py-1 rounded-md bg-emerald-400/15 border border-emerald-400/25 text-emerald-300 text-[10px] font-semibold backdrop-blur-sm">
+                    ✓ Made by Kliptos — untouched
                   </span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </section>
 
-        {/* Demo reels — real renders */}
-        <div style={{ borderTop: `1px solid ${T.rule}` }} className="py-12 lg:py-14">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <h2 style={{ margin: "0 0 8px", fontSize: 40, letterSpacing: "-0.028em", fontWeight: 600 }} className="!text-3xl sm:!text-[40px]">Every short here was made by Kliptos.</h2>
-              <p style={{ margin: 0, maxWidth: "64ch", fontSize: 16, lineHeight: 1.55, color: T.dim }}>Same pipeline, three different formats. Nothing was touched in an editor afterwards.</p>
-            </div>
-            <p style={{ ...micro(T.faint), margin: 0, flexShrink: 0 }}>UNMUTE TO HEAR THE VOICE</p>
-          </div>
-          <div className="grid gap-3.5 sm:grid-cols-3">
-            {DEMOS.map(d => (
-              <div key={d.key} style={{ ...panel, borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ position: "relative", width: "100%", aspectRatio: "9/16", background: T.head }}>
-                  <video key={`${d.key}-${unmuted === d.key}`} src={d.src} autoPlay muted={unmuted !== d.key} loop playsInline style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  <span style={{ position: "absolute", left: 10, top: 10, ...micro(T.body, "0.08em"), fontSize: 9, background: "#0A0B10b3", padding: "4px 7px", borderRadius: 4 }}>{d.code}</span>
-                  <button onClick={() => setUnmuted(unmuted === d.key ? null : d.key)} style={{ position: "absolute", right: 10, bottom: 10, background: "#0A0B10cc", border: `1px solid ${T.strong}`, color: T.body, fontFamily: mono, fontSize: 9, letterSpacing: "0.06em", padding: "6px 9px", cursor: "pointer", borderRadius: 6 }}>
-                    {unmuted === d.key ? "MUTE" : "UNMUTE"}
-                  </button>
-                </div>
-                <div style={{ padding: "14px 16px" }}>
-                  <p style={{ margin: "0 0 4px", fontSize: 15.5, fontWeight: 600 }}>{d.label}</p>
-                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: T.dim }}>{d.desc}</p>
-                </div>
+        {/* Honest capability strip */}
+        <section className="border-y border-white/5 bg-white/[0.02]">
+          <div className="max-w-6xl mx-auto px-6 py-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            {[
+              ["4", "ways to create — video, visual, images, script"],
+              ["2", "live trend sources, clustered by niche"],
+              ["60s", "from trending topic to editable script"],
+              ["1-click", "publish & schedule to YouTube"],
+            ].map(([stat, label]) => (
+              <div key={label}>
+                <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-blue-400">{stat}</p>
+                <p className="text-xs text-zinc-500 mt-1">{label}</p>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Pipeline stages */}
-        <div style={{ borderTop: `1px solid ${T.rule}` }} className="py-12">
-          <p style={{ ...micro(T.dim, "0.14em"), margin: "0 0 22px" }}>WHAT THE MACHINE ACTUALLY DOES, AND WHAT IT REPORTS WHILE DOING IT</p>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-            {STAGES.map(s => (
-              <div key={s.name} style={{ ...panel, padding: "16px 15px" }}>
-                <p style={{ ...micro(s.name === "READY" ? T.ready : T.dim), margin: "0 0 10px" }}>{s.name}</p>
-                <p style={{ margin: "0 0 8px", fontFamily: mono, fontSize: 15, color: s.name === "READY" ? T.ready : T.text }}>{s.at}</p>
-                <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: T.dim }}>{s.note}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Formats */}
-        <div id="formats" style={{ borderTop: `1px solid ${T.rule}` }} className="scroll-mt-10 py-14">
-          <div className="mb-[26px]">
-            <h2 style={{ margin: "0 0 8px", letterSpacing: "-0.028em", fontWeight: 600 }} className="text-3xl sm:text-[40px]">Nine formats. A format is a recipe, not a filter.</h2>
-            <p style={{ margin: 0, maxWidth: "72ch", fontSize: 16, lineHeight: 1.55, color: T.dim }}>
-              Each one changes the script rules, the footage rules, the caption look, the pacing and the music — because a
-              patch-notes short and a shayari are not the same film with a different font. The trend picks the format for
-              you; you can override it.
+        {/* Format demos — real renders, straight out of the pipeline */}
+        <section className="px-6 py-24 max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">Every video here was made by Kliptos.</h2>
+            <p className="text-zinc-400 max-w-xl mx-auto">
+              Different trends need different formats. Pick one — script, visuals, captions, pacing and music are all part of the recipe.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {FORMATS.map(f => (
-              <div key={f.label} style={{ ...panel, padding: "18px 20px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-                  <p style={{ margin: 0, fontSize: 17, fontWeight: 600, letterSpacing: "-0.015em" }}>{f.label}</p>
-                  <p style={{ margin: 0, ...micro(CODE_COLORS[f.code], "0.08em"), fontSize: 9, border: `1px solid ${CODE_COLORS[f.code]}55`, borderRadius: 5, padding: "4px 6px" }}>{f.code}</p>
+          <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              { src: "/demos/demo-reddit.mp4", label: "👽 Reddit Story", desc: "First-person storytime over satisfying footage" },
+              { src: "/demos/demo-chat.mp4", label: "💬 Fake Text Convo", desc: "A chat escalates in bubbles with typing beats" },
+              { src: "/demos/demo-story.mp4", label: "🎬 Viral Story", desc: "Hook-driven narration with word-synced captions" },
+            ].map(d => (
+              <motion.div
+                key={d.src}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                className="text-center"
+              >
+                <div className="relative aspect-[9/16] rounded-[2rem] border-[5px] border-zinc-800 bg-zinc-900 overflow-hidden shadow-xl mb-4 mx-auto max-w-[220px]">
+                  <video src={d.src} autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover" />
                 </div>
-                <p style={{ margin: "0 0 10px", fontSize: 13.5, lineHeight: 1.5, color: T.body }}>{f.desc}</p>
-                <p style={{ margin: 0, fontFamily: mono, fontSize: 10.5, lineHeight: 1.6, letterSpacing: "0.02em", color: T.faint }}>USE FOR {f.when.toUpperCase()}</p>
-              </div>
+                <p className="font-semibold">{d.label}</p>
+                <p className="text-xs text-zinc-500 mt-1">{d.desc}</p>
+              </motion.div>
             ))}
           </div>
-          <p style={{ ...micro(T.faint, "0.06em"), fontSize: 10.5, margin: "16px 0 0" }}>NR NARRATED · VS ON-SCREEN TEXT, NO VOICE · TX CHAT BUBBLES · IM PHOTO CAROUSEL — ALL EDITABLE BEFORE RENDER</p>
-        </div>
+        </section>
 
-        {/* Clips + India-first */}
-        <div style={{ borderTop: `1px solid ${T.rule}` }} className="grid gap-12 py-14 lg:grid-cols-2">
-          <div>
-            <p style={{ ...micro(T.signal, "0.14em"), margin: "0 0 16px" }}>IF YOU ALREADY RECORD</p>
-            <h2 style={{ margin: "0 0 14px", fontSize: 34, letterSpacing: "-0.025em", fontWeight: 600, maxWidth: "22ch" }}>Drop the episode. It finds the moments.</h2>
-            <p style={{ margin: "0 0 18px", maxWidth: "56ch", fontSize: 15.5, lineHeight: 1.6, color: T.body }}>
-              Upload a podcast, stream or talking-head video up to 500MB. It transcribes the whole thing, mines the
-              moments that stand alone, and tells you why each one works. Pick one and it renders a captioned vertical
-              cut from your own footage — zero rights ambiguity.
-            </p>
-            <div style={{ ...panel, padding: "16px 18px" }}>
-              <p style={{ ...micro(T.dim, "0.08em"), margin: "0 0 12px" }}>EP-14-HIRING-RANT.MP4 · 48:12 · 4 MOMENTS FOUND</p>
-              <div style={{ position: "relative", height: 34, border: `1px solid ${T.rule}`, borderRadius: 6, background: T.bg, backgroundImage: `repeating-linear-gradient(90deg, ${T.head} 0 1px, transparent 1px 7px)`, marginBottom: 12 }}>
-                {[["8%", "9%"], ["31%", "7%"], ["56%", "11%"], ["81%", "6%"]].map(([l, w]) => (
-                  <span key={l} style={{ position: "absolute", left: l, top: 0, bottom: 0, width: w, background: `${T.signal}33`, borderLeft: `2px solid ${T.signal}`, display: "block" }} />
-                ))}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 12, alignItems: "center" }}>
-                <span style={{ fontFamily: mono, fontSize: 11, color: T.signal }}>04:02–04:38</span>
-                <span style={{ fontSize: 13, color: T.body }}>“Nobody reads the résumé” — strong hook, complete thought</span>
-              </div>
-            </div>
+        {/* How it works */}
+        <section id="how" className="px-6 py-24 max-w-6xl mx-auto scroll-mt-20">
+          <motion.div {...fadeUp} className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Idea to published in four steps</h2>
+            <p className="text-zinc-400 max-w-xl mx-auto">Every step is editable — automation that never takes the wheel from you.</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-4 gap-5">
+            {[
+              { icon: TrendingUp, step: "01", title: "Pick a trend", desc: "Live topics from Google Trends & YouTube, clustered by your niche — gaming, tech, education and more." },
+              { icon: PenTool, step: "02", title: "Shape the script", desc: "Choose a style — story, news, explainer, commentary — or paste your own script. Edit every line." },
+              { icon: Clapperboard, step: "03", title: "Render the short", desc: "Neural voice, matched footage, word-synced captions and music. 9:16, ready in minutes." },
+              { icon: UploadCloud, step: "04", title: "Publish or schedule", desc: "Straight to YouTube with editable AI title, description, tags and category. Instagram next." },
+            ].map((s, i) => (
+              <motion.div
+                key={s.step}
+                {...fadeUp}
+                transition={{ duration: 0.5, delay: i * 0.08 }}
+                className="relative p-6 rounded-2xl bg-zinc-900/80 border border-white/5 hover:border-violet-500/30 transition-colors group"
+              >
+                <span className="absolute top-5 right-6 text-4xl font-black text-white/5 group-hover:text-violet-500/15 transition-colors">{s.step}</span>
+                <div className="w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-4">
+                  <s.icon className="w-5 h-5 text-violet-400" />
+                </div>
+                <h3 className="font-semibold mb-2">{s.title}</h3>
+                <p className="text-sm text-zinc-400 leading-relaxed">{s.desc}</p>
+              </motion.div>
+            ))}
           </div>
-          <div>
-            <p style={{ ...micro(T.signal, "0.14em"), margin: "0 0 16px" }}>भारत पहले</p>
-            <h2 style={{ margin: "0 0 14px", fontSize: 34, letterSpacing: "-0.025em", fontWeight: 600, maxWidth: "24ch" }}>Hindi is a first-class language here, not a caption setting.</h2>
-            <p style={{ margin: "0 0 18px", maxWidth: "56ch", fontSize: 15.5, lineHeight: 1.6, color: T.body }}>
-              Madhur and Swara narrate in Hindi. Scripts are written in Hindi, not translated into it. Shayari is a real
-              format with its own pacing — roughly 1.2 words a second, so the couplets breathe. Pricing is in rupees, with UPI.
-            </p>
-            <div style={{ ...panel, padding: "18px 20px" }}>
-              <p style={{ margin: "0 0 12px", fontSize: 19, lineHeight: 1.7, color: T.text }}>बारिश की हर बूँद में<br />एक पुरानी याद है…</p>
-              <p style={{ ...micro(T.faint, "0.06em"), margin: 0 }}>SHAYARI / POETRY · MADHUR · MINIMAL BOX CAPTIONS · SLOW PACING</p>
-            </div>
+        </section>
+
+        {/* Features */}
+        <section id="features" className="px-6 py-24 max-w-6xl mx-auto scroll-mt-20">
+          <motion.div {...fadeUp} className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Not just narrated stories</h2>
+            <p className="text-zinc-400 max-w-xl mx-auto">Most tools make one kind of video. Kliptos makes what the trend actually needs.</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <Feature icon={Mic} color="text-violet-400" title="Narrated shorts" desc="Hook-driven scripts spoken by neural voices over footage matched to every sentence." />
+            <Feature icon={Music} color="text-blue-400" title="Visual & music shorts" desc="No narration — punchy on-screen text and music-forward edits, ready for trending audio." />
+            <Feature icon={Captions} color="text-fuchsia-400" title="Word-synced captions" desc="Bold, wrapped, perfectly timed captions burned in — the style short-form viewers expect." />
+            <Feature icon={Globe2} color="text-emerald-400" title="Niche trend radar" desc="Google Trends + YouTube charts, clustered into your niche so you never scroll irrelevant noise." />
+            <Feature icon={KeyRound} color="text-amber-400" title="Bring your own AI" desc="Plug in your own Gemini or OpenAI key and generate on your quota. Choose the model per script." />
+            <Feature icon={UploadCloud} color="text-rose-400" title="Publish & schedule" desc="YouTube today — with editable metadata before every upload. Instagram Reels shipping next." />
           </div>
-        </div>
+        </section>
 
         {/* Pricing */}
-        <div style={{ borderTop: `1px solid ${T.rule}` }} className="py-14">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <h2 style={{ margin: "0 0 8px", letterSpacing: "-0.028em", fontWeight: 600 }} className="text-3xl sm:text-[40px]">One credit is one short.</h2>
-              <p style={{ margin: 0, maxWidth: "64ch", fontSize: 16, lineHeight: 1.55, color: T.dim }}>
-                Failed renders are refunded automatically. Script-only mode never costs a credit. Bring your own OpenAI
-                or Gemini key and pay a reduced platform fee instead.
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              <button onClick={() => setInr(true)} style={pill(inr)}>₹ India</button>
-              <button onClick={() => setInr(false)} style={pill(!inr)}>$ Global</button>
-            </div>
+        <section id="pricing" className="px-6 py-24 max-w-6xl mx-auto scroll-mt-20">
+          <motion.div {...fadeUp} className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Honest, launch-phase pricing</h2>
+            <p className="text-zinc-400">Credits are a currency — heavier engines cost more, scripts cost nothing.</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6 items-start">
+            <PriceCard
+              title="Free"
+              price="$0"
+              inr="₹0"
+              credits="3 credits to start"
+              features={[
+                "All 4 creation types",
+                "Free scripts — 5 every day",
+                "Stock footage & photo engines",
+                "Captions + music included",
+                "Manual YouTube publish",
+              ]}
+              cta="Start free"
+            />
+            <PriceCard
+              popular
+              title="Pro"
+              price="$19"
+              inr="₹499"
+              credits="50 credits / month"
+              features={[
+                "Everything in Free",
+                "Publish & schedule to YouTube",
+                "Model choice + custom instructions",
+                "Bring-your-own API keys",
+                "Priority render queue",
+              ]}
+              cta="Coming at launch"
+              disabled
+            />
+            <PriceCard
+              title="Studio"
+              price="$49"
+              inr="₹1,299"
+              credits="150 credits / month"
+              features={[
+                "Everything in Pro",
+                "Premium AI video engines (soon)",
+                "Multiple channels",
+                "Bulk creation queue",
+                "Early access to new platforms",
+              ]}
+              cta="Coming at launch"
+              disabled
+            />
           </div>
-          <div className="grid gap-2 md:grid-cols-3">
-            {plans.map(p => (
-              <div key={p.name} style={{ border: `1px solid ${p.hot ? T.signal : T.rule}`, borderRadius: 9, background: T.panel, padding: "22px 24px" }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
-                  <p style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{p.name}</p>
-                  <p style={{ margin: 0, fontFamily: mono, fontSize: 22, color: p.hot ? T.signal : T.body }}>{p.price}</p>
-                </div>
-                <p style={{ ...micro(T.dim, "0.06em"), fontSize: 11, margin: "0 0 16px" }}>{p.credits}</p>
-                <p style={{ margin: "0 0 18px", fontSize: 13.5, lineHeight: 1.6, color: T.body }}>{p.includes}</p>
-                <button onClick={() => setSignInOpen(true)} style={{ width: "100%", background: p.hot ? T.signal : "transparent", border: `1px solid ${p.hot ? T.signal : T.strong}`, color: p.hot ? T.bg : T.body, fontFamily: mono, fontSize: 10.5, letterSpacing: "0.06em", padding: 11, cursor: "pointer", borderRadius: 6 }}>{p.cta}</button>
-              </div>
-            ))}
-          </div>
-          <p style={{ ...micro(T.faint, "0.06em"), fontSize: 10.5, margin: "14px 0 0" }}>
-            {inr ? "TOP-UP ₹149 / 10 CREDITS" : "TOP-UP $5 / 10 CREDITS"} · STOCK RENDER 1 CR · AI IMAGES 2 CR · UPI, CARDS AND GST INVOICING IN INDIA
+          <p className="text-center text-xs text-zinc-600 mt-8">
+            Paid plans open at public launch — early testers get grandfathered pricing. India pricing billed in INR via UPI.
           </p>
-        </div>
+        </section>
 
-        {/* What it is not */}
-        <div style={{ borderTop: `1px solid ${T.rule}` }} className="pb-[72px] pt-14">
-          <h2 style={{ margin: "0 0 22px", letterSpacing: "-0.028em", fontWeight: 600 }} className="text-3xl sm:text-[40px]">What it is not.</h2>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {NOTS.map(n => (
-              <div key={n.t} style={{ ...panel, padding: "20px 22px" }}>
-                <p style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 600 }}>{n.t}</p>
-                <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: T.dim }}>{n.d}</p>
-              </div>
+        {/* FAQ */}
+        <section id="faq" className="px-6 py-24 max-w-3xl mx-auto scroll-mt-20">
+          <motion.div {...fadeUp} className="text-center mb-12">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Questions, answered</h2>
+          </motion.div>
+          <div className="space-y-3">
+            {FAQS.map((f, i) => (
+              <FaqItem key={i} q={f.q} a={f.a} />
             ))}
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Footer */}
-      <div style={{ borderTop: `1px solid ${T.rule}`, background: T.panel }}>
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-start justify-between gap-10 px-4 py-9 sm:px-6">
-          <div>
-            <p style={{ ...micro(T.text, "0.12em"), margin: "0 0 10px" }}>KLIPTOS</p>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: T.dim }}>
-              Trending topic → script → captioned vertical short → your channel.<br />Built for one-person channels in India and the US.
+        {/* Final CTA */}
+        <section className="px-6 pb-28 pt-8 max-w-4xl mx-auto text-center">
+          <motion.div
+            {...fadeUp}
+            className="relative rounded-3xl border border-violet-500/20 bg-gradient-to-b from-violet-600/15 to-blue-600/10 p-12 overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.25),transparent_60%)]" aria-hidden />
+            <h2 className="relative text-3xl md:text-4xl font-bold tracking-tight mb-4">
+              Your niche is trending right now.
+            </h2>
+            <p className="relative text-zinc-400 mb-8 max-w-md mx-auto">
+              Three free credits. A script in a minute. A published short before your coffee cools.
             </p>
+            <Link
+              href="/sign-in"
+              className="relative inline-flex items-center gap-2 px-8 py-4 bg-white text-zinc-950 rounded-full font-semibold hover:bg-zinc-200 transition-colors"
+            >
+              Start creating free <ArrowRight className="w-4 h-4" />
+            </Link>
+          </motion.div>
+        </section>
+      </main>
+
+      <footer className="border-t border-white/5 bg-black/40 relative z-10">
+        <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static brand asset */}
+            <img src="/brand/kliptos-logo-2k.jpeg" alt="Kliptos" className="w-7 h-7 rounded-lg object-cover border border-white/10" />
+            <span className="font-semibold">Kliptos</span>
           </div>
-          <div className="flex flex-wrap gap-12">
-            <div>
-              <p style={{ ...micro(T.faint, "0.12em"), margin: "0 0 10px" }}>PRODUCT</p>
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 2, color: T.body }}>Formats<br />Clips from your footage<br />Standing orders</p>
-            </div>
-            <div>
-              <p style={{ ...micro(T.faint, "0.12em"), margin: "0 0 10px" }}>LEGAL</p>
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 2 }}>
-                <Link href="/privacy" style={{ color: T.signal }}>Privacy</Link><br />
-                <Link href="/terms" style={{ color: T.signal }}>Terms</Link><br />
-                <Link href="/refunds" style={{ color: T.signal }}>Refunds</Link>
-              </p>
-            </div>
-            <div>
-              <p style={{ ...micro(T.faint, "0.12em"), margin: "0 0 10px" }}>START</p>
-              <button onClick={() => setSignInOpen(true)} style={{ background: T.signal, border: "none", color: T.bg, fontFamily: mono, fontSize: 10, letterSpacing: "0.06em", padding: "9px 14px", cursor: "pointer", borderRadius: 6 }}>SIGN IN WITH GOOGLE</button>
-            </div>
+          <p className="text-zinc-600 text-sm">AI-assisted shorts, human-approved. © 2026 Kliptos.</p>
+          <div className="flex gap-6 text-sm text-zinc-500 flex-wrap justify-center">
+            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/refunds" className="hover:text-white transition-colors">Refunds</Link>
+            <Link href="/sign-in" className="hover:text-white transition-colors">Sign in</Link>
           </div>
         </div>
-      </div>
+      </footer>
 
-      {/* Sign-in modal */}
-      {signInOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "#0A0B10d9", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div className="grid w-[900px] max-w-full lg:grid-cols-2" style={{ border: `1px solid ${T.rule}`, borderRadius: 12, background: T.panel, overflow: "hidden" }}>
-            <div className="lg:border-r" style={{ padding: "38px 36px", borderColor: T.rule }}>
-              <p style={{ ...micro(T.signal, "0.14em"), margin: "0 0 22px" }}>SIGN IN</p>
-              <p style={{ margin: "0 0 10px", fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", maxWidth: "20ch" }}>Your desk is waiting with three free renders.</p>
-              <p style={{ margin: "0 0 28px", fontSize: 14.5, lineHeight: 1.6, color: T.dim }}>
-                Google account only — no password to forget. Publishing permission is asked for separately, later, when you actually publish.
-              </p>
-              <button onClick={doSignIn} disabled={signingIn} style={{ width: "100%", background: signingIn ? "transparent" : T.signal, border: `1px solid ${T.signal}`, color: signingIn ? T.signal : T.bg, fontFamily: mono, fontSize: 12, letterSpacing: "0.06em", padding: 15, cursor: "pointer", borderRadius: 6 }}>
-                {signingIn ? "OPENING GOOGLE…" : "CONTINUE WITH GOOGLE"}
-              </button>
-              <p style={{ margin: "16px 0 0", fontSize: 12.5, lineHeight: 1.6, color: T.faint }}>
-                By signing in you agree to the <Link href="/terms" style={{ color: T.signal }}>Terms</Link> and <Link href="/privacy" style={{ color: T.signal }}>Privacy Policy</Link>.
-              </p>
-              <button onClick={() => setSignInOpen(false)} style={{ marginTop: 26, background: "transparent", border: `1px solid ${T.strong}`, color: T.dim, fontFamily: mono, fontSize: 10, letterSpacing: "0.06em", padding: "8px 12px", cursor: "pointer", borderRadius: 6 }}>BACK TO THE FRONT PAGE</button>
-            </div>
-            <div className="hidden lg:block" style={{ padding: "38px 36px", background: T.bg }}>
-              <p style={{ ...micro(T.dim, "0.14em"), margin: "0 0 18px" }}>WHAT HAPPENS NEXT</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {[
-                  "Pick your niches. The harvester starts reading Google Trends and YouTube for you.",
-                  "Your desk opens with five ranked bets and a recommended format for each.",
-                  "Assign one. Amend the lines you don't like. Approve the render.",
-                  "Connect a channel only when you're ready to publish — upload permission, nothing else.",
-                ].map((step, i) => (
-                  <div key={i} style={{ display: "grid", gridTemplateColumns: "26px 1fr", gap: 12 }}>
-                    <span style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>{`0${i + 1}`}</span>
-                    <span style={{ fontSize: 13.5, lineHeight: 1.55, color: T.body }}>{step}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 26, border: `1px solid ${T.working}40`, borderRadius: 8, background: `${T.working}0F`, padding: "14px 16px" }}>
-                <p style={{ ...micro(T.working, "0.08em"), margin: "0 0 6px" }}>ONE HONEST WARNING</p>
-                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: T.body }}>
-                  Google may show an “unverified app” notice on the publishing step while our upload verification is in
-                  review. Your footage and credentials stay yours regardless.
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* Structured data for search engines */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "Kliptos",
+              applicationCategory: "MultimediaApplication",
+              operatingSystem: "Web",
+              description:
+                "Kliptos finds trending topics in your niche, writes the script with AI, renders a captioned 9:16 short with voice and music, and publishes it to YouTube.",
+              offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              mainEntity: FAQS.map(f => ({
+                "@type": "Question",
+                name: f.q,
+                acceptedAnswer: { "@type": "Answer", text: f.a },
+              })),
+            },
+          ]),
+        }}
+      />
+    </div>
+  )
+}
+
+function Feature({ icon: Icon, color, title, desc }: {
+  icon: React.ElementType; color: string; title: string; desc: string
+}) {
+  return (
+    <motion.div
+      {...fadeUp}
+      className="p-6 rounded-2xl bg-zinc-900/80 border border-white/5 hover:border-white/15 hover:-translate-y-0.5 transition-all"
+    >
+      <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+        <Icon className={`w-5 h-5 ${color}`} />
+      </div>
+      <h3 className="font-semibold mb-2">{title}</h3>
+      <p className="text-sm text-zinc-400 leading-relaxed">{desc}</p>
+    </motion.div>
+  )
+}
+
+function PriceCard({ title, price, inr, credits, features, cta, popular, disabled }: {
+  title: string; price: string; inr: string; credits: string
+  features: string[]; cta: string; popular?: boolean; disabled?: boolean
+}) {
+  return (
+    <motion.div
+      {...fadeUp}
+      className={`relative p-8 rounded-3xl flex flex-col ${
+        popular
+          ? "bg-gradient-to-b from-violet-600/15 to-blue-600/10 border border-violet-500/40 shadow-[0_0_40px_rgba(139,92,246,0.12)] md:-translate-y-3"
+          : "bg-zinc-900/80 border border-white/5"
+      }`}
+    >
+      {popular && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-violet-500 to-blue-500 rounded-full text-[11px] font-bold tracking-wider">
+          MOST POPULAR
         </div>
       )}
+      <h3 className="text-lg font-semibold text-zinc-300 mb-3">{title}</h3>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className="text-4xl font-bold">{price}</span>
+        <span className="text-zinc-500 text-sm">/mo · {inr} in India</span>
+      </div>
+      <p className="text-violet-400 text-sm font-medium mb-6 pb-6 border-b border-white/10">{credits}</p>
+      <ul className="space-y-3.5 mb-8 flex-1">
+        {features.map(f => (
+          <li key={f} className="flex items-start gap-3 text-sm text-zinc-300">
+            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      {disabled ? (
+        <span className="w-full py-3 rounded-xl font-medium text-center text-sm bg-white/5 text-zinc-500 border border-white/10 cursor-default">
+          {cta}
+        </span>
+      ) : (
+        <Link
+          href="/sign-in"
+          className={`w-full py-3 rounded-xl font-semibold text-center text-sm transition-all ${
+            popular
+              ? "bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:shadow-lg hover:shadow-violet-500/25"
+              : "bg-white text-zinc-950 hover:bg-zinc-200"
+          }`}
+        >
+          {cta}
+        </Link>
+      )}
+    </motion.div>
+  )
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-2xl bg-zinc-900/80 border border-white/5 overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left"
+      >
+        <span className="font-medium text-sm md:text-base">{q}</span>
+        <ChevronDown className={`w-4 h-4 text-zinc-500 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <p className="px-6 pb-5 text-sm text-zinc-400 leading-relaxed">{a}</p>}
     </div>
   )
 }
