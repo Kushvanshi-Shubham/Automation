@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Inter, Geist } from "next/font/google"
+import { Inter, Geist, Archivo, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import Providers from "@/components/providers"
@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 const inter = Inter({ subsets: ["latin"] })
+
+// The Desk design system (Claude Design handoff): Archivo for text,
+// JetBrains Mono for the machine-voice micro-labels.
+const archivo = Archivo({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-archivo" })
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-jetbrains" })
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
 
@@ -55,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable, archivo.variable, jetbrains.variable)}>
       {/* suppressHydrationWarning: browser extensions inject attributes into <body> pre-hydration */}
       <body suppressHydrationWarning className={`${inter.className} bg-zinc-950 text-zinc-50 min-h-screen antialiased`}>
         <ThemeProvider
