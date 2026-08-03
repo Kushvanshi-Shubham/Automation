@@ -1,41 +1,43 @@
 /**
- * THE LINE — design tokens (docs/design/01-DIRECTION.md §7).
- * The interface is the factory floor. Color = state, never decoration.
- * Violet appears ONLY on the object being made / the commit action.
+ * Kliptos design tokens — themed via CSS variables (light + dark values in
+ * globals.css). Color = state, never decoration; violet appears only on the
+ * object being made / the commit action.
  */
 export const L = {
-  floor: "#0B0C0E",
-  bench: "#131519",
-  benchRaised: "#1A1D22",
-  rule: "#2A2E35",
-  ruleFaint: "#1E2126",
+  floor: "var(--k-floor)",
+  bench: "var(--k-bench)",
+  benchRaised: "var(--k-bench-raised)",
+  rule: "var(--k-rule)",
+  ruleFaint: "var(--k-rule-faint)",
 
-  ink: "#E8EAED",
-  ash: "#8A8F98",
-  dust: "#565B64",
+  ink: "var(--k-ink)",
+  ash: "var(--k-ash)",
+  dust: "var(--k-dust)",
 
-  make: "#8B5CF6",     // the object / the commit — nowhere else
-  ready: "#3FBF7F",    // awaiting you / live-ok
-  working: "#D9A353",  // tungsten — in flight
-  live: "#58A6FF",     // on air
-  refused: "#D25353",  // the siding
+  make: "var(--k-make)",
+  ready: "var(--k-ready)",
+  working: "var(--k-working)",
+  live: "var(--k-live)",
+  refused: "var(--k-refused)",
 } as const
 
 export const grotesque = "var(--font-archivo), Archivo, system-ui, sans-serif"
 export const mono = "var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace"
 
-/** Motion law: nothing fades — things travel along the line axis. */
+/** Motion law: entrances only, short; nothing blocks navigation. */
 export const MOTION = {
   feedback: 0.12,
-  travel: 0.24,
-  station: 0.48,
+  travel: 0.18,
   ease: [0.32, 0.72, 0.24, 1] as [number, number, number, number],
 }
 
-/** Instrument label — the mono micro-type used across all telemetry. */
+/** Instrument label — mono micro-type, reserved for real telemetry. */
 export const tele = (color: string = L.ash, ls = "0.1em"): React.CSSProperties => ({
   fontFamily: mono,
   fontSize: 10,
   letterSpacing: ls,
   color,
 })
+
+/** Translucent variant of a themed token (CSS var-safe). */
+export const alpha = (color: string, pct: number) => `color-mix(in srgb, ${color} ${pct}%, transparent)`

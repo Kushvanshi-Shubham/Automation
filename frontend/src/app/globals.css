@@ -128,3 +128,35 @@
     @apply font-sans;
   }
 }
+/* ============ KLIPTOS design tokens (light + dark) ============ */
+/* Consumed via src/lib/line/tokens.ts — inline styles read these vars. */
+:root, .light {
+  --k-floor: #F5F5F2;
+  --k-bench: #FFFFFF;
+  --k-bench-raised: #ECECE8;
+  --k-rule: #D9D9D3;
+  --k-rule-faint: #E8E8E3;
+  --k-ink: #16181D;
+  --k-ash: #5B616C;
+  --k-dust: #8C919B;
+  --k-make: #7C3AED;
+  --k-ready: #147A4D;
+  --k-working: #935F12;
+  --k-live: #1D6FD1;
+  --k-refused: #C2333B;
+}
+.dark {
+  --k-floor: #0B0C0E;
+  --k-bench: #131519;
+  --k-bench-raised: #1A1D22;
+  --k-rule: #2A2E35;
+  --k-rule-faint: #1E2126;
+  --k-ink: #E8EAED;
+  --k-ash: #8A8F98;
+  --k-dust: #565B64;
+  --k-make: #8B5CF6;
+  --k-ready: #3FBF7F;
+  --k-working: #D9A353;
+  --k-live: #58A6FF;
+  --k-refused: #D25353;
+}
