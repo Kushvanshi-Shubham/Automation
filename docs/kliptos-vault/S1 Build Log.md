@@ -2,6 +2,14 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-03 — 🤗 Hugging Face: third LLM lane (a23698a) + login incident resolved
+- **Provider chain is now gemini → openai → huggingface** (Llama-3.3-70B via the HF router, OpenAI-compatible endpoint). Each provider retries transient errors internally before falling through — a Gemini 503 + OpenAI quota-out at the same time can no longer stop script generation once any HF key exists.
+- Lenient JSON parsing for open models (code fences / prose stripped); BYO `huggingface` keys end to end: live whoami validation, Fernet at rest, own-key precedence, Settings card ("open models — Llama & more")
+- Platform `HUGGINGFACE_API_KEY` supported but not set yet — provider activates the moment a key exists
+- **Login incident**: NextAuth routes 500ing → root cause was the long-running dev server on a stale `next.config.ts` (we added security headers; config changes never hot-apply). Fix: kill, clear `.next/dev`, restart. RULE: restart the frontend dev server after ANY next.config change. Backend auth + rate limiter verified innocent.
+- Glass polish: stronger ambient glows + faint grid so the backdrop-blur actually reads
+- 121 backend tests green; CI green
+
 ## 2026-08-03 — 🎨 UI revamp pass 1: logo, glass, the product demos itself (8f75d0d)
 - **Logo everywhere**: landing nav, dashboard sidebar, favicon + app icons (Pillow-generated RGBA — ffmpeg's ICO output is rejected by Next's decoder, worth remembering)
 - **The landing hero phone now plays a REAL render** (the Reddit Story from the hardening smoke), badge: "Made by Kliptos — untouched"
