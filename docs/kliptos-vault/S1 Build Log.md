@@ -2,6 +2,15 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-03 — 📜 Legal pages shipped: /terms, /privacy, /refunds (0505ea8)
+Razorpay onboarding requires public policy URLs — done, written for what Kliptos ACTUALLY does:
+- **Terms**: AI-draft/human-publisher responsibility split, credit semantics, YouTube API Services agreement language (+ Google revocation link), Pexels/music licensing, BYO-key terms, liability cap, India/Varanasi jurisdiction
+- **Privacy**: data inventory (tokens encrypted, keys never shown back), **Google Limited Use disclosure** (required for YouTube-scope OAuth verification!), processor list, 30-day deletion, essential-cookies-only, DPDP 2023 alignment + grievance contact
+- **Refunds**: failed renders auto-refund (already true in code), 7-day unused-pack refunds, 48h subscription renewal grace, 5–7 business-day processing — the shape Razorpay expects
+- Footer + sitemap links; shared legal layout with brand header; contact = support@kliptos.app (⚠️ mailbox needs setting up at deploy — domain email via Cloudflare routing is free)
+- ⚠️ OWNER: get a CA/lawyer to review before payments go live; pages are accurate to current behavior but unreviewed
+- CI green
+
 ## 2026-08-03 — 💰 Cost-vs-credit tracking: the "are we making money?" layer (94e6d04)
 - **Usage metering with zero migrations**: monthly Redis counters bump on every Pexels download, TTS segment, Whisper job, and platform-key LLM call (BYO usage deliberately excluded — that's the user's spend)
 - **Honest unit-cost model** (`UNIT_COSTS_USD`): today's marginal cost is $0 on every service except OpenAI (~$0.02/call) — one dict to update when Veo/paid keys land
