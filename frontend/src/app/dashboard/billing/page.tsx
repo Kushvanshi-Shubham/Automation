@@ -1,8 +1,13 @@
 "use client"
 
+/**
+ * Billing — credit balance, ledger, and the owner-only economics panel.
+ * Themed; numbers in mono (real telemetry). All queries unchanged.
+ */
 import { useQuery } from "@tanstack/react-query"
-import { Coins, ReceiptText, TrendingUp } from "lucide-react"
+import { MdOutlineInsights } from "react-icons/md"
 import { fetchApi } from "@/lib/api-client"
+import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
 
 interface LedgerEntry {
   id: string
@@ -29,6 +34,8 @@ const TYPE_LABELS: Record<string, string> = {
   refund: "Refund",
 }
 
+const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
+
 export default function BillingPage() {
   const { data: credits } = useQuery<{ balance: number; plan: string }>({
     queryKey: ["credits-page"],
@@ -45,72 +52,62 @@ export default function BillingPage() {
     retry: false,
   })
 
-  return (
-    <div className="space-y-6 pb-12 max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Billing & Credits</h1>
-        <p className="text-zinc-400 mt-1">Every render costs credits — here&apos;s where they went.</p>
-      </div>
+  const renders = (ledger ?? []).filter(l => l.type === "video_debit").length
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="p-6 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10">
-          <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
-            <Coins className="w-4 h-4 text-violet-400" /> Credit balance
-          </div>
-          <p className="text-4xl font-bold">{credits?.balance ?? "…"}</p>
-          <p className="text-xs text-zinc-500 mt-1 capitalize">{credits?.plan ?? ""} plan · packs arrive with billing</p>
-        </div>
-        <div className="p-6 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10">
-          <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
-            <ReceiptText className="w-4 h-4 text-blue-400" /> Recent renders
-          </div>
-          <p className="text-4xl font-bold">
-            {(ledger ?? []).filter(l => l.type === "video_debit").length}
-          </p>
-          <p className="text-xs text-zinc-500 mt-1">on your latest ledger entries</p>
-        </div>
+  return (
+    <div style={{ maxWidth: 860, fontFamily: grotesque, display: "flex", flexDirection: "column", gap: 18, paddingBottom: 24 }}>
+      <div>
+        <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}>Billing</h1>
+        <p style={{ margin: 0, fontSize: 14, color: L.ash }}>
+          <span style={{ fontFamily: mono, color: L.ink }}>{credits?.balance ?? "…"}</span> credits left
+          {" · "}<span style={{ textTransform: "capitalize" }}>{credits?.plan ?? "free"}</span> plan
+          {" · "}<span style={{ fontFamily: mono, color: L.ink }}>{renders}</span> renders on the recent ledger
+          {" · "}credit packs arrive with payments
+        </p>
       </div>
 
       {/* Owner-only platform economics */}
       {eco && (
-        <div className="p-6 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-violet-500/20">
-          <div className="flex items-center gap-2 text-sm font-semibold text-violet-300 mb-4">
-            <TrendingUp className="w-4 h-4" /> Platform economics — {eco.month} (owner view)
+        <div style={{ ...card, borderColor: alpha(L.make, 35), padding: 18 }}>
+          <p style={{ margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 650, color: L.make }}>
+            <MdOutlineInsights size={17} /> Platform economics — {eco.month} (owner view)
+          </p>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4" style={{ marginBottom: 14 }}>
+            <EcoStat label="Credits net spent" value={String(eco.credits.net_spent)} />
+            <EcoStat label="Real API cost" value={`$${eco.estimated_cost_usd.total.toFixed(2)}`} />
+            <EcoStat label="Implied revenue" value={`$${eco.implied_revenue_usd.toFixed(2)}`} sub={`at $${eco.credit_price_usd} per credit`} />
+            <EcoStat label="Implied margin" value={`$${eco.implied_margin_usd.toFixed(2)}`}
+              color={eco.implied_margin_usd >= 0 ? L.ready : L.refused} />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <Stat label="Credits net spent" value={String(eco.credits.net_spent)} />
-            <Stat label="Real API cost" value={`$${eco.estimated_cost_usd.total.toFixed(2)}`} />
-            <Stat label="Implied revenue" value={`$${eco.implied_revenue_usd.toFixed(2)}`} sub={`@ $${eco.credit_price_usd}/credit`} />
-            <Stat
-              label="Implied margin"
-              value={`$${eco.implied_margin_usd.toFixed(2)}`}
-              accent={eco.implied_margin_usd >= 0 ? "text-emerald-400" : "text-rose-400"}
-            />
-          </div>
-          <div className="text-xs text-zinc-500 space-y-1">
-            <p>
-              Usage: {Object.entries(eco.usage).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}`).join(" · ") || "none yet this month"}
-            </p>
-            <p>{eco.note}</p>
-          </div>
+          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: L.dust }}>
+            Usage: {Object.entries(eco.usage).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}`).join(" · ") || "none yet this month"}
+            <br />{eco.note}
+          </p>
         </div>
       )}
 
       {/* Ledger */}
-      <div className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
-        <p className="px-5 py-3.5 text-sm font-semibold border-b border-white/5">Recent activity</p>
+      <div style={{ ...card, overflow: "hidden" }}>
+        <p style={{ margin: 0, padding: "13px 18px", borderBottom: `1px solid ${L.ruleFaint}`, fontSize: 14.5, fontWeight: 650 }}>
+          Recent activity
+        </p>
         {(ledger ?? []).length === 0 && (
-          <p className="px-5 py-6 text-sm text-zinc-500">No activity yet — create your first short.</p>
+          <p style={{ margin: 0, padding: "20px 18px", fontSize: 13.5, color: L.ash }}>
+            No activity yet — every render, refund, and credit grant shows up here.
+          </p>
         )}
-        {(ledger ?? []).map(entry => (
-          <div key={entry.id} className="px-5 py-3 flex items-center justify-between border-t border-white/5 first:border-t-0">
-            <div className="min-w-0">
-              <p className="text-sm truncate">{entry.description || TYPE_LABELS[entry.type] || entry.type}</p>
-              <p className="text-xs text-zinc-500">
+        {(ledger ?? []).map((entry, i) => (
+          <div key={entry.id}
+            style={{ padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderTop: i > 0 ? `1px solid ${L.ruleFaint}` : "none" }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 13.5, color: L.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {entry.description || TYPE_LABELS[entry.type] || entry.type}
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: 11.5, color: L.dust }}>
                 {entry.created_at ? new Date(entry.created_at).toLocaleString() : ""}
               </p>
             </div>
-            <span className={`text-sm font-semibold flex-shrink-0 ${entry.amount > 0 ? "text-emerald-400" : "text-zinc-300"}`}>
+            <span style={{ flexShrink: 0, fontFamily: mono, fontSize: 13.5, fontWeight: 600, color: entry.amount > 0 ? L.ready : L.ink }}>
               {entry.amount > 0 ? `+${entry.amount}` : entry.amount}
             </span>
           </div>
@@ -120,12 +117,12 @@ export default function BillingPage() {
   )
 }
 
-function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+function EcoStat({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div>
-      <p className="text-xs text-zinc-500 mb-1">{label}</p>
-      <p className={`text-xl font-bold ${accent ?? ""}`}>{value}</p>
-      {sub && <p className="text-[10px] text-zinc-600">{sub}</p>}
+      <p style={{ margin: "0 0 3px", fontSize: 11.5, color: L.dust }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: mono, fontSize: 19, fontWeight: 700, color: color ?? L.ink }}>{value}</p>
+      {sub && <p style={{ margin: "2px 0 0", fontSize: 10.5, color: L.dust }}>{sub}</p>}
     </div>
   )
 }

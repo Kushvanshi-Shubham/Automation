@@ -1,10 +1,18 @@
 "use client"
 
+/**
+ * Settings — connected accounts and your own API keys. Themed, Material
+ * icons, plain words. All connect/disconnect flows unchanged.
+ */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2, Camera, KeyRound, Loader2, Trash2, Tv } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
+import {
+  MdOutlineCheckCircle, MdOutlineDeleteOutline, MdOutlineErrorOutline,
+  MdOutlineKey, MdOutlineLiveTv, MdOutlinePhotoCamera,
+} from "react-icons/md"
 import { fetchApi } from "@/lib/api-client"
+import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
 
 interface Channel {
   id: string
@@ -14,9 +22,30 @@ interface Channel {
   created_at: string | null
 }
 
+const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
+const sectionHead: React.CSSProperties = {
+  padding: "14px 18px", borderBottom: `1px solid ${L.ruleFaint}`, display: "flex",
+  alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+}
+const rowStyle: React.CSSProperties = {
+  padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+}
+const primaryBtn = (disabled = false): React.CSSProperties => ({
+  display: "flex", alignItems: "center", gap: 7, background: L.make, border: "none", color: "#fff",
+  fontFamily: grotesque, fontSize: 13, fontWeight: 600, padding: "9px 14px", borderRadius: 8,
+  cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1,
+})
+const trashBtn: React.CSSProperties = {
+  background: "none", border: "none", color: "var(--k-dust)", cursor: "pointer", padding: 6, borderRadius: 6,
+}
+const banner = (color: string): React.CSSProperties => ({
+  border: `1px solid ${alpha(color, 30)}`, background: alpha(color, 7), borderRadius: 8,
+  padding: "11px 14px", fontSize: 13.5, color: L.ink, display: "flex", alignItems: "center", gap: 8,
+})
+
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="h-40 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse max-w-2xl" />}>
+    <Suspense fallback={<div style={{ ...card, height: 160, maxWidth: 720, opacity: 0.5 }} />}>
       <SettingsContent />
     </Suspense>
   )
@@ -48,78 +77,64 @@ function SettingsContent() {
   })
 
   return (
-    <div className="max-w-2xl space-y-8 pb-12">
+    <div style={{ maxWidth: 720, fontFamily: grotesque, display: "flex", flexDirection: "column", gap: 18, paddingBottom: 24 }}>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-zinc-400 mt-1">Connected accounts and preferences.</p>
+        <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}>Settings</h1>
+        <p style={{ margin: 0, fontSize: 14, color: L.ash }}>Connected accounts and your own API keys.</p>
       </div>
 
       {ytConnected && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" /> YouTube channel &quot;{ytConnected}&quot; connected successfully.
+        <div style={banner(L.ready)}>
+          <MdOutlineCheckCircle size={17} color={L.ready} /> YouTube channel &quot;{ytConnected}&quot; connected.
         </div>
       )}
       {ytError && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
-          YouTube connection failed: {ytError.replaceAll("_", " ")}
+        <div style={banner(L.refused)}>
+          <MdOutlineErrorOutline size={17} color={L.refused} /> YouTube connection failed: {ytError.replaceAll("_", " ")}
         </div>
       )}
       {igConnected && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" /> Instagram &quot;@{igConnected}&quot; connected successfully.
+        <div style={banner(L.ready)}>
+          <MdOutlineCheckCircle size={17} color={L.ready} /> Instagram @{igConnected} connected.
         </div>
       )}
       {igError && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
-          Instagram connection failed: {igError.replaceAll("_", " ")}
+        <div style={banner(L.refused)}>
+          <MdOutlineErrorOutline size={17} color={L.refused} /> Instagram connection failed: {igError.replaceAll("_", " ")}
         </div>
       )}
 
-      <section className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
-              <Tv className="w-5 h-5 text-rose-500" />
-            </div>
-            <div>
-              <h2 className="font-semibold">YouTube Channels</h2>
-              <p className="text-xs text-zinc-500">Where your shorts get published</p>
-            </div>
+      {/* YouTube */}
+      <section style={{ ...card, overflow: "hidden" }}>
+        <div style={sectionHead}>
+          <div>
+            <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 650 }}>
+              <MdOutlineLiveTv size={18} color={L.refused} /> YouTube channels
+            </h2>
+            <p style={{ margin: "3px 0 0", fontSize: 12.5, color: L.dust }}>Where your shorts get published</p>
           </div>
-          <button
-            onClick={() => connect.mutate()}
-            disabled={connect.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white disabled:opacity-60"
-          >
-            {connect.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tv className="w-4 h-4" />}
-            Connect Channel
+          <button onClick={() => connect.mutate()} disabled={connect.isPending} style={primaryBtn(connect.isPending)}>
+            {connect.isPending ? "Opening…" : "Connect a channel"}
           </button>
         </div>
-
-        <div className="divide-y divide-white/5">
-          {isLoading && <div className="p-6 text-sm text-zinc-500">Loading...</div>}
-          {!isLoading && (channels ?? []).length === 0 && (
-            <div className="p-6 text-sm text-zinc-500">
-              No channels connected yet. Connect one to publish directly from Kliptos.
+        {isLoading && <div style={{ ...rowStyle, fontSize: 13, color: L.dust }}>Loading…</div>}
+        {!isLoading && (channels ?? []).length === 0 && (
+          <div style={{ ...rowStyle, fontSize: 13, lineHeight: 1.5, color: L.ash }}>
+            No channel connected yet — connect one and finished shorts publish straight from the preview page.
+          </div>
+        )}
+        {(channels ?? []).map(channel => (
+          <div key={channel.id} style={{ ...rowStyle, borderTop: `1px solid ${L.ruleFaint}` }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{channel.channel_name ?? "Unnamed channel"}</p>
+              <p style={{ margin: "2px 0 0", fontFamily: mono, fontSize: 11.5, color: L.dust }}>{channel.youtube_channel_id}</p>
             </div>
-          )}
-          {(channels ?? []).map(channel => (
-            <div key={channel.id} className="px-6 py-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">{channel.channel_name ?? "Unnamed channel"}</p>
-                <p className="text-xs text-zinc-500">{channel.youtube_channel_id}</p>
-              </div>
-              <button
-                onClick={() => disconnect.mutate(channel.id)}
-                disabled={disconnect.isPending}
-                className="p-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                title="Disconnect"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
+            <button onClick={() => disconnect.mutate(channel.id)} disabled={disconnect.isPending}
+              title="Disconnect" style={trashBtn}>
+              <MdOutlineDeleteOutline size={18} />
+            </button>
+          </div>
+        ))}
       </section>
 
       <InstagramSection />
@@ -159,56 +174,44 @@ function InstagramSection() {
   })
 
   return (
-    <section className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
-      <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
-            <Camera className="w-5 h-5 text-pink-400" />
-          </div>
-          <div>
-            <h2 className="font-semibold">Instagram Accounts</h2>
-            <p className="text-xs text-zinc-500">Publish Reels via the official Instagram API (Business/Creator account required)</p>
-          </div>
+    <section style={{ ...card, overflow: "hidden" }}>
+      <div style={sectionHead}>
+        <div>
+          <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 650 }}>
+            <MdOutlinePhotoCamera size={18} color={L.live} /> Instagram accounts
+          </h2>
+          <p style={{ margin: "3px 0 0", fontSize: 12.5, color: L.dust }}>
+            Publish Reels via the official Instagram API (Business or Creator account required)
+          </p>
         </div>
-        <button
-          onClick={() => connect.mutate()}
-          disabled={!status?.enabled || connect.isPending}
+        <button onClick={() => connect.mutate()} disabled={!status?.enabled || connect.isPending}
           title={!status?.enabled ? "Instagram app not configured yet — coming with deployment" : undefined}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-sm font-medium text-white disabled:opacity-40"
-        >
-          {connect.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-          Connect Instagram
+          style={primaryBtn(!status?.enabled || connect.isPending)}>
+          {connect.isPending ? "Opening…" : "Connect Instagram"}
         </button>
       </div>
-
-      <div className="divide-y divide-white/5">
-        {!status?.enabled && (
-          <div className="p-6 text-sm text-zinc-500">
-            Instagram publishing activates once the Meta app is configured (in progress — requires Meta App Review).
+      {!status?.enabled && (
+        <div style={{ ...rowStyle, fontSize: 13, lineHeight: 1.5, color: L.ash }}>
+          Instagram publishing switches on once the Meta app is configured (in progress — needs Meta App Review).
+        </div>
+      )}
+      {status?.enabled && (accounts ?? []).length === 0 && (
+        <div style={{ ...rowStyle, fontSize: 13, lineHeight: 1.5, color: L.ash }}>
+          No Instagram account connected. Your account must be Business or Creator, linked to a Facebook Page.
+        </div>
+      )}
+      {(accounts ?? []).map(a => (
+        <div key={a.id} style={{ ...rowStyle, borderTop: `1px solid ${L.ruleFaint}` }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>@{a.username ?? "unknown"}</p>
+            <p style={{ margin: "2px 0 0", fontFamily: mono, fontSize: 11.5, color: L.dust }}>{a.ig_user_id}</p>
           </div>
-        )}
-        {status?.enabled && (accounts ?? []).length === 0 && (
-          <div className="p-6 text-sm text-zinc-500">
-            No Instagram account connected. Your IG must be a Business/Creator account linked to a Facebook Page.
-          </div>
-        )}
-        {(accounts ?? []).map(a => (
-          <div key={a.id} className="px-6 py-4 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm">@{a.username ?? "unknown"}</p>
-              <p className="text-xs text-zinc-500">{a.ig_user_id}</p>
-            </div>
-            <button
-              onClick={() => disconnect.mutate(a.id)}
-              disabled={disconnect.isPending}
-              className="p-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-              title="Disconnect"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
-      </div>
+          <button onClick={() => disconnect.mutate(a.id)} disabled={disconnect.isPending}
+            title="Disconnect" style={trashBtn}>
+            <MdOutlineDeleteOutline size={18} />
+          </button>
+        </div>
+      ))}
     </section>
   )
 }
@@ -251,73 +254,65 @@ function ApiKeysSection() {
   const saved = new Map((data?.items ?? []).map(i => [i.provider, i.masked]))
 
   return (
-    <section className="rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 overflow-hidden">
-      <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-          <KeyRound className="w-5 h-5 text-violet-400" />
-        </div>
+    <section style={{ ...card, overflow: "hidden" }}>
+      <div style={{ ...sectionHead, justifyContent: "flex-start" }}>
         <div>
-          <h2 className="font-semibold">Your AI API Keys</h2>
-          <p className="text-xs text-zinc-500">
+          <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 650 }}>
+            <MdOutlineKey size={18} color={L.make} /> Your API keys
+          </h2>
+          <p style={{ margin: "3px 0 0", fontSize: 12.5, color: L.dust }}>
             Bring your own keys — scripts generate on your quota. Keys are encrypted and never shown again.
           </p>
         </div>
       </div>
 
-      <div className="divide-y divide-white/5">
-        {PROVIDERS.map(p => {
-          const masked = saved.get(p.key)
-          return (
-            <div key={p.key} className="px-6 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm">{p.label}</p>
-                  <p className="text-xs text-zinc-500">{p.hint}</p>
-                </div>
-
-                {masked ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
-                      {masked}
-                    </span>
-                    <button
-                      onClick={() => remove.mutate(p.key)}
-                      disabled={remove.isPending}
-                      className="p-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                      title="Remove key"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 flex-1 max-w-sm">
-                    <input
-                      type="password"
-                      value={drafts[p.key] ?? ""}
-                      onChange={e => setDrafts(prev => ({ ...prev, [p.key]: e.target.value }))}
-                      placeholder={`Paste your ${p.label} key`}
-                      className="flex-1 bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500/50"
-                    />
-                    <button
-                      onClick={() => { setSavingProvider(p.key); save.mutate({ provider: p.key, key: drafts[p.key] ?? "" }) }}
-                      disabled={(drafts[p.key] ?? "").length < 10 || savingProvider === p.key}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      {savingProvider === p.key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      Save
-                    </button>
-                  </div>
-                )}
-              </div>
+      {PROVIDERS.map(p => {
+        const masked = saved.get(p.key)
+        return (
+          <div key={p.key} style={{ ...rowStyle, borderTop: `1px solid ${L.ruleFaint}`, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 160 }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{p.label}</p>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: L.dust }}>{p.hint}</p>
             </div>
-          )
-        })}
-      </div>
+
+            {masked ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: mono, fontSize: 11.5, color: L.ready, border: `1px solid ${alpha(L.ready, 30)}`, padding: "4px 10px", borderRadius: 6 }}>
+                  {masked}
+                </span>
+                <button onClick={() => remove.mutate(p.key)} disabled={remove.isPending}
+                  title="Remove key" style={trashBtn}>
+                  <MdOutlineDeleteOutline size={18} />
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, maxWidth: 380 }}>
+                <input
+                  type="password"
+                  value={drafts[p.key] ?? ""}
+                  onChange={e => setDrafts(prev => ({ ...prev, [p.key]: e.target.value }))}
+                  placeholder={`Paste your ${p.label} key`}
+                  style={{
+                    flex: 1, boxSizing: "border-box", background: L.floor, border: `1px solid ${L.rule}`,
+                    borderRadius: 8, color: L.ink, fontFamily: mono, fontSize: 13, padding: "9px 12px", outline: "none",
+                  }}
+                />
+                <button
+                  onClick={() => { setSavingProvider(p.key); save.mutate({ provider: p.key, key: drafts[p.key] ?? "" }) }}
+                  disabled={(drafts[p.key] ?? "").length < 10 || savingProvider === p.key}
+                  style={primaryBtn((drafts[p.key] ?? "").length < 10 || savingProvider === p.key)}>
+                  {savingProvider === p.key ? "Checking…" : "Save"}
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
 
       {save.error && (
-        <div className="px-6 pb-4">
-          <p className="text-xs text-rose-400">{(save.error as Error).message}</p>
-        </div>
+        <p style={{ margin: 0, padding: "0 18px 14px", fontSize: 12.5, color: L.refused }}>
+          {(save.error as Error).message}
+        </p>
       )}
     </section>
   )

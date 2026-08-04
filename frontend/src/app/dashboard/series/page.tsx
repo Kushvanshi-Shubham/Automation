@@ -1,9 +1,17 @@
 "use client"
 
+/**
+ * Standing orders (series autopilot) — recurring shorts on a schedule,
+ * from live trends or a fixed theme. Themed; all flows unchanged.
+ */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Pause, Play, Plus, Repeat, Trash2, Zap } from "lucide-react"
 import { useState } from "react"
+import {
+  MdOutlineAdd, MdOutlineAutorenew, MdOutlineBolt, MdOutlineDeleteOutline,
+  MdOutlinePause, MdOutlinePlayArrow,
+} from "react-icons/md"
 import { fetchApi } from "@/lib/api-client"
+import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
 
 interface SeriesItem {
   id: string
@@ -36,6 +44,26 @@ const STYLES = [
   { value: "commentary", label: "Commentary" },
 ]
 
+const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
+const label: React.CSSProperties = { display: "block", fontSize: 12.5, fontWeight: 600, color: L.ash, marginBottom: 6 }
+const field: React.CSSProperties = {
+  width: "100%", boxSizing: "border-box", background: L.floor, border: `1px solid ${L.rule}`,
+  borderRadius: 8, color: L.ink, fontFamily: grotesque, fontSize: 13.5, padding: "9px 12px", outline: "none",
+}
+const primaryBtn = (disabled = false): React.CSSProperties => ({
+  display: "flex", alignItems: "center", gap: 7, background: L.make, border: "none", color: "#fff",
+  fontFamily: grotesque, fontSize: 13.5, fontWeight: 600, padding: "10px 16px", borderRadius: 8,
+  cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.55 : 1,
+})
+const iconBtn: React.CSSProperties = {
+  display: "flex", alignItems: "center", justifyContent: "center", background: "transparent",
+  border: `1px solid ${L.rule}`, color: L.ink, padding: 8, borderRadius: 7, cursor: "pointer",
+}
+const chip = (color: string): React.CSSProperties => ({
+  fontSize: 11.5, fontWeight: 600, color, border: `1px solid ${alpha(color, 35)}`,
+  padding: "2px 9px", borderRadius: 5,
+})
+
 export default function SeriesPage() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -45,15 +73,12 @@ export default function SeriesPage() {
     queryFn: () => fetchApi("/series"),
     refetchInterval: 30000,
   })
-  const { data: formatCatalog } = useQuery<{ items: { key: string; label: string; emoji: string }[] }>({
+  const { data: formatCatalog } = useQuery<{ items: { key: string; label: string }[] }>({
     queryKey: ["formats"],
     queryFn: () => fetchApi("/scripts/formats"),
     staleTime: Infinity,
   })
-  const formatLabel = (key: string | null) => {
-    const f = formatCatalog?.items.find(x => x.key === key)
-    return f ? f.label : null
-  }
+  const formatLabel = (key: string | null) => formatCatalog?.items.find(x => x.key === key)?.label ?? null
 
   const toggle = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
@@ -70,108 +95,81 @@ export default function SeriesPage() {
   })
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div style={{ maxWidth: 860, fontFamily: grotesque, display: "flex", flexDirection: "column", gap: 18, paddingBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Series Autopilot</h1>
-          <p className="text-zinc-400 mt-1">
-            Recurring shorts from live trends — rendered on schedule, published automatically or held for review.
+          <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}>Standing orders</h1>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: L.ash, maxWidth: "58ch" }}>
+            A standing order makes a fresh short on schedule — from your niche&apos;s live trends or a theme
+            you set — and either publishes it or holds it for your review.
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white"
-        >
-          <Plus className="w-4 h-4" /> New Series
+        <button onClick={() => setShowForm(!showForm)} style={primaryBtn()}>
+          <MdOutlineAdd size={17} /> New standing order
         </button>
       </div>
 
       {showForm && <CreateForm onDone={() => setShowForm(false)} />}
 
       {isLoading && (
-        <div className="space-y-3">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {Array.from({ length: 2 }).map((_, i) => <div key={i} style={{ ...card, height: 96, opacity: 0.5 }} />)}
         </div>
       )}
 
       {!isLoading && (series ?? []).length === 0 && !showForm && (
-        <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl bg-zinc-900/50 border border-white/5">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center mb-4">
-            <Repeat className="w-8 h-8 text-zinc-500" />
-          </div>
-          <h3 className="text-lg font-semibold mb-1">No series yet</h3>
-          <p className="text-zinc-400 text-sm mb-6 max-w-sm">
-            A series creates a fresh short on schedule — from your niche&apos;s live trends or a theme you set.
+        <div style={{ ...card, padding: "34px 30px", maxWidth: 640 }}>
+          <h3 style={{ margin: "0 0 6px", display: "flex", alignItems: "center", gap: 8, fontSize: 17, fontWeight: 600 }}>
+            <MdOutlineAutorenew size={20} color={L.ash} /> Nothing on autopilot yet
+          </h3>
+          <p style={{ margin: "0 0 16px", fontSize: 13.5, lineHeight: 1.6, color: L.ash, maxWidth: "52ch" }}>
+            Set one up and Kliptos keeps your channel fed without you — each run costs 1 credit and is
+            skipped safely if you run out. Start with auto-publish off: videos wait in your Library for review.
           </p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 font-medium text-white text-sm"
-          >
-            <Plus className="w-4 h-4" /> Create your first series
+          <button onClick={() => setShowForm(true)} style={primaryBtn()}>
+            <MdOutlineAdd size={17} /> Create your first standing order
           </button>
         </div>
       )}
 
-      <div className="space-y-3">
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {(series ?? []).map(s => (
-          <div key={s.id} className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold">{s.name}</h3>
-                  <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${
-                    s.is_active
-                      ? "bg-emerald-400/10 text-emerald-400 border-emerald-400/20"
-                      : "bg-zinc-400/10 text-zinc-400 border-zinc-400/20"
-                  }`}>
-                    {s.is_active ? "Active" : "Paused"}
-                  </span>
-                  {s.auto_publish && (
-                    <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-violet-400/10 text-violet-300 border border-violet-400/20">
-                      Auto-publish
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-zinc-500 mt-1.5">
-                  {s.topic_prompt ? `Theme: ${s.topic_prompt}` : `Niche: ${s.category ?? "all trends"}`}
-                  {" · "}{INTERVALS.find(i => i.value === s.interval_hours)?.label ?? `${s.interval_hours}h`}
-                  {" · "}{formatLabel(s.format) ?? (s.output_type === "visual" ? "visual" : "narrated")}
-                  {" · "}{s.language}
-                  {" · "}{s.video_count} video{s.video_count === 1 ? "" : "s"} created
+          <div key={s.id} style={{ ...card, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 650 }}>{s.name}</h3>
+                <span style={chip(s.is_active ? L.ready : L.dust)}>{s.is_active ? "Active" : "Paused"}</span>
+                {s.auto_publish && <span style={chip(L.make)}>Auto-publish</span>}
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: 12.5, lineHeight: 1.5, color: L.dust }}>
+                {s.topic_prompt ? `Theme: ${s.topic_prompt}` : `Niche: ${s.category ?? "all trends"}`}
+                {" · "}{INTERVALS.find(i => i.value === s.interval_hours)?.label ?? `${s.interval_hours}h`}
+                {" · "}{formatLabel(s.format) ?? (s.output_type === "visual" ? "Visual" : "Narrated")}
+                {" · "}{s.language}
+                {" · "}<span style={{ fontFamily: mono }}>{s.video_count}</span> video{s.video_count === 1 ? "" : "s"} made
+              </p>
+              {s.next_run_at && s.is_active && (
+                <p style={{ margin: "3px 0 0", fontSize: 12, color: L.dust }}>
+                  Next run: {new Date(s.next_run_at).toLocaleString()}
                 </p>
-                {s.next_run_at && s.is_active && (
-                  <p className="text-xs text-zinc-600 mt-1">Next run: {new Date(s.next_run_at).toLocaleString()}</p>
-                )}
-                {s.last_error && <p className="text-xs text-amber-400 mt-1">{s.last_error}</p>}
-              </div>
+              )}
+              {s.last_error && <p style={{ margin: "3px 0 0", fontSize: 12, color: L.working }}>{s.last_error}</p>}
+            </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => runNow.mutate(s.id)}
-                  disabled={runNow.isPending}
-                  title="Create one video now (1 credit)"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-medium transition-colors disabled:opacity-50"
-                >
-                  {runNow.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                  Run now
-                </button>
-                <button
-                  onClick={() => toggle.mutate({ id: s.id, active: !s.is_active })}
-                  title={s.is_active ? "Pause" : "Resume"}
-                  className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                >
-                  {s.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => remove.mutate(s.id)}
-                  title="Delete series (videos are kept)"
-                  className="p-2 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <button onClick={() => runNow.mutate(s.id)} disabled={runNow.isPending}
+                title="Create one video now (1 credit)"
+                style={{ ...iconBtn, gap: 6, fontSize: 12.5, fontWeight: 600, fontFamily: grotesque, padding: "8px 12px", opacity: runNow.isPending ? 0.55 : 1 }}>
+                <MdOutlineBolt size={16} /> {runNow.isPending ? "Starting…" : "Run now"}
+              </button>
+              <button onClick={() => toggle.mutate({ id: s.id, active: !s.is_active })}
+                title={s.is_active ? "Pause" : "Resume"} style={iconBtn}>
+                {s.is_active ? <MdOutlinePause size={17} /> : <MdOutlinePlayArrow size={17} />}
+              </button>
+              <button onClick={() => remove.mutate(s.id)} title="Delete (videos are kept)"
+                style={{ ...iconBtn, border: "none", color: L.dust }}>
+                <MdOutlineDeleteOutline size={18} />
+              </button>
             </div>
           </div>
         ))}
@@ -210,13 +208,13 @@ function CreateForm({ onDone }: { onDone: () => void }) {
     queryKey: ["channels"],
     queryFn: () => fetchApi("/channels"),
   })
-  const { data: formats } = useQuery<{ items: { key: string; label: string; emoji: string; output_type: string; available: boolean }[] }>({
+  const { data: formats } = useQuery<{ items: { key: string; label: string; output_type: string; available: boolean; own?: boolean }[] }>({
     queryKey: ["formats"],
     queryFn: () => fetchApi("/scripts/formats"),
     staleTime: Infinity,
   })
-  // Series run on autopilot — only video-producing formats qualify.
-  const seriesFormats = (formats?.items ?? []).filter(f => f.available && f.output_type !== "image")
+  // Series run on autopilot — only built-in video-producing formats qualify.
+  const seriesFormats = (formats?.items ?? []).filter(f => f.available && !f.own && f.output_type !== "image")
   const effectiveOutput = format === "custom"
     ? outputType
     : (seriesFormats.find(f => f.key === format)?.output_type ?? "narrated")
@@ -249,139 +247,124 @@ function CreateForm({ onDone }: { onDone: () => void }) {
   const canSubmit = name.trim().length >= 2 && (mode === "trends" || theme.trim().length >= 5)
     && (!autoPublish || channelId)
 
+  const pill = (on: boolean): React.CSSProperties => ({
+    background: on ? alpha(L.make, 8) : L.floor, border: `1px solid ${on ? alpha(L.make, 45) : L.rule}`,
+    color: L.ink, fontFamily: grotesque, fontSize: 13, fontWeight: on ? 600 : 400,
+    padding: "8px 14px", borderRadius: 8, cursor: "pointer",
+  })
+
   return (
-    <div className="p-6 rounded-2xl bg-zinc-900 border border-violet-500/20 space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div style={{ ...card, borderColor: alpha(L.make, 30), padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-1.5">Series name</label>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value.slice(0, 80))}
-            placeholder="e.g. Daily Gaming Facts"
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
-          />
+          <span style={label}>Name</span>
+          <input value={name} onChange={e => setName(e.target.value.slice(0, 80))}
+            placeholder="e.g. Daily gaming facts" style={field} />
         </div>
         <div>
-          <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-1.5">Cadence</label>
-          <select
-            value={interval}
-            onChange={e => setInterval(Number(e.target.value))}
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
-          >
+          <span style={label}>How often</span>
+          <select value={interval} onChange={e => setInterval(Number(e.target.value))} style={field}>
             {INTERVALS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
           </select>
         </div>
       </div>
 
       <div>
-        <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider block mb-2">Topic source</label>
-        <div className="flex gap-2 mb-3">
-          <button
-            onClick={() => setMode("trends")}
-            className={`px-3.5 py-2 rounded-lg text-sm font-medium border transition-all ${mode === "trends" ? "bg-violet-500/10 border-violet-500/40" : "bg-black/20 border-white/10"}`}
-          >
-            Live trends
-          </button>
-          <button
-            onClick={() => setMode("theme")}
-            className={`px-3.5 py-2 rounded-lg text-sm font-medium border transition-all ${mode === "theme" ? "bg-violet-500/10 border-violet-500/40" : "bg-black/20 border-white/10"}`}
-          >
-            Fixed theme
-          </button>
+        <span style={label}>Where topics come from</span>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <button onClick={() => setMode("trends")} style={pill(mode === "trends")}>Live trends</button>
+          <button onClick={() => setMode("theme")} style={pill(mode === "theme")}>A theme I set</button>
         </div>
         {mode === "trends" ? (
-          <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="w-full sm:w-64 bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
-          >
+          <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...field, maxWidth: 280 }}>
             <option value="">All niches</option>
             {(niches?.items ?? []).map(n => <option key={n.key} value={n.key}>{n.label}</option>)}
           </select>
         ) : (
-          <input
-            value={theme}
-            onChange={e => setTheme(e.target.value.slice(0, 300))}
-            placeholder="e.g. Interesting chess puzzles explained simply"
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
-          />
+          <input value={theme} onChange={e => setTheme(e.target.value.slice(0, 300))}
+            placeholder="e.g. Interesting chess puzzles explained simply" style={field} />
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <select value={format} onChange={e => setFormat(e.target.value)}
-                title="The pipeline recipe every episode runs"
-                className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-          {seriesFormats.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
-          <option value="custom">Custom</option>
-        </select>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <span style={label}>Format</span>
+          <select value={format} onChange={e => setFormat(e.target.value)}
+            title="The recipe every episode runs" style={field}>
+            {seriesFormats.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+            <option value="custom">Custom</option>
+          </select>
+        </div>
         {format === "custom" && (
           <>
-            <select value={style} onChange={e => setStyle(e.target.value)}
-                    className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-              {STYLES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-            <select value={outputType} onChange={e => setOutputType(e.target.value)}
-                    className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-              <option value="narrated">Narrated</option>
-              <option value="visual">Visual</option>
-            </select>
+            <div>
+              <span style={label}>Style</span>
+              <select value={style} onChange={e => setStyle(e.target.value)} style={field}>
+                {STYLES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={label}>Type</span>
+              <select value={outputType} onChange={e => setOutputType(e.target.value)} style={field}>
+                <option value="narrated">Narrated</option>
+                <option value="visual">Visual</option>
+              </select>
+            </div>
           </>
         )}
-        <select value={language} onChange={e => setLanguage(e.target.value)}
-                className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50">
-          {(voiceData?.languages ?? ["English"]).map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
-        <select value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={effectiveOutput !== "narrated"}
-                className="bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-500/50 disabled:opacity-40">
-          <option value="">Default voice</option>
-          {(voiceData?.voices ?? []).map(v => <option key={v.id} value={v.id}>{v.label} · {v.language}</option>)}
-        </select>
+        <div>
+          <span style={label}>Language</span>
+          <select value={language} onChange={e => setLanguage(e.target.value)} style={field}>
+            {(voiceData?.languages ?? ["English"]).map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <span style={label}>Voice</span>
+          <select value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={effectiveOutput !== "narrated"}
+            style={{ ...field, opacity: effectiveOutput !== "narrated" ? 0.5 : 1 }}>
+            <option value="">Default voice</option>
+            {(voiceData?.voices ?? []).map(v => <option key={v.id} value={v.id}>{v.label} · {v.language}</option>)}
+          </select>
+        </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-black/20 border border-white/5">
-        <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+      <div style={{ background: L.floor, border: `1px solid ${L.ruleFaint}`, borderRadius: 8, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
           <input type="checkbox" checked={autoPublish} onChange={e => setAutoPublish(e.target.checked)}
-                 className="w-4 h-4 accent-violet-600" />
-          Auto-publish to YouTube
+            style={{ width: 15, height: 15, accentColor: "var(--k-make)" }} />
+          Publish to YouTube automatically
         </label>
-        {autoPublish && (
+        {autoPublish ? (
           <>
-            <select value={channelId} onChange={e => setChannelId(e.target.value)}
-                    className="flex-1 bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
+            <select value={channelId} onChange={e => setChannelId(e.target.value)} style={{ ...field, flex: 1, minWidth: 180 }}>
               <option value="">Select channel…</option>
               {(channels ?? []).map(c => <option key={c.id} value={c.id}>{c.channel_name ?? "Unnamed"}</option>)}
             </select>
-            <select value={privacy} onChange={e => setPrivacy(e.target.value)}
-                    className="bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
+            <select value={privacy} onChange={e => setPrivacy(e.target.value)} style={{ ...field, width: 130 }}>
               <option value="unlisted">Unlisted</option>
               <option value="public">Public</option>
               <option value="private">Private</option>
             </select>
           </>
-        )}
-        {!autoPublish && (
-          <span className="text-xs text-zinc-500">Off = videos wait in your library for review (recommended to start)</span>
+        ) : (
+          <span style={{ fontSize: 12, color: L.dust }}>Off = videos wait in your Library for review (recommended to start)</span>
         )}
       </div>
 
-      {create.error && <p className="text-xs text-rose-400">{(create.error as Error).message}</p>}
+      {create.error && <p style={{ margin: 0, fontSize: 12.5, color: L.refused }}>{(create.error as Error).message}</p>}
 
-      <div className="flex gap-3">
-        <button
-          onClick={() => create.mutate()}
-          disabled={!canSubmit || create.isPending}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {create.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />}
-          Start Series
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={() => create.mutate()} disabled={!canSubmit || create.isPending}
+          style={primaryBtn(!canSubmit || create.isPending)}>
+          <MdOutlineAutorenew size={16} /> {create.isPending ? "Creating…" : "Start the standing order"}
         </button>
-        <button onClick={onDone} className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium">
+        <button onClick={onDone}
+          style={{ background: "transparent", border: `1px solid ${L.rule}`, color: L.ink, fontFamily: grotesque, fontSize: 13.5, padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
           Cancel
         </button>
       </div>
-      <p className="text-xs text-zinc-600">
-        Each video costs 1 credit. Runs are skipped safely when you&apos;re out of credits. First video within ~15 minutes.
+      <p style={{ margin: 0, fontSize: 12, color: L.dust }}>
+        Each video costs 1 credit; runs are skipped safely when you&apos;re out. First video within ~15 minutes.
       </p>
     </div>
   )
