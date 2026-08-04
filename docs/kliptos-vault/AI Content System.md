@@ -21,6 +21,9 @@ Upload 2–20 of your reels (existing Footage flow — already Whisper-transcrib
 ### 4. AI presenter (HeyGen) — scaffold shipped, lane pending
 "heygen" is now a BYO-key provider (encrypted like the rest, live-validated against the HeyGen API) and `services/heygen.py` carries the generate→poll→download client. ⚠️ OWNER: get a HeyGen account (avatar + voice clone) — then the presenter option lands in the studio rail with credit pricing above stock renders (see [[Pricing]]).
 
+### 5. Auto-match footage — commit `858b838` (2026-08-05)
+One click in the studio ("Match my footage") pins the user's uploaded footage to matching scenes: each scene's narration is scored against the footage's Whisper transcripts (token overlap over 1–3 chunk windows — no LLM cost) and the best moment wins above a threshold. Existing pins respected; no two scenes share one moment. This is the rights-clean answer to "paste a link and the edit assembles itself": link → script, your upload → footage, one click → assembled edit.
+
 ## Design constraints that shaped this
 - Legal: reference TEXT extraction is fine; downloading third-party video is not. User-supplied uploads are the only media ingest.
 - All prompt guidance funnels through `custom_instructions` — link text, format recipes, and feedback notes stack in one place.

@@ -2,6 +2,10 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-05 — 🧲 Auto-match footage to scenes (858b838)
+- "Match my footage" in the studio: narration vs footage-transcript token overlap pins the best moment per scene (asset + start second), threshold-gated, dedup so scenes never share a moment. Zero LLM cost — reuses Whisper output.
+- Completes the one-step feel of the reference workflow while staying rights-clean (upload-your-copy, never download). 168 backend tests green; CI green.
+
 ## 2026-08-05 — 🎓 Teach a style + HeyGen presenter scaffold (019819c)
 - **Teach a style**: pick 2–20 of your uploaded reels → `style.learn` mines pace/hooks/transcripts (all data the Footage flow already produced — the learn itself is free) → LLM reverse-engineers the style into a recipe → personal format `user:<uuid>` in Create, right next to the built-ins. New `/dashboard/styles` page; Create now has bay tabs (Studio | Your styles). Migration 0011.
 - **HeyGen scaffold**: "heygen" joins the encrypted BYO keys (live-validated); `services/heygen.py` generate→poll→download client ready. ⚠️ OWNER: HeyGen account needed before the presenter lane can land.
