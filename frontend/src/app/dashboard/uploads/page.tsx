@@ -1,9 +1,14 @@
 "use client"
 
+/**
+ * Publish list — everything published, scheduled, or on its way out.
+ * Themed; polling and statuses unchanged.
+ */
 import { useQuery } from "@tanstack/react-query"
-import { AlertCircle, CheckCircle2, Clock, ExternalLink, Inbox, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { MdOutlineOpenInNew } from "react-icons/md"
 import { fetchApi } from "@/lib/api-client"
+import { L, grotesque, alpha } from "@/lib/line/tokens"
 
 interface UploadVideo {
   id: string
@@ -14,12 +19,14 @@ interface UploadVideo {
   created_at: string | null
 }
 
-const STATUS_STYLE: Record<string, { icon: typeof CheckCircle2; cls: string; label: string }> = {
-  published: { icon: CheckCircle2, cls: "bg-emerald-400/10 text-emerald-400 border-emerald-400/20", label: "Published" },
-  scheduled: { icon: Clock, cls: "bg-violet-400/10 text-violet-400 border-violet-400/20", label: "Scheduled" },
-  publishing: { icon: Loader2, cls: "bg-blue-400/10 text-blue-400 border-blue-400/20", label: "Uploading" },
-  upload_failed: { icon: AlertCircle, cls: "bg-rose-400/10 text-rose-400 border-rose-400/20", label: "Failed" },
+const STATUS: Record<string, { label: string; color: string }> = {
+  published: { label: "Live on your channel", color: L.live },
+  scheduled: { label: "Scheduled", color: L.working },
+  publishing: { label: "Uploading…", color: L.working },
+  upload_failed: { label: "Upload failed", color: L.refused },
 }
+
+const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
 
 export default function UploadsPage() {
   const { data, isLoading } = useQuery<UploadVideo[]>({
@@ -31,39 +38,38 @@ export default function UploadsPage() {
   const uploads = data ?? []
 
   return (
-    <div className="space-y-6 pb-12">
+    <div style={{ maxWidth: 860, fontFamily: grotesque, display: "flex", flexDirection: "column", gap: 18, paddingBottom: 24 }}>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Upload Manager</h1>
-        <p className="text-zinc-400 mt-1">Everything you&apos;ve published or scheduled.</p>
+        <h1 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}>Publish list</h1>
+        <p style={{ margin: 0, fontSize: 14, color: L.ash }}>Everything published, scheduled, or on its way to a platform.</p>
       </div>
 
       {isLoading && (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 animate-pulse" />
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {Array.from({ length: 3 }).map((_, i) => <div key={i} style={{ ...card, height: 70, opacity: 0.5 }} />)}
         </div>
       )}
 
       {!isLoading && uploads.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center mb-4">
-            <Inbox className="w-8 h-8 text-zinc-500" />
-          </div>
-          <h3 className="text-lg font-semibold mb-1">Nothing published yet</h3>
-          <p className="text-zinc-400 text-sm">Render a short and hit Publish — it&apos;ll show up here.</p>
+        <div style={{ ...card, padding: "30px 26px", maxWidth: 640 }}>
+          <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 600 }}>Nothing published yet</h3>
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: L.ash, maxWidth: "52ch" }}>
+            When a finished short goes to YouTube or Instagram — now or on a schedule — it shows up
+            here with its live status. Render one and hit Publish on the preview page.
+          </p>
         </div>
       )}
 
-      <div className="space-y-3">
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {uploads.map(video => {
-          const style = STATUS_STYLE[video.status] ?? STATUS_STYLE.publishing
-          const StatusIcon = style.icon
+          const st = STATUS[video.status] ?? STATUS.publishing
           return (
-            <div key={video.id} className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-md border border-white/10 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="font-medium truncate">{video.title ?? "Untitled short"}</p>
-                <p className="text-xs text-zinc-500 mt-1">
+            <div key={video.id} style={{ ...card, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {video.title ?? "Untitled short"}
+                </p>
+                <p style={{ margin: "3px 0 0", fontSize: 12, color: L.dust }}>
                   {video.status === "scheduled" && video.scheduled_at
                     ? `Goes public ${new Date(video.scheduled_at).toLocaleString()}`
                     : video.published_at
@@ -71,17 +77,13 @@ export default function UploadsPage() {
                       : ""}
                 </p>
               </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${style.cls}`}>
-                  <StatusIcon className={`w-3.5 h-3.5 ${video.status === "publishing" ? "animate-spin" : ""}`} />
-                  {style.label}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: st.color, border: `1px solid ${alpha(st.color, 35)}`, padding: "3px 9px", borderRadius: 5, whiteSpace: "nowrap" }}>
+                  {st.label}
                 </span>
-                <Link
-                  href={`/dashboard/preview/${video.id}`}
-                  className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
-                  title="Open preview"
-                >
-                  <ExternalLink className="w-4 h-4" />
+                <Link href={`/dashboard/preview/${video.id}`} title="Open preview"
+                  style={{ display: "flex", color: L.dust, padding: 5 }}>
+                  <MdOutlineOpenInNew size={17} />
                 </Link>
               </div>
             </div>
