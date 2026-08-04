@@ -68,8 +68,14 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: Optional[str] = None
     RAZORPAY_KEY_SECRET: Optional[str] = None
 
+    # S3-compatible object storage (Cloudflare R2 recommended: 10GB + zero
+    # egress). All four must be set to switch storage on; otherwise files
+    # stay on local disk (dev mode). S3_PUBLIC_URL is the public base the
+    # bucket is served from (R2 public bucket URL or custom domain).
     S3_BUCKET_NAME: Optional[str] = None
     S3_REGION: Optional[str] = None
+    S3_ENDPOINT_URL: Optional[str] = None
+    S3_PUBLIC_URL: Optional[str] = None
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
 

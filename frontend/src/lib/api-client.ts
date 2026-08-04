@@ -2,6 +2,13 @@ import { getSession } from "next-auth/react"
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api"
 
+/** Media files come as local paths (/media/…, dev) or absolute object-storage
+ * URLs (prod). Always run video/image URLs through this. */
+export function mediaUrl(pathOrUrl: string): string {
+  if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl
+  return `${API_BASE_URL.replace(/\/api\/?$/, "")}${pathOrUrl}`
+}
+
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers)
   headers.set("Content-Type", "application/json")

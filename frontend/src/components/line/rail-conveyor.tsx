@@ -9,10 +9,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { MdOutlineCheckCircle, MdOutlineExplore, MdOutlineMovieFilter, MdOutlineReplay } from "react-icons/md"
-import { API_BASE_URL, fetchApi } from "@/lib/api-client"
+import { fetchApi, mediaUrl } from "@/lib/api-client"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
 
-const MEDIA_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "")
 
 // The renderer's real stages, in words a creator understands.
 const STEPS = [
@@ -98,7 +97,7 @@ export default function RailConveyor() {
                 <div style={{ display: "grid", gridTemplateColumns: "132px 1fr", minHeight: 168 }}>
                   <div style={{ background: L.benchRaised, position: "relative" }}>
                     {v.video_url && (
-                      <video src={`${MEDIA_ORIGIN}${v.video_url}`} preload="metadata" muted playsInline
+                      <video src={mediaUrl(v.video_url)} preload="metadata" muted playsInline
                         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                     )}
                   </div>

@@ -113,12 +113,25 @@ async def upload_asset(
                 )
             out.write(chunk)
 
+    # In the cloud the analyze worker runs on another machine: push the file
+    # to object storage and store the KEY as the path. Dev keeps local disk.
+    from app.services import storage
+
+    path_ref = str(dest)
+    if storage.enabled():
+        import asyncio as _asyncio
+
+        key = f"uploads/{current_user.id}/{asset_id}{ext}"
+        await _asyncio.to_thread(storage.upload, dest, key)
+        dest.unlink(missing_ok=True)
+        path_ref = key
+
     asset = Asset(
         id=asset_id,
         user_id=current_user.id,
         filename=file.filename or f"upload{ext}",
         kind="audio" if ext in AUDIO_EXTENSIONS else "video",
-        path=str(dest),
+        path=path_ref,
         size_bytes=size,
         status="uploaded",
     )
@@ -260,6 +273,12 @@ async def delete_asset(
     asset = await db.get(Asset, asset_id)
     if asset is None or asset.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
-    Path(asset.path).unlink(missing_ok=True)
+    from app.services import storage
+
+    local = Path(asset.path)
+    if local.exists():
+        local.unlink(missing_ok=True)
+    elif storage.enabled():
+        storage.delete(asset.path)
     await db.delete(asset)
     await db.commit()

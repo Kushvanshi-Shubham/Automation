@@ -3,6 +3,7 @@
 Runs inside a Celery worker via asyncio.run (see tasks.py) but is plain async
 code, so tests and manual runs can call it directly.
 """
+import asyncio
 import logging
 import random
 import shutil
@@ -62,6 +63,25 @@ def _publish(job_id: str, status: str, stage: str, percent: float, error: str | 
         logger.warning("progress publish failed (%s): %s", stage, exc)
 
 
+async def _store_media(local_path: Path, video_id, filename: str) -> str:
+    """Where the browser fetches this file from: the local /media mount in
+    dev, or the object-storage public URL in the cloud (API and worker run
+    on different machines there — local disk doesn't travel)."""
+    from app.services import storage
+
+    if storage.enabled():
+        return await asyncio.to_thread(storage.upload, local_path, f"renders/{video_id}/{filename}")
+    return f"/media/{video_id}/{filename}"
+
+
+async def _resolve_asset_source(path_or_key: str, workdir: Path) -> Path:
+    """A local file for creator footage, whether Asset.path is a dev-disk
+    path or a bucket key. Downloads land in workdir (cleaned after render)."""
+    from app.services import storage
+
+    return await asyncio.to_thread(storage.resolve_source, path_or_key, workdir)
+
+
 async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], out_dir: Path) -> dict:
     """Image-post branch: one image per slide (stock photos or AI images)."""
     from app.services import image_gen
@@ -91,7 +111,7 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
                 used_ids.add(int(seg["media_id"]))
             else:
                 await pexels.fetch_photo(client, prompt, out_path, used_ids, orientation=orientation)
-            images.append(f"/media/{video.id}/{out_path.name}")
+            images.append(await _store_media(out_path, video.id, out_path.name))
 
     async with AsyncSessionLocal() as db:
         job = await db.get(PipelineJob, job_uuid)
@@ -122,12 +142,11 @@ async def _run_clip(job_key: str, job_uuid, video, out_dir: Path, workdir: Path)
         asset = await db.get(Asset, UUID(str(cfg["asset_id"])))
         if asset is None:
             raise RuntimeError("source upload no longer exists")
-        # asset.path may be relative to the backend dir, but ffmpeg runs with
-        # cwd = the ASS workdir — resolve to absolute first.
-        source = Path(asset.path).resolve()
+        path_ref = asset.path
         transcript = asset.transcript or {}
-    if not source.exists():
-        raise RuntimeError("source file is missing on disk — re-upload it")
+    # Local disk path in dev, bucket key in prod — either way ffmpeg gets an
+    # absolute local file (its cwd becomes the ASS workdir).
+    source = await _resolve_asset_source(path_ref, workdir)
 
     _publish(job_key, "running", "captions", 20)
     aspect = ASPECT_RATIOS.get((video.script_data or {}).get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT])
@@ -196,12 +215,13 @@ async def _run_fake_text(job_key: str, job_uuid, video, segments: list[dict], ou
     else:
         shutil.move(str(silent_path), str(final_path))
     duration = assembler.probe_duration(final_path)
+    media_url = await _store_media(final_path, video.id, "final.mp4")
 
     async with AsyncSessionLocal() as db:
         job = await db.get(PipelineJob, job_uuid)
         video_row = await db.get(Video, job.video_id)
         video_row.status = "ready"
-        video_row.video_url = f"/media/{video_row.id}/final.mp4"
+        video_row.video_url = media_url
         if attribution and attribution not in (video_row.description or ""):
             video_row.description = f"{video_row.description or ''}\n\n{attribution}".strip()
         job.status = "completed"
@@ -211,7 +231,7 @@ async def _run_fake_text(job_key: str, job_uuid, video, segments: list[dict], ou
 
     _publish(job_key, "completed", "completed", 100)
     logger.info("fake text render complete: %s (%.1fs, %d messages)", final_path, duration, len(messages))
-    return {"video_url": f"/media/{video.id}/final.mp4", "duration": duration}
+    return {"video_url": media_url, "duration": duration}
 
 
 async def run(job_id: str) -> dict:
@@ -279,10 +299,7 @@ async def run(job_id: str) -> dict:
                     asset = await adb.get(Asset, UUID(aid))
                     if asset is None or asset.user_id != video.user_id or asset.kind != "video":
                         raise RuntimeError("pinned footage no longer exists — unpin that scene and retry")
-                    src = Path(asset.path).resolve()
-                    if not src.exists():
-                        raise RuntimeError("pinned footage file is missing on disk — re-upload it")
-                    asset_paths[aid] = src
+                    asset_paths[aid] = await _resolve_asset_source(asset.path, workdir)
 
         used_ids: set[int] = set()
         clips = []
@@ -355,13 +372,14 @@ async def run(job_id: str) -> dict:
         else:
             shutil.move(str(concat_path), str(final_path))
         duration = assembler.probe_duration(final_path)
+        media_url = await _store_media(final_path, video.id, "final.mp4")
 
         # Stage 5: persist
         async with AsyncSessionLocal() as db:
             job = await db.get(PipelineJob, job_uuid)
             video = await db.get(Video, job.video_id)
             video.status = "ready"
-            video.video_url = f"/media/{video.id}/final.mp4"
+            video.video_url = media_url
             if attribution and attribution not in (video.description or ""):
                 video.description = f"{video.description or ''}\n\n{attribution}".strip()
             job.status = "completed"
@@ -371,7 +389,7 @@ async def run(job_id: str) -> dict:
 
         _publish(job_key, "completed", "completed", 100)
         logger.info("render complete: %s (%.1fs)", final_path, duration)
-        return {"video_url": f"/media/{video.id}/final.mp4", "duration": duration}
+        return {"video_url": media_url, "duration": duration}
 
     except Exception as exc:
         logger.exception("pipeline failed for job %s", job_key)

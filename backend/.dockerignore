@@ -1,0 +1,10 @@
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+output
+test_kliptos.db
+celerybeat-schedule*
+.pytest_cache

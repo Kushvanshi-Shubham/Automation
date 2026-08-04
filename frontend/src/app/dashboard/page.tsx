@@ -8,11 +8,9 @@ import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import { useState } from "react"
 import { MdOutlineExplore, MdOutlineMovieFilter } from "react-icons/md"
-import { API_BASE_URL, fetchApi } from "@/lib/api-client"
+import { fetchApi, mediaUrl } from "@/lib/api-client"
 import { useCredits } from "@/hooks/use-credits"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
-
-const MEDIA_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "")
 
 interface VideoItem {
   id: string
@@ -148,7 +146,7 @@ export default function LibraryPage() {
                 {/* Thumbnail */}
                 <div style={{ position: "relative", aspectRatio: "16/10", background: L.benchRaised }}>
                   {video.video_url ? (
-                    <video src={`${MEDIA_ORIGIN}${video.video_url}`} preload="metadata" muted playsInline
+                    <video src={mediaUrl(video.video_url)} preload="metadata" muted playsInline
                       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>

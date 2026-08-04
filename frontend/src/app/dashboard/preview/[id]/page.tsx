@@ -13,11 +13,9 @@ import {
   MdOutlineClose, MdOutlineEdit, MdOutlineErrorOutline, MdOutlineLiveTv,
   MdOutlinePhotoCamera, MdOutlineRateReview, MdOutlineSchedule,
 } from "react-icons/md"
-import { API_BASE_URL, fetchApi } from "@/lib/api-client"
+import { fetchApi, mediaUrl } from "@/lib/api-client"
 import { usePipeline } from "@/hooks/use-pipeline"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
-
-const MEDIA_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "")
 
 const STEPS = [
   { name: "Voice-over", from: 10 },
@@ -113,17 +111,17 @@ function PreviewContent() {
         {video.output_type === "image" && video.status === "ready" && (video.images ?? []).length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {(video.images ?? []).map((img, i) => (
-              <a key={img} href={`${MEDIA_ORIGIN}${img}`} target="_blank" rel="noopener noreferrer"
+              <a key={img} href={mediaUrl(img)} target="_blank" rel="noopener noreferrer"
                 style={{ display: "block", borderRadius: 10, overflow: "hidden", border: `1px solid ${L.rule}` }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`${MEDIA_ORIGIN}${img}`} alt={`Slide ${i + 1}`} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
+                <img src={mediaUrl(img)} alt={`Slide ${i + 1}`} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
               </a>
             ))}
           </div>
         ) : (
           <div style={{ aspectRatio: aspectRatioCss, borderRadius: 14, overflow: "hidden", background: L.bench, border: `1px solid ${L.rule}`, position: "relative" }}>
             {video.status !== "rendering" && video.status !== "script_ready" && video.video_url ? (
-              <video src={`${MEDIA_ORIGIN}${video.video_url}`} controls playsInline
+              <video src={mediaUrl(video.video_url)} controls playsInline
                 style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : video.status === "failed" ? (
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 24 }}>

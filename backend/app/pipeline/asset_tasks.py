@@ -12,8 +12,11 @@ logger = logging.getLogger("kliptos.asset")
 
 
 async def _run(asset_id: str) -> dict:
+    import tempfile
+
     from app.pipeline import transcribe
     from app.pipeline.assembler import probe_duration
+    from app.services import storage
     from app.services.user_keys import get_user_keys
 
     async with AsyncSessionLocal() as db:
@@ -22,10 +25,14 @@ async def _run(asset_id: str) -> dict:
             raise RuntimeError("asset not found")
         asset.status = "processing"
         await db.commit()
-        path = Path(asset.path)
+        path_ref = asset.path
         user_id = asset.user_id
 
+    workdir = Path(tempfile.mkdtemp(prefix="kliptos_asset_"))
     try:
+        # Local disk path in dev; bucket key in the cloud (API and worker
+        # are separate machines there) — resolve to a local file either way.
+        path = await asyncio.to_thread(storage.resolve_source, path_ref, workdir)
         duration = probe_duration(path)
         # Whisper is CPU-bound sync work — keep it off the event loop.
         transcript = await asyncio.to_thread(transcribe.transcribe, path)
@@ -52,6 +59,10 @@ async def _run(asset_id: str) -> dict:
             asset.error_message = str(exc)[:2000]
             await db.commit()
         raise
+    finally:
+        import shutil
+
+        shutil.rmtree(workdir, ignore_errors=True)
 
 
 @celery_app.task(bind=True, name="asset.process")

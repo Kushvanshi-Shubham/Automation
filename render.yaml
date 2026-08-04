@@ -1,0 +1,82 @@
+# Render Blueprint — creates the API + render worker in one click:
+# Render dashboard -> New -> Blueprint -> pick this repo.
+#
+# Not managed here (create/connect separately):
+#   - Postgres  -> Neon (free tier; set DATABASE_URL below)
+#   - Redis     -> Render Key Value "kliptos-redis" (free; linked by name)
+#   - Storage   -> Cloudflare R2 (set the S3_* vars below)
+#
+# Every env var marked sync:false is a secret — Render prompts for it on
+# first deploy. Copy values from backend/.env (and rotate anything that was
+# ever shared in chat — see docs/SECURITY_CHECKLIST.md).
+
+services:
+  - type: web
+    name: kliptos-api
+    runtime: docker
+    repo: https://github.com/Kushvanshi-Shubham/Automation
+    rootDir: backend
+    plan: starter
+    region: singapore
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: kliptos-secrets
+
+  - type: worker
+    name: kliptos-worker
+    runtime: docker
+    repo: https://github.com/Kushvanshi-Shubham/Automation
+    rootDir: backend
+    plan: starter
+    region: singapore
+    dockerCommand: celery -A app.pipeline.celery_app worker -B --loglevel=info --concurrency=1
+    envVars:
+      - fromGroup: kliptos-secrets
+
+envVarGroups:
+  - name: kliptos-secrets
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: DATABASE_URL          # Neon POOLED connection string, postgresql+asyncpg://
+        sync: false
+      - key: REDIS_URL             # Render Key Value internal URL
+        sync: false
+      - key: FRONTEND_URL          # https://kliptos.vercel.app (later https://kliptos.app)
+        sync: false
+      - key: API_PUBLIC_URL        # https://kliptos-api.onrender.com
+        sync: false
+      - key: CORS_ORIGINS          # same as FRONTEND_URL; comma-separate to allow both
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: S3_BUCKET_NAME        # kliptos-media
+        sync: false
+      - key: S3_ENDPOINT_URL       # https://<account-id>.r2.cloudflarestorage.com
+        sync: false
+      - key: S3_PUBLIC_URL         # the bucket's public URL (r2.dev or custom domain)
+        sync: false
+      - key: AWS_ACCESS_KEY_ID     # R2 API token key id
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY # R2 API token secret
+        sync: false
+      - key: S3_REGION
+        value: auto

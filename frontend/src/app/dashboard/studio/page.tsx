@@ -15,7 +15,7 @@ import {
   MdOutlineLink, MdOutlinePermMedia, MdOutlinePlayArrow, MdOutlineSave,
   MdOutlineSmartDisplay, MdOutlineTimer,
 } from "react-icons/md"
-import { API_BASE_URL, fetchApi } from "@/lib/api-client"
+import { fetchApi, mediaUrl } from "@/lib/api-client"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
 
 interface Segment {
@@ -400,7 +400,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     setPreviewLoading(true)
     try {
       const { preview_url } = await fetchApi(`/scripts/voices/${voiceId}/preview`)
-      new Audio(`${API_BASE_URL.replace(/\/api\/?$/, "")}${preview_url}`).play()
+      new Audio(mediaUrl(preview_url)).play()
     } finally {
       setPreviewLoading(false)
     }
