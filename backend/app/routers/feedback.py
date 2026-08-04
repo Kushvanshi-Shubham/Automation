@@ -62,7 +62,8 @@ async def create_note(
 ):
     from app.services.formats import FORMATS
 
-    if req.format is not None and req.format not in FORMATS:
+    # "user:<uuid>" = a learned personal style (routers/styles.py)
+    if req.format is not None and not req.format.startswith("user:") and req.format not in FORMATS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown format")
 
     count = await db.scalar(

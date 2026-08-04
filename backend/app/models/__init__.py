@@ -6,6 +6,7 @@ from app.models.ig_account import IgAccount
 from app.models.publish import Publish
 from app.models.series import Series
 from app.models.user import User
+from app.models.user_format import UserFormat
 from app.models.channel import Channel
 from app.models.video import Video
 from app.models.credit import CreditLedger

@@ -33,15 +33,35 @@ IMAGE_TYPE_NOTE = (
 
 
 @router.get("/formats")
-async def list_formats():
-    """The format catalog: each format is a full pipeline recipe."""
+async def list_formats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The format catalog: built-in recipes plus this user's learned styles."""
+    from app.models.user_format import UserFormat
     from app.services.formats import FORMATS
 
-    return {"items": [
+    items = [
         {"key": k, "label": f["label"], "emoji": f["emoji"], "desc": f["desc"],
-         "output_type": f["output_type"], "available": f["available"], "controls": f["controls"]}
+         "output_type": f["output_type"], "available": f["available"], "controls": f["controls"],
+         "own": False}
         for k, f in FORMATS.items()
-    ]}
+    ]
+    rows = (
+        await db.execute(
+            select(UserFormat)
+            .where(UserFormat.user_id == current_user.id, UserFormat.status == "ready")
+            .order_by(UserFormat.created_at.desc())
+        )
+    ).scalars().all()
+    items.extend(
+        {"key": f"user:{r.id}", "label": r.name, "emoji": "",
+         "desc": (r.profile or {}).get("summary") or "Learned from your reels",
+         "output_type": r.output_type, "available": True,
+         "controls": ["voice", "captions", "aspect", "scenes"], "own": True}
+        for r in rows
+    )
+    return {"items": items}
 
 
 @router.get("/voices")
@@ -91,7 +111,27 @@ async def generate_script(
     from app.services.formats import DEFAULT_TONE, FORMATS, render_defaults
 
     fmt = None
-    if req.format:
+    user_fmt = None
+    if req.format and req.format.startswith("user:"):
+        # A learned personal style ("Teach a style") — applied like a built-in format.
+        from app.models.user_format import UserFormat
+
+        try:
+            uf_id = UUID(req.format.removeprefix("user:"))
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
+        user_fmt = await db.get(UserFormat, uf_id)
+        if user_fmt is None or user_fmt.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
+        if user_fmt.status != "ready":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="That style is still learning — give it a minute",
+            )
+        req.output_type = user_fmt.output_type
+        if req.tone == DEFAULT_TONE and user_fmt.tone:
+            req.tone = user_fmt.tone
+    elif req.format:
         fmt = FORMATS.get(req.format)
         if fmt is None:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown format")
@@ -140,6 +180,8 @@ async def generate_script(
         instructions = f"{IMAGE_TYPE_NOTE}\n{instructions or ''}".strip()
     if fmt is not None and fmt.get("script_recipe"):
         instructions = f"{fmt['script_recipe']}\n{instructions or ''}".strip()
+    elif user_fmt is not None and user_fmt.script_recipe:
+        instructions = f"{user_fmt.script_recipe}\n{instructions or ''}".strip()
 
     # Standing creator feedback ("captions bigger") — the self-improving loop.
     from app.services.feedback import feedback_block
@@ -205,9 +247,20 @@ async def generate_script(
         "segments": script["segments"],
         "total_duration": script["total_duration"],
     }
+    user_defaults = None
+    if user_fmt is not None:
+        # Mirror render_defaults: only truthy entries reach script_data.
+        user_defaults = {
+            k: v
+            for k, v in {"caption_style": user_fmt.caption_style, "music_mood": user_fmt.music_mood}.items()
+            if v
+        }
     if fmt is not None:
         script_data["format"] = req.format
         script_data.update(render_defaults(fmt))
+    elif user_fmt is not None:
+        script_data["format"] = req.format
+        script_data.update(user_defaults)
     if req.source_url:
         script_data["source_url"] = req.source_url.strip()
 
@@ -230,7 +283,7 @@ async def generate_script(
         "total_duration": script["total_duration"],
         "output_type": video.output_type,
         "format": req.format,
-        "defaults": render_defaults(fmt) if fmt else None,
+        "defaults": render_defaults(fmt) if fmt else (user_defaults or None),
     }
 
 

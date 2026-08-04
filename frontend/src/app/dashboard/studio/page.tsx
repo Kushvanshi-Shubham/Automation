@@ -34,7 +34,7 @@ interface Script {
   format?: string | null; defaults?: { voice_id?: string; caption_style?: string } | null
 }
 interface Voice { id: string; label: string; language: string; gender: string; vibe: string }
-interface Format { key: string; label: string; emoji: string; desc: string; output_type: string; available: boolean }
+interface Format { key: string; label: string; emoji: string; desc: string; output_type: string; available: boolean; own?: boolean }
 
 const STYLES = [
   { value: "viral_story", label: "Viral Story", desc: "Hook-driven storytelling (default)" },
@@ -186,7 +186,7 @@ function EmptyStudio() {
           <div>
             <span style={label}>Pick a format — each one is a full recipe: script rules, footage, captions, pacing, music</span>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {(formats?.items ?? []).map(f => (
+              {(formats?.items ?? []).filter(f => !f.own).map(f => (
                 <button key={f.key} onClick={() => f.available && setFormat(f.key)} disabled={!f.available}
                   title={f.available ? f.desc : `${f.desc} — coming soon`} style={optionBtn(format === f.key, !f.available)}>
                   <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: L.ink }}>{f.label}</span>
@@ -199,6 +199,25 @@ function EmptyStudio() {
                 <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: L.ink }}>Custom</span>
                 <span style={{ display: "block", marginTop: 4, fontSize: 12, lineHeight: 1.45, color: L.dust }}>Pick output type &amp; style yourself</span>
               </button>
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <span style={label}>Your styles — learned from your own reference reels</span>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {(formats?.items ?? []).filter(f => f.own).map(f => (
+                  <button key={f.key} onClick={() => setFormat(f.key)} title={f.desc} style={optionBtn(format === f.key)}>
+                    <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: L.ink }}>{f.label}</span>
+                    <span style={{ display: "block", marginTop: 4, fontSize: 12, lineHeight: 1.45, color: L.dust }}>{f.desc}</span>
+                  </button>
+                ))}
+                <Link href="/dashboard/styles"
+                  style={{ ...optionBtn(false), display: "block", textDecoration: "none", borderStyle: "dashed" }}>
+                  <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: L.make }}>Teach a style</span>
+                  <span style={{ display: "block", marginTop: 4, fontSize: 12, lineHeight: 1.45, color: L.dust }}>
+                    Give it a few of your reels — it learns the hooks, pacing and voice
+                  </span>
+                </Link>
+              </div>
             </div>
           </div>
         ) : outputTypeGrid}

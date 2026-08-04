@@ -1,4 +1,7 @@
-"""BYO LLM keys: load/store a user's own provider keys (Fernet-encrypted)."""
+"""BYO provider keys: load/store a user's own API keys (Fernet-encrypted).
+
+LLM providers (gemini/openai/huggingface) feed the script lane; heygen is
+the AI-presenter lane (avatar videos are always the user's own spend)."""
 import logging
 
 from sqlalchemy import select
@@ -9,7 +12,7 @@ from app.models.api_key import UserApiKey
 
 logger = logging.getLogger("kliptos.user_keys")
 
-SUPPORTED_PROVIDERS = {"gemini", "openai", "huggingface"}
+SUPPORTED_PROVIDERS = {"gemini", "openai", "huggingface", "heygen"}
 
 
 async def get_user_keys(db: AsyncSession, user_id) -> dict[str, str]:
@@ -50,6 +53,15 @@ async def validate_key(provider: str, key: str) -> bool:
                 resp = await client.get(
                     "https://huggingface.co/api/whoami-v2",
                     headers={"Authorization": f"Bearer {key}"},
+                )
+            return resp.status_code == 200
+        if provider == "heygen":
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    "https://api.heygen.com/v2/avatars",
+                    headers={"X-Api-Key": key},
                 )
             return resp.status_code == 200
     except Exception as exc:

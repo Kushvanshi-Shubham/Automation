@@ -28,7 +28,7 @@ export const STATIONS = [
 
 export function stationIndexFor(pathname: string): number {
   if (pathname.startsWith("/dashboard/topics")) return 0
-  if (pathname.startsWith("/dashboard/studio")) return 1
+  if (pathname.startsWith("/dashboard/studio") || pathname.startsWith("/dashboard/styles")) return 1
   if (pathname.startsWith("/dashboard/preview") || pathname.startsWith("/dashboard/uploads") || pathname.startsWith("/dashboard/rail")) return 2
   if (pathname.startsWith("/dashboard/analytics") || pathname === "/dashboard") return 3
   return -1

@@ -12,6 +12,13 @@ import TransportBar from "@/components/line/transport-bar"
 
 const BAYS: { match: (p: string) => boolean; tabs: { href: string; label: string }[] }[] = [
   {
+    match: p => p.startsWith("/dashboard/studio") || p.startsWith("/dashboard/styles"),
+    tabs: [
+      { href: "/dashboard/studio", label: "Studio" },
+      { href: "/dashboard/styles", label: "Your styles" },
+    ],
+  },
+  {
     match: p => p.startsWith("/dashboard/rail") || p.startsWith("/dashboard/uploads") || p.startsWith("/dashboard/preview"),
     tabs: [
       { href: "/dashboard/rail", label: "In production" },
