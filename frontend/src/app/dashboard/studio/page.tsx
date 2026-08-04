@@ -392,7 +392,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     queryKey: ["caption-styles"], queryFn: () => fetchApi("/pipeline/caption-styles"), staleTime: Infinity,
   })
   const { data: assetData } = useQuery<AssetItem[]>({
-    queryKey: ["media-assets"], queryFn: () => fetchApi("/media-assets"), enabled: swapIndex !== null,
+    queryKey: ["media-assets"], queryFn: () => fetchApi("/media-assets"),
   })
   const footage = (assetData ?? []).filter(a => a.kind === "video" && a.status === "ready")
 
@@ -439,6 +439,11 @@ function ScriptEditor({ videoId }: { videoId: string }) {
       setFeedback("")
       queryClient.invalidateQueries({ queryKey: ["script", videoId] })
     },
+  })
+  const matchFootage = useMutation({
+    mutationFn: (): Promise<{ matched: number }> =>
+      fetchApi(`/scripts/${videoId}/match-footage`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["script", videoId] }),
   })
   const render = useMutation({
     mutationFn: () =>
@@ -536,6 +541,35 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             <div style={{ border: `1px solid ${alpha(L.live, 30)}`, background: alpha(L.live, 7), borderRadius: 8, padding: "10px 14px", fontSize: 12.5, lineHeight: 1.5, color: L.ash }}>
               Fake text convo: each line is one chat message (keep the A: / B: prefixes — A is grey, B is blue). Messages appear as bubbles with typing beats over background footage.
             </div>
+          )}
+
+          {(outputType === "narrated" || outputType === "visual") && footage.length > 0 &&
+            segments.some(s => !s.asset_id && !s.media_id) && (
+            <div style={{ border: `1px solid ${alpha(L.make, 28)}`, background: alpha(L.make, 5), borderRadius: 8, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <MdOutlinePermMedia size={17} color={L.make} />
+              <span style={{ flex: 1, minWidth: 200, fontSize: 12.5, lineHeight: 1.5, color: L.ash }}>
+                {matchFootage.data
+                  ? matchFootage.data.matched > 0
+                    ? `${matchFootage.data.matched} scene${matchFootage.data.matched === 1 ? "" : "s"} now play your footage — swap or unpin any of them below.`
+                    : "No strong matches found — your footage doesn't talk about these scenes. Pin manually via Swap visuals."
+                  : "You have uploaded footage. Kliptos can match its moments to these scenes automatically."}
+              </span>
+              {!matchFootage.data && (
+                <button onClick={() => matchFootage.mutate()} disabled={matchFootage.isPending || dirty}
+                  title={dirty ? "Save your changes first" : "Compares your footage's words to each scene"}
+                  style={{
+                    background: "transparent", border: `1px solid ${alpha(L.make, 45)}`, color: L.make,
+                    fontFamily: grotesque, fontSize: 12.5, fontWeight: 600, padding: "7px 14px",
+                    borderRadius: 7, cursor: matchFootage.isPending || dirty ? "default" : "pointer",
+                    opacity: dirty ? 0.55 : 1,
+                  }}>
+                  {matchFootage.isPending ? "Matching…" : "Match my footage"}
+                </button>
+              )}
+            </div>
+          )}
+          {matchFootage.error && (
+            <p style={{ margin: 0, fontSize: 12.5, color: L.refused }}>{(matchFootage.error as Error).message}</p>
           )}
 
           {segments.map((segment, i) => (

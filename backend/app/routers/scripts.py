@@ -349,6 +349,61 @@ async def regenerate_segment(
     return {"video_id": video.id, "segments": segments, "total_duration": total, "output_type": video.output_type}
 
 
+@router.post("/{video_id}/match-footage")
+async def match_footage(
+    video_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Auto-pin the user's own footage to matching scenes (transcript overlap).
+
+    One click instead of pinning scene by scene — the link gives the script,
+    the creator's uploads give the footage, this marries the two.
+    """
+    from app.models.asset import Asset
+    from app.services.footage_match import match_segments
+
+    video = await _get_owned_video(video_id, db, current_user)
+    if video.output_type not in ("narrated", "visual"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Footage matching works on narrated and visual shorts",
+        )
+    data = video.script_data or {}
+    segments = data.get("segments", [])
+    if not segments:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="No script segments yet")
+
+    rows = (
+        await db.execute(
+            select(Asset).where(
+                Asset.user_id == current_user.id,
+                Asset.kind == "video",
+                Asset.status == "ready",
+            )
+        )
+    ).scalars().all()
+    footage = [{"id": str(r.id), "transcript": r.transcript} for r in rows if r.transcript]
+    if not footage:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="No analyzed footage yet — upload your video on the Footage page first",
+        )
+
+    new_segments, matched = match_segments(segments, footage)
+    if matched:
+        video.script_data = {**data, "segments": new_segments}
+        await db.commit()
+
+    return {
+        "video_id": video.id,
+        "matched": matched,
+        "segments": new_segments,
+        "total_duration": data.get("total_duration", 0.0),
+        "output_type": video.output_type,
+    }
+
+
 @router.get("/{video_id}/segments/{segment_index}/media-options")
 async def segment_media_options(
     video_id: UUID,
