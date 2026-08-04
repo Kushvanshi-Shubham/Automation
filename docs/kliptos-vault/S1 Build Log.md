@@ -2,6 +2,11 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-05 — 🏁 Redesign interior complete: P6 + P7 (8b596ae, 6cb5248)
+- P6: Settings / Billing / Standing orders / Footage rebuilt on THE LINE — the last old-style app pages. Standing orders + Footage renamed to match the product language; Footage now cross-links to Create and Your styles.
+- P7: landing page rebuilt in the product's own identity — the four stations as the story, real renders as proof, new capabilities named plainly, no gradient-SaaS theater, framer-motion removed. Analytics is now honest (library output stats + "channel numbers come with the YouTube Analytics API"). Publish list themed.
+- Every page of the product — public and app — is now in one design system. Remaining from the redesign brief: P8 mobile-as-separate-product. CI green ×2.
+
 ## 2026-08-05 — 🧲 Auto-match footage to scenes (858b838)
 - "Match my footage" in the studio: narration vs footage-transcript token overlap pins the best moment per scene (asset + start second), threshold-gated, dedup so scenes never share a moment. Zero LLM cost — reuses Whisper output.
 - Completes the one-step feel of the reference workflow while staying rights-clean (upload-your-copy, never download). 168 backend tests green; CI green.
