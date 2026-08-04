@@ -21,11 +21,17 @@ and everything runs exactly as before.
 
 ## 1. Neon (database)
 
-1. Create the project → copy the **pooled** connection string ("Pooled connection" toggle ON).
-2. Convert its scheme for our async driver: `postgresql://…` → `postgresql+asyncpg://…`
-   and strip any `?sslmode=…&channel_binding=…` query params (asyncpg negotiates TLS itself).
+1. Create the project → copy the **pooled** connection string (host contains `-pooler`).
+2. Convert it for our async driver — three edits:
+   - `postgresql://` → `postgresql+asyncpg://`
+   - `?sslmode=require&channel_binding=require` → `?ssl=require`
+   - keep the `-pooler` host as-is
+   Result shape:
+   `postgresql+asyncpg://<user>:<password>@<host>-pooler.<region>.aws.neon.tech/neondb?ssl=require`
 3. That value is `DATABASE_URL`. (The code auto-detects `-pooler` hosts and
    disables asyncpg's statement cache — no extra config.)
+4. NEVER paste the connection string in chat/tickets — if it leaks, reset the
+   role password in Neon (Connect → Reset password) and update the env var.
 
 ## 2. Cloudflare R2 (media storage)
 
