@@ -2,6 +2,11 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-05 — 🎓 Teach a style + HeyGen presenter scaffold (019819c)
+- **Teach a style**: pick 2–20 of your uploaded reels → `style.learn` mines pace/hooks/transcripts (all data the Footage flow already produced — the learn itself is free) → LLM reverse-engineers the style into a recipe → personal format `user:<uuid>` in Create, right next to the built-ins. New `/dashboard/styles` page; Create now has bay tabs (Studio | Your styles). Migration 0011.
+- **HeyGen scaffold**: "heygen" joins the encrypted BYO keys (live-validated); `services/heygen.py` generate→poll→download client ready. ⚠️ OWNER: HeyGen account needed before the presenter lane can land.
+- 163 backend tests green (9 new); CI green. Not yet live-tested with real reels.
+
 ## 2026-08-04 — 🔗 Create from a link + feedback memory (dfdb023) · Library/Preview redesign done (3c732f7)
 - **Create from a link**: paste any public URL → SSRF-guarded text extraction (`link_ingest.py`, YouTube via official Data API — media never downloaded) → script written from the source facts, optional creator angle. Studio grew a third mode.
 - **Your footage in any scene**: segments can pin an uploaded asset (`asset_id` + start second); renderer cuts that piece via `assembler.cut_source` instead of Pexels — the clips feature and the script pipeline are now fused.
