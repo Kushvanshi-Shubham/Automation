@@ -21,11 +21,15 @@ const FAQS = [
   },
   {
     q: "What exactly does one credit get me?",
-    a: "One rendered short (narrated or visual), one clip cut from your footage, or one image carousel. Script-only generations are free (5 per day), and failed renders refund themselves automatically. Heavier AI engines will cost more credits when they launch — you always see the price on the button.",
+    a: "One rendered short (narrated or visual), one clip cut from your footage, or one image carousel. Script-only generations are free (5 per day), and failed renders refund themselves automatically. Heavier engines cost more credits, priced from what they actually cost to run — an AI-image carousel is 4, a premium AI-video render is far more. You always see the price on the button before you spend anything.",
   },
   {
     q: "Can it copy a style I like?",
     a: "Yes — upload a few reference reels you have the rights to, and Kliptos learns the hook pattern, pacing and voice from their transcripts. The result becomes your own format, next to the built-in ones. Nothing is ever scraped from other creators.",
+  },
+  {
+    q: "What is the actual difference between Free and Pro?",
+    a: "Free is a real tool, not a demo: every format, every creation route, 5 free scripts a day, and videos you can download and post. Pro changes the output — no watermark, full 1080p, shorts up to three minutes, your logo and colours, studio-grade voices — and it changes the workflow: publishing and scheduling from inside Kliptos, standing orders that make a Short a day unattended, teaching it your own style, and your own footage inside scenes. If you bring your own AI keys, your scripts run on your quota and cost fewer credits.",
   },
   {
     q: "Can I use my own script, my own footage, or my own AI keys?",
@@ -214,13 +218,34 @@ export default function LandingPage() {
           </p>
           <div className="grid items-start gap-5 md:grid-cols-3" style={{ maxWidth: 960, margin: "0 auto" }}>
             <PriceCard title="Free" price="$0" inr="₹0" credits="3 credits to start"
-              features={[{ text: "Every creation type" }, { text: "Free scripts — 5 a day" }, { text: "Stock footage & photo engines" }, { text: "Captions + music included" }, { text: "Manual YouTube publish" }]}
+              features={[
+                { text: "Every creation type — trends, links, your own script" },
+                { text: "Free scripts — 5 a day" },
+                { text: "720p with a small Kliptos mark" },
+                { text: "Up to 45 seconds" },
+                { text: "Download and post it yourself" },
+              ]}
               cta="Start free" />
             <PriceCard popular title="Pro" price="$19" inr="₹499" credits="50 credits a month"
-              features={[{ text: "Everything in Free" }, { text: "Publish & schedule to YouTube" }, { text: "Standing orders (autopilot)" }, { text: "Teach-a-style + your footage" }, { text: "Bring-your-own API keys" }]}
+              features={[
+                { text: "No watermark, full 1080p" },
+                { text: "Shorts up to 3 minutes" },
+                { text: "Publish & schedule to YouTube" },
+                { text: "Standing orders — a Short a day, unattended" },
+                { text: "Teach it your style, use your own footage" },
+                { text: "Your logo and brand colours" },
+                { text: "Priority render queue" },
+                { text: "Studio-grade voices", soon: true },
+              ]}
               cta="Coming at launch" disabled />
             <PriceCard title="Studio" price="$49" inr="₹1,299" credits="150 credits a month"
-              features={[{ text: "Everything in Pro" }, { text: "Premium AI video engines", soon: true }, { text: "Multiple channels" }, { text: "Bulk creation queue" }, { text: "Early access to new platforms" }]}
+              features={[
+                { text: "Everything in Pro" },
+                { text: "Multiple channels" },
+                { text: "Bulk creation queue" },
+                { text: "Premium AI video engines", soon: true },
+                { text: "Early access to new platforms" },
+              ]}
               cta="Coming at launch" disabled />
           </div>
           <p style={{ margin: "28px auto 0", maxWidth: "62ch", fontSize: 12, lineHeight: 1.6, color: L.dust, textAlign: "center" }}>
