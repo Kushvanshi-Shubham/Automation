@@ -214,17 +214,20 @@ export default function LandingPage() {
           </p>
           <div className="grid items-start gap-5 md:grid-cols-3" style={{ maxWidth: 960, margin: "0 auto" }}>
             <PriceCard title="Free" price="$0" inr="₹0" credits="3 credits to start"
-              features={["Every creation type", "Free scripts — 5 a day", "Stock footage & photo engines", "Captions + music included", "Manual YouTube publish"]}
+              features={[{ text: "Every creation type" }, { text: "Free scripts — 5 a day" }, { text: "Stock footage & photo engines" }, { text: "Captions + music included" }, { text: "Manual YouTube publish" }]}
               cta="Start free" />
             <PriceCard popular title="Pro" price="$19" inr="₹499" credits="50 credits a month"
-              features={["Everything in Free", "Publish & schedule to YouTube", "Standing orders (autopilot)", "Teach-a-style + your footage", "Bring-your-own API keys"]}
+              features={[{ text: "Everything in Free" }, { text: "Publish & schedule to YouTube" }, { text: "Standing orders (autopilot)" }, { text: "Teach-a-style + your footage" }, { text: "Bring-your-own API keys" }]}
               cta="Coming at launch" disabled />
             <PriceCard title="Studio" price="$49" inr="₹1,299" credits="150 credits a month"
-              features={["Everything in Pro", "Premium AI video engines (soon)", "Multiple channels", "Bulk creation queue", "Early access to new platforms"]}
+              features={[{ text: "Everything in Pro" }, { text: "Premium AI video engines", soon: true }, { text: "Multiple channels" }, { text: "Bulk creation queue" }, { text: "Early access to new platforms" }]}
               cta="Coming at launch" disabled />
           </div>
-          <p style={{ margin: "28px 0 0", fontSize: 12, color: L.dust, textAlign: "center" }}>
-            Paid plans open at public launch — early testers get grandfathered pricing. India pricing billed in INR via UPI.
+          <p style={{ margin: "28px auto 0", maxWidth: "62ch", fontSize: 12, lineHeight: 1.6, color: L.dust, textAlign: "center" }}>
+            India has its own pricing — deliberately about a third of the US price, billed in INR over UPI,
+            because a US price tag makes no sense for a creator earning in rupees. Paid plans open at public
+            launch and early testers keep whatever they signed up on. Anything marked coming soon is not
+            built yet — we do not charge for it.
           </p>
         </section>
 
@@ -305,7 +308,7 @@ export default function LandingPage() {
 
 function PriceCard({ title, price, inr, credits, features, cta, popular, disabled }: {
   title: string; price: string; inr: string; credits: string
-  features: string[]; cta: string; popular?: boolean; disabled?: boolean
+  features: { text: string; soon?: boolean }[]; cta: string; popular?: boolean; disabled?: boolean
 }) {
   return (
     <div style={{ ...card, borderColor: popular ? alpha(L.make, 45) : L.rule, padding: "26px 24px", display: "flex", flexDirection: "column" }}>
@@ -317,18 +320,29 @@ function PriceCard({ title, price, inr, credits, features, cta, popular, disable
           </span>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 32, fontWeight: 700 }}>{price}</span>
-        <span style={{ fontSize: 12.5, color: L.dust }}>/mo · {inr} in India</span>
+        <span style={{ fontSize: 12.5, color: L.dust }}>/mo</span>
       </div>
-      <p style={{ margin: "0 0 18px", paddingBottom: 16, borderBottom: `1px solid ${L.ruleFaint}`, fontSize: 13, fontWeight: 600, color: L.make }}>
+      <p style={{ margin: "4px 0 0", fontSize: 12.5, color: L.ash }}>
+        In India <span style={{ fontFamily: mono, color: L.ink }}>{inr}</span>/mo
+        <span style={{ color: L.dust }}> · regional price, not a conversion</span>
+      </p>
+      <p style={{ margin: "14px 0 18px", paddingBottom: 16, borderBottom: `1px solid ${L.ruleFaint}`, fontSize: 13, fontWeight: 600, color: L.make }}>
         {credits}
       </p>
       <ul style={{ margin: "0 0 22px", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
         {features.map(f => (
-          <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13.5, color: L.ink }}>
-            <span style={{ marginTop: 7, width: 5, height: 5, borderRadius: "50%", background: L.ready, flexShrink: 0 }} />
-            {f}
+          <li key={f.text} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13.5, color: f.soon ? L.ash : L.ink }}>
+            <span style={{ marginTop: 7, width: 5, height: 5, borderRadius: "50%", background: f.soon ? L.dust : L.ready, flexShrink: 0 }} />
+            <span>
+              {f.text}
+              {f.soon && (
+                <span style={{ marginLeft: 7, fontSize: 10.5, fontWeight: 600, color: L.working, border: `1px solid ${alpha(L.working, 40)}`, padding: "1px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>
+                  coming soon
+                </span>
+              )}
+            </span>
           </li>
         ))}
       </ul>
