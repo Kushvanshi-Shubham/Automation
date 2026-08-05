@@ -25,8 +25,29 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API Error ${response.status}: ${errorText}`)
+    // The API writes plain-English `detail` messages — show those, not
+    // "API Error 409: {json}". Fall back to a human line per status.
+    const raw = await response.text()
+    let message = ""
+    try {
+      const parsed = JSON.parse(raw)
+      const detail = parsed?.detail
+      message = typeof detail === "string" ? detail
+        : Array.isArray(detail) ? (detail[0]?.msg ?? "")  // pydantic validation
+        : ""
+    } catch {
+      message = raw.slice(0, 200)
+    }
+    if (!message) {
+      message = response.status === 401 ? "Your session expired — sign in again."
+        : response.status === 402 ? "You don't have enough credits for that."
+        : response.status === 404 ? "That item no longer exists."
+        : response.status === 409 ? "That's already in progress."
+        : response.status === 429 ? "Slow down a moment and try again."
+        : response.status >= 500 ? "Something broke on our side. Try again in a moment."
+        : `Request failed (${response.status}).`
+    }
+    throw new Error(message)
   }
 
   if (response.status === 204) return null

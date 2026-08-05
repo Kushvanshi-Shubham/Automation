@@ -1,3 +1,5 @@
+import logging
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,6 +14,10 @@ from app.models.pipeline_job import PipelineJob
 from app.models.user import User
 from app.models.video import Video
 from app.schemas.pipeline import PipelineStartRequest, PipelineStatusResponse
+
+from app.services.progress import publish_progress
+
+logger = logging.getLogger("kliptos.pipeline")
 
 router = APIRouter(prefix="/pipeline", tags=["Pipeline"], dependencies=[Depends(get_current_user)])
 
@@ -194,6 +200,57 @@ async def get_pipeline_status(
 
 
 @router.post("/{job_id}/cancel")
-async def cancel_pipeline(job_id: UUID):
-    # Safe cancellation (kill ffmpeg mid-render + refund) is a later milestone.
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Cancel not yet available")
+async def cancel_pipeline(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Give up on a render and get the credit back.
+
+    Used when a job is stuck (no worker available, queue drained) — the
+    creator should never be left holding a spent credit and a frozen
+    page. A worker already past the ffmpeg stage may still finish; the
+    revoke below asks it to stop, and the video simply returns to
+    script_ready either way.
+    """
+    job = await db.get(PipelineJob, job_id)
+    if job is None or job.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    if job.status in ("completed", "failed"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="That render already finished — nothing to cancel",
+        )
+
+    video = await db.get(Video, job.video_id)
+    refund = (video.credits_used or 0) if video else 0
+
+    if job.celery_task_id:
+        try:  # best effort — the queue may be unreachable
+            from app.pipeline.celery_app import celery_app
+
+            celery_app.control.revoke(job.celery_task_id, terminate=True)
+        except Exception as exc:
+            logger.warning("could not revoke task %s: %s", job.celery_task_id, exc)
+
+    job.status = "failed"
+    job.error_message = "Cancelled by the creator"
+    job.completed_at = datetime.now(timezone.utc)
+    job.progress = {"stage": "cancelled", "percent": 0}
+    if video is not None:
+        video.status = "script_ready"  # the script survives; render again anytime
+        if refund:
+            current_user.credit_balance += refund
+            db.add(CreditLedger(
+                user_id=current_user.id, amount=refund, type="refund",
+                description="Render cancelled — credit returned", video_id=video.id,
+            ))
+            video.credits_used = 0
+    await db.commit()
+
+    try:
+        publish_progress(str(job_id), status="failed", stage="cancelled", percent=0,
+                         error="Cancelled by the creator")
+    except Exception:
+        pass
+    return {"job_id": job.id, "status": "failed", "refunded_credits": refund}

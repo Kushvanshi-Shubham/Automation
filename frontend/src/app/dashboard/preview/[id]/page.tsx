@@ -151,6 +151,7 @@ function PreviewContent() {
                 <p style={{ margin: "14px 0 0", fontSize: 12, color: L.dust, maxWidth: "32ch" }}>
                   You can leave this page — it will be waiting in Production when it&apos;s done.
                 </p>
+                {jobId && <CancelRender jobId={jobId} videoId={video.id} />}
               </div>
             )}
           </div>
@@ -213,6 +214,55 @@ function PreviewContent() {
 
         {["ready", "published", "scheduled"].includes(video.status) && <FeedbackCard video={video} />}
       </div>
+    </div>
+  )
+}
+
+/* ==================== STUCK RENDER ESCAPE HATCH ==================== */
+function CancelRender({ jobId, videoId }: { jobId: string; videoId: string }) {
+  const queryClient = useQueryClient()
+  const [asked, setAsked] = useState(false)
+
+  const cancel = useMutation({
+    mutationFn: (): Promise<{ refunded_credits: number }> =>
+      fetchApi(`/pipeline/${jobId}/cancel`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["video", videoId] })
+      queryClient.invalidateQueries({ queryKey: ["credits"] })
+      queryClient.invalidateQueries({ queryKey: ["pipeline-active"] })
+    },
+  })
+
+  if (cancel.isSuccess) {
+    return (
+      <p style={{ margin: "16px 0 0", fontSize: 12, color: L.ready, maxWidth: "34ch" }}>
+        Render cancelled and your credit is back. The script is safe — open it and render again.
+      </p>
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 16, textAlign: "center" }}>
+      {asked ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+          <button onClick={() => cancel.mutate()} disabled={cancel.isPending}
+            style={{ background: "transparent", border: `1px solid ${alpha(L.refused, 45)}`, color: L.refused, fontFamily: grotesque, fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 6, cursor: "pointer" }}>
+            {cancel.isPending ? "Cancelling…" : "Yes, cancel and refund"}
+          </button>
+          <button onClick={() => setAsked(false)}
+            style={{ background: "none", border: "none", color: L.dust, fontFamily: grotesque, fontSize: 12, cursor: "pointer" }}>
+            Keep waiting
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => setAsked(true)}
+          style={{ background: "none", border: "none", color: L.dust, fontFamily: grotesque, fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+          Taking too long? Cancel and get the credit back
+        </button>
+      )}
+      {cancel.error && (
+        <p style={{ margin: "8px 0 0", fontSize: 12, color: L.refused }}>{(cancel.error as Error).message}</p>
+      )}
     </div>
   )
 }

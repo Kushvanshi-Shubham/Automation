@@ -13,6 +13,7 @@ celery_app = Celery(
         "app.pipeline.series_tasks",
         "app.pipeline.asset_tasks",
         "app.pipeline.style_tasks",
+        "app.pipeline.reaper",
     ],
 )
 
@@ -25,5 +26,7 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
     beat_schedule={
         "series-autopilot-tick": {"task": "series.tick", "schedule": 900.0},  # every 15 min
+        # Refund and clear renders no worker ever finished (see reaper.py).
+        "reap-stale-renders": {"task": "pipeline.reap_stale", "schedule": 600.0},  # every 10 min
     },
 )

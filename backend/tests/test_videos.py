@@ -15,11 +15,13 @@ def test_get_missing_video_404(client, auth_headers):
 def test_unbuilt_features_return_501_not_fake_success(client, auth_headers):
     resp = client.post("/api/topics/custom?prompt=test", headers=auth_headers)
     assert resp.status_code == 501
+    # Cancel IS built now (refund + free the video) — see test_cancel_reap.py.
+    # An unknown job must 404, never a fake success.
     resp = client.post(
         "/api/pipeline/00000000-0000-0000-0000-000000000000/cancel",
         headers=auth_headers,
     )
-    assert resp.status_code == 501
+    assert resp.status_code == 404
 
 
 def test_pipeline_start_unknown_video_404(client, auth_headers):
