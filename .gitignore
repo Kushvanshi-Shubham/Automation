@@ -30,6 +30,9 @@ output/
 *.mp4
 *.mp3
 *.wav
+# ...except the landing page's demo reels and the music beds, which ship with the app
+!frontend/public/demos/*.mp4
+!backend/assets/music/*.mp3
 
 # IDE
 .vscode/
