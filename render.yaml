@@ -16,22 +16,25 @@ services:
     runtime: docker
     repo: https://github.com/Kushvanshi-Shubham/Automation
     rootDir: backend
-    plan: starter
+    plan: free # testing phase: sleeps after idle (~50s wake). Launch: starter.
     region: singapore
     healthCheckPath: /api/health
     envVars:
       - fromGroup: kliptos-secrets
 
-  - type: worker
-    name: kliptos-worker
-    runtime: docker
-    repo: https://github.com/Kushvanshi-Shubham/Automation
-    rootDir: backend
-    plan: starter
-    region: singapore
-    dockerCommand: celery -A app.pipeline.celery_app worker -B --loglevel=info --concurrency=1
-    envVars:
-      - fromGroup: kliptos-secrets
+  # Testing phase: the render worker runs on the dev PC (free), pointed at the
+  # SAME Neon DB + the Key Value EXTERNAL url + R2. At launch, uncomment this
+  # (and move the API to starter) for a fully-cloud ~$14/mo setup.
+  # - type: worker
+  #   name: kliptos-worker
+  #   runtime: docker
+  #   repo: https://github.com/Kushvanshi-Shubham/Automation
+  #   rootDir: backend
+  #   plan: starter
+  #   region: singapore
+  #   dockerCommand: celery -A app.pipeline.celery_app worker -B --loglevel=info --concurrency=1
+  #   envVars:
+  #     - fromGroup: kliptos-secrets
 
 envVarGroups:
   - name: kliptos-secrets
