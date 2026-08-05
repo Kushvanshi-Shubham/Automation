@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # Ops kill-switch; tests disable it (they hammer endpoints as one user).
     RATE_LIMITS_ENABLED: bool = True
 
+    # Paywall switch. OFF until billing is live: every signed-in user is
+    # served Pro-level features so the beta isn't gated by a plan nobody
+    # can buy yet. Flip to true the day checkout ships.
+    PLAN_ENFORCEMENT_ENABLED: bool = False
+
     # Owner emails allowed to see platform economics (comma-separated).
     ADMIN_EMAILS: Annotated[List[str], NoDecode] = []
     # What one credit sells for once billing is live — drives IMPLIED revenue.

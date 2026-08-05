@@ -23,6 +23,7 @@ from app.models.video import Video
 from app.pipeline import assembler, captions, tts
 from app.pipeline.assembler import ASPECT_RATIOS
 from app.pipeline.visuals import pexels
+from app.services import plans
 from app.services.progress import publish_progress
 
 logger = logging.getLogger("kliptos.runner")
@@ -150,12 +151,18 @@ async def _run_clip(job_key: str, job_uuid, video, out_dir: Path, workdir: Path)
 
     _publish(job_key, "running", "captions", 20)
     aspect = ASPECT_RATIOS.get((video.script_data or {}).get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT])
+    tier = (video.script_data or {}).get("tier") or {}
+    if tier.get("height"):
+        aspect = {**aspect, **dict(zip(("w", "h"), plans.tier_dimensions(aspect["w"], aspect["h"], int(tier["height"]))))}
     caption_style = (video.script_data or {}).get("caption_style") or captions.DEFAULT_CAPTION_STYLE
     words = transcribe.words_in_range(transcript, start, end)
     ass_path = None
-    if words:
-        ass_path = captions.write_ass(captions.group_words(words), workdir / "clip.ass",
-                                      style=caption_style, play_res=(aspect["w"], aspect["h"]))
+    if words or tier.get("watermark"):
+        ass_path = captions.write_ass(
+            captions.group_words(words) if words else [], workdir / "clip.ass",
+            style=caption_style, play_res=(aspect["w"], aspect["h"]),
+            watermark_seconds=(end - start + 0.2) if tier.get("watermark") else None,
+        )
 
     _publish(job_key, "running", "assembly", 45)
     final_path = (out_dir / "final.mp4").resolve()  # ffmpeg cwd is the workdir
@@ -188,8 +195,10 @@ async def _run_fake_text(job_key: str, job_uuid, video, segments: list[dict], ou
         raise RuntimeError("fake text conversation needs at least 2 messages")
 
     _publish(job_key, "running", "chat", 15)
-    ass_path, duration = fake_text.write_chat_ass(messages, workdir / "chat.ass",
-                                                  play_res=(aspect["w"], aspect["h"]))
+    ass_path, duration = fake_text.write_chat_ass(
+        messages, workdir / "chat.ass", play_res=(aspect["w"], aspect["h"]),
+        watermark=bool(((video.script_data or {}).get("tier") or {}).get("watermark")),
+    )
 
     _publish(job_key, "running", "visuals", 35)
     bg_query = (video.script_data or {}).get("background_query") or "aesthetic blurred city night bokeh"
@@ -255,6 +264,12 @@ async def run(job_id: str) -> dict:
     job_key = str(job_id)
     output_type = video.output_type or "narrated"
     aspect = ASPECT_RATIOS.get((video.script_data or {}).get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT])
+    # The plan's render tier is decided at start time (routers/pipeline.py)
+    # and frozen into script_data — a plan change mid-render can't confuse it.
+    tier = (video.script_data or {}).get("tier") or {}
+    watermark = bool(tier.get("watermark"))
+    if tier.get("height"):
+        aspect = {**aspect, **dict(zip(("w", "h"), plans.tier_dimensions(aspect["w"], aspect["h"], int(tier["height"]))))}
     out_dir = Path(settings.OUTPUT_DIR) / str(video.id)
     out_dir.mkdir(parents=True, exist_ok=True)
     workdir = Path(tempfile.mkdtemp(prefix="kliptos_"))
@@ -342,6 +357,7 @@ async def run(job_id: str) -> dict:
                 out_path=workdir / f"cap_{i:02d}.ass",
                 style=caption_style,
                 play_res=(aspect["w"], aspect["h"]),
+                watermark=watermark,
             )
             if output_type == "visual":
                 assembler.render_segment_silent(clip, seg_audio["duration"], seg_out, ass_path=ass_path,

@@ -30,6 +30,7 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: BubbleA,Arial,{fontsize},&H00FFFFFF,&H00FFFFFF,&H003A3A3A,&H00000000,0,0,0,0,100,100,0,0,3,{pad},0,7,0,0,0,1
 Style: BubbleB,Arial,{fontsize},&H00FFFFFF,&H00FFFFFF,&H00F27D34,&H00000000,0,0,0,0,100,100,0,0,3,{pad},0,9,0,0,0,1
+Style: Mark,Arial,{mark_size},&H80FFFFFF,&H80FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,40,40,{mark_margin},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -99,6 +100,7 @@ def write_chat_ass(
     messages: list[dict],
     out_path: Path,
     play_res: tuple[int, int] = (1080, 1920),
+    watermark: bool = False,
 ) -> tuple[Path, float]:
     """Emit the chat as piecewise-static ASS states; returns (path, duration)."""
     px, py = play_res
@@ -150,6 +152,13 @@ def write_chat_ass(
                 f"{{\\pos({x},{y_pos})}}{text}\n"
             )
 
-    header = _HEADER_TMPL.format(play_x=px, play_y=py, fontsize=fontsize, pad=pad)
+    header = _HEADER_TMPL.format(
+        play_x=px, play_y=py, fontsize=fontsize, pad=pad,
+        mark_size=max(12, round(34 * s)), mark_margin=max(10, round(48 * s)),
+    )
+    if watermark:
+        from app.pipeline.captions import WATERMARK_TEXT
+
+        events.insert(0, f"Dialogue: 1,{_ass_time(0)},{_ass_time(total)},Mark,,0,0,0,,{WATERMARK_TEXT}\n")
     out_path.write_text(header + "".join(events), encoding="utf-8")
     return out_path, total

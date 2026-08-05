@@ -148,6 +148,13 @@ async def generate_script(
         if req.language == "English" and fmt.get("language"):
             req.language = fmt["language"]
 
+    # Longer shorts are a paid tier — clamp rather than reject so the
+    # request still succeeds with a shorter script.
+    from app.services import plans
+
+    max_seconds = plans.features(current_user)["max_duration_seconds"]
+    req.duration_seconds = min(req.duration_seconds, max_seconds)
+
     if req.style not in script_gen.STYLE_PROMPTS:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown style")
     if req.model not in VALID_MODELS:
@@ -363,8 +370,10 @@ async def match_footage(
     the creator's uploads give the footage, this marries the two.
     """
     from app.models.asset import Asset
+    from app.services import plans
     from app.services.footage_match import match_segments
 
+    plans.require(current_user, "own_footage")
     video = await _get_owned_video(video_id, db, current_user)
     if video.output_type not in ("narrated", "visual"):
         raise HTTPException(

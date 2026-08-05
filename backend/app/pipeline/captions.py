@@ -67,10 +67,15 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,Arial,{fontsize},{primary},{secondary},{outline_colour},{back_colour},{bold},0,0,0,100,100,1,0,{border_style},{outline},0,{alignment},60,60,{margin_v},1
+Style: Mark,Arial,{mark_size},&H80FFFFFF,&H80FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,40,40,{mark_margin},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
+
+# Free-plan mark. Burned in with the captions (same encode pass) so it
+# costs nothing; Pro renders simply omit the line.
+WATERMARK_TEXT = "Made with Kliptos"
 
 
 def _ass_time(seconds: float) -> str:
@@ -151,6 +156,7 @@ def write_ass(
     out_path: Path,
     style: str = DEFAULT_CAPTION_STYLE,
     play_res: tuple[int, int] = (1080, 1920),
+    watermark_seconds: float | None = None,
 ) -> Path:
     cfg = dict(CAPTION_STYLES.get(style, CAPTION_STYLES[DEFAULT_CAPTION_STYLE]))
     # Style values are tuned for a 1920-high frame; scale to the actual
@@ -158,7 +164,13 @@ def write_ass(
     s = play_res[1] / 1920
     for key in ("fontsize", "outline", "margin_v"):
         cfg[key] = max(1, round(cfg[key] * s)) if cfg[key] else cfg[key]
+    cfg["mark_size"] = max(12, round(34 * s))
+    cfg["mark_margin"] = max(10, round(48 * s))
     lines = [_HEADER_TMPL.format(play_x=play_res[0], play_y=play_res[1], **cfg)]
+    if watermark_seconds and watermark_seconds > 0:
+        lines.append(
+            f"Dialogue: 1,{_ass_time(0)},{_ass_time(watermark_seconds)},Mark,,0,0,0,,{WATERMARK_TEXT}\n"
+        )
     for cue in cues:
         text = _karaoke_text(cue, cfg["uppercase"]) if cfg["karaoke"] else _escape(cue["text"], cfg["uppercase"])
         lines.append(
@@ -175,6 +187,11 @@ def build_segment_captions(
     out_path: Path,
     style: str = DEFAULT_CAPTION_STYLE,
     play_res: tuple[int, int] = (1080, 1920),
+    watermark: bool = False,
 ) -> Path:
     cues = group_words(words) if words else fallback_cues(text, duration)
-    return write_ass(cues, out_path, style=style, play_res=play_res)
+    return write_ass(
+        cues, out_path, style=style, play_res=play_res,
+        # +0.2s so the mark never flickers out between segments
+        watermark_seconds=(duration + 0.2) if watermark else None,
+    )

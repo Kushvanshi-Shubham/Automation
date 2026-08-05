@@ -132,6 +132,9 @@ async def create_series(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from app.services import plans
+
+    plans.require(current_user, "standing_orders")
     _validate(req)
     active = await db.scalar(
         select(func.count(Series.id)).where(Series.user_id == current_user.id, Series.is_active == True)  # noqa: E712

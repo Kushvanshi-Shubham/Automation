@@ -65,7 +65,11 @@ async def start_pipeline(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already being processed")
 
     engine = req.visual_engine or ("stock_image" if video.output_type == "image" else "pexels")
-    cost = ENGINE_CREDIT_COST.get(engine)
+    # Credit price comes from the engine's real cost x margin, so a render
+    # can never be sold below what it costs us (services/credits.py).
+    from app.services.credits import engine_credit_cost
+
+    cost = engine_credit_cost(engine) if engine in ENGINE_CREDIT_COST else None
     if cost is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -99,6 +103,18 @@ async def start_pipeline(
         if req.aspect_ratio not in ASPECT_RATIOS:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown aspect ratio")
         video.script_data = {**(video.script_data or {}), "aspect_ratio": req.aspect_ratio}
+
+    # Freeze this render's quality tier from the plan: the worker reads it
+    # from script_data, so a plan change mid-render can't alter the output.
+    from app.services import plans
+
+    feats = plans.features(current_user)
+    video.script_data = {
+        **(video.script_data or {}),
+        "tier": {"watermark": feats["watermark"], "height": feats["max_height"]},
+    }
+    if any(s.get("asset_id") for s in (video.script_data.get("segments") or [])):
+        plans.require(current_user, "own_footage")
 
     # Atomically CLAIM the video (idempotency: double-clicks / concurrent
     # requests both pass the read check above, but only one wins this update).

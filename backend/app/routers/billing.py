@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.middleware.auth import get_current_user
 from app.models.credit import CreditLedger
@@ -14,6 +15,26 @@ router = APIRouter(prefix="/billing", tags=["Billing"], dependencies=[Depends(ge
 @router.get("/credits", response_model=CreditBalanceResponse)
 async def get_credits(current_user: User = Depends(get_current_user)):
     return CreditBalanceResponse(balance=current_user.credit_balance, plan=current_user.plan)
+
+
+@router.get("/plan")
+async def get_plan(current_user: User = Depends(get_current_user)):
+    """What this user's plan includes, and what each engine costs in credits.
+
+    The UI reads this so limits and upsells are never hardcoded in the
+    frontend — one source of truth for what Pro actually buys you.
+    """
+    from app.services import plans
+    from app.services.credits import price_table
+
+    feats = plans.features(current_user)
+    return {
+        "plan": plans.effective_plan(current_user),
+        "label": feats["label"],
+        "features": {k: v for k, v in feats.items() if k != "label"},
+        "engine_credits": price_table(),
+        "enforced": settings.PLAN_ENFORCEMENT_ENABLED,
+    }
 
 
 @router.get("/ledger", response_model=list[CreditLedgerResponse])

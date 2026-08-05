@@ -43,6 +43,9 @@ async def list_yt_categories():
 
 
 async def _validate(video_id: UUID, channel_id: UUID, db: AsyncSession, user: User) -> tuple[Video, Channel]:
+    from app.services import plans
+
+    plans.require(user, "publish")
     video = await db.get(Video, video_id)
     if video is None or video.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
@@ -137,6 +140,9 @@ async def publish_instagram(
     db: AsyncSession = Depends(get_db),
 ):
     """Publish a rendered short to Instagram as a Reel (official Graph API)."""
+    from app.services import plans
+
+    plans.require(current_user, "publish")
     if not instagram.enabled():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

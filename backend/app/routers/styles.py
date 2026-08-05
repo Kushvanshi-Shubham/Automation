@@ -39,6 +39,9 @@ async def start_learning(
     db: AsyncSession = Depends(get_db),
 ):
     """Learn a style from the creator's reference reels (async — poll GET /styles)."""
+    from app.services import plans
+
+    plans.require(current_user, "teach_style")
     if req.output_type not in OUTPUT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
