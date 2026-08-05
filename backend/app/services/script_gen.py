@@ -133,7 +133,12 @@ async def regenerate_segment(
     full_script: list[dict],
     segment_index: int,
     feedback: str,
+    style: str = DEFAULT_STYLE,
+    model: str = "auto",
+    user_keys: dict[str, str] | None = None,
 ) -> dict:
+    """Rewrite one segment. Honours the video's style and the creator's own
+    API key — a BYO user's rewrites must not fall back to platform keys."""
     context = "\n".join(f"[{i}] {s.get('text', '')}" for i, s in enumerate(full_script))
     user_prompt = (
         f"Topic: {topic}\n"
@@ -141,7 +146,8 @@ async def regenerate_segment(
         f"Rewrite ONLY segment [{segment_index}] applying this feedback: {feedback}\n"
         'Respond ONLY with JSON: {"text": "...", "visual_prompt": "...", "duration_estimate": 4.5}'
     )
-    seg = await generate_json(STYLE_PROMPTS[DEFAULT_STYLE], user_prompt, temperature=0.9)
+    system = STYLE_PROMPTS.get(style, STYLE_PROMPTS[DEFAULT_STYLE])
+    seg = await generate_json(system, user_prompt, temperature=0.9, model=model, user_keys=user_keys)
 
     if "text" not in seg:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Segment regeneration returned no text")

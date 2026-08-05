@@ -340,6 +340,8 @@ async def regenerate_segment(
         full_script=segments,
         segment_index=req.segment_index,
         feedback=req.feedback,
+        style=data.get("style") or script_gen.DEFAULT_STYLE,
+        user_keys=await get_user_keys(db, current_user.id),
     )
     segments = [*segments]
     segments[req.segment_index] = new_segment

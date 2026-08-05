@@ -69,7 +69,10 @@ def test_regenerate_segment_replaces_only_target(client, auth_headers, monkeypat
         json={"custom_prompt": "Why the Roman Empire collapsed"},
     ).json()["video_id"]
 
-    async def fake_regen(topic, full_script, segment_index, feedback):
+    captured = {}
+
+    async def fake_regen(topic, full_script, segment_index, feedback, **kwargs):
+        captured.update(kwargs)
         return {"text": "REGENERATED", "visual_prompt": "vp", "duration_estimate": 4.0}
 
     monkeypatch.setattr("app.routers.scripts.script_gen.regenerate_segment", fake_regen)
@@ -83,6 +86,9 @@ def test_regenerate_segment_replaces_only_target(client, auth_headers, monkeypat
     segs = resp.json()["segments"]
     assert segs[0]["text"] == FAKE_SCRIPT["segments"][0]["text"]
     assert segs[1]["text"] == "REGENERATED"
+    # Rewrites must honour the video's style and the creator's own API keys.
+    assert captured["style"] == "viral_story"
+    assert "user_keys" in captured
 
     bad = client.post(
         f"/api/scripts/{video_id}/regenerate-segment",
