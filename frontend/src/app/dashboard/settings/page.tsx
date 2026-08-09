@@ -221,6 +221,8 @@ const PROVIDERS = [
   { key: "openai", label: "OpenAI", hint: "platform.openai.com — paid account" },
   { key: "huggingface", label: "Hugging Face", hint: "huggingface.co/settings/tokens — open models (Llama & more)" },
   { key: "heygen", label: "HeyGen", hint: "app.heygen.com — for the AI presenter (your avatar & voice), coming soon" },
+  { key: "cartesia", label: "Cartesia", hint: "cartesia.ai — studio-grade voices incl. Hindi; your key means no extra credits" },
+  { key: "elevenlabs", label: "ElevenLabs", hint: "elevenlabs.io — studio-grade voices and voice cloning (key starts with sk_)" },
 ]
 
 function ApiKeysSection() {

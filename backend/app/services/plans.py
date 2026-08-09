@@ -28,6 +28,7 @@ PLANS: dict[str, dict] = {
         "teach_style": False,
         "own_footage": False,        # upload + clip yes; scenes from footage no
         "premium_engines": False,
+        "premium_voice": False,      # edge-tts only
         "brand_kit": False,
         "priority": 0,
     },
@@ -41,6 +42,7 @@ PLANS: dict[str, dict] = {
         "teach_style": True,
         "own_footage": True,
         "premium_engines": False,    # available, but Studio gets them included
+        "premium_voice": True,       # Cartesia / ElevenLabs narration
         "brand_kit": True,
         "priority": 1,
     },
@@ -54,6 +56,7 @@ PLANS: dict[str, dict] = {
         "teach_style": True,
         "own_footage": True,
         "premium_engines": True,
+        "premium_voice": True,
         "brand_kit": True,
         "priority": 2,
     },
@@ -66,6 +69,7 @@ UPSELL: dict[str, str] = {
     "teach_style": "Teaching Kliptos your own style is a Pro feature.",
     "own_footage": "Using your own footage inside a scene is a Pro feature — on Free you can still cut clips from it.",
     "premium_engines": "Premium AI video engines are a Studio feature.",
+    "premium_voice": "Studio-grade voices are a Pro feature — Free shorts use the standard voice.",
     "brand_kit": "Your logo and brand colours are a Pro feature.",
 }
 

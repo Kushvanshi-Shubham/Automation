@@ -53,7 +53,9 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_PROJECT: Optional[str] = None
     HUGGINGFACE_API_KEY: Optional[str] = None
     HIGGSFIELD_API_KEY: Optional[str] = None
+    # Studio-grade narration (the Pro voice lane) — BYO-key friendly.
     ELEVENLABS_API_KEY: Optional[str] = None
+    CARTESIA_API_KEY: Optional[str] = None
 
     REDDIT_CLIENT_ID: Optional[str] = None
     REDDIT_CLIENT_SECRET: Optional[str] = None

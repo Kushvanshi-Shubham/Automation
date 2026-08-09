@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, time, timezone
 from uuid import UUID
 
@@ -15,6 +16,8 @@ from app.schemas.script import ScriptGenerateRequest, ScriptResponse, ScriptRege
 from app.services import script_gen
 from app.services.llm import VALID_MODELS, available_models
 from app.services.user_keys import get_user_keys
+
+logger = logging.getLogger("kliptos.scripts")
 
 router = APIRouter(prefix="/scripts", tags=["Scripts"], dependencies=[Depends(get_current_user)])
 
@@ -65,11 +68,25 @@ async def list_formats(
 
 
 @router.get("/voices")
-async def list_voices():
-    """Curated narration voices + supported script languages."""
+async def list_voices(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Narration voices: the free edge-tts set plus the studio-grade lane
+    (the creator's own cloned voices first, when they've added a key)."""
+    from app.services import plans, premium_voice
     from app.services.voices import LANGUAGES, VOICES
 
-    return {"voices": VOICES, "languages": LANGUAGES}
+    premium: list[dict] = []
+    if plans.allows(current_user, "premium_voice"):
+        user_keys = await get_user_keys(db, current_user.id)
+        for provider in premium_voice.available_providers(user_keys):
+            try:
+                premium += await premium_voice.list_voices(provider, user_keys)
+            except Exception as exc:  # a dead key must not break the picker
+                logger.warning("premium voices unavailable (%s): %s", provider, exc)
+
+    return {"voices": VOICES, "languages": LANGUAGES, "premium": premium}
 
 
 @router.get("/voices/{voice_id}/preview")

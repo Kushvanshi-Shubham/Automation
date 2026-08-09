@@ -34,6 +34,8 @@ interface Script {
   format?: string | null; defaults?: { voice_id?: string; caption_style?: string } | null
 }
 interface Voice { id: string; label: string; language: string; gender: string; vibe: string }
+/** Studio-grade narration (Cartesia / ElevenLabs); cloned = the creator's own voice. */
+interface PremiumVoice { id: string; name: string; language: string; provider: string; cloned: boolean }
 interface Format { key: string; label: string; emoji: string; desc: string; output_type: string; available: boolean; own?: boolean }
 
 const STYLES = [
@@ -340,6 +342,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [mediaOptions, setMediaOptions] = useState<MediaOption[]>([])
   const [mediaLoading, setMediaLoading] = useState(false)
   const [voiceId, setVoiceId] = useState("en-US-ChristopherNeural")
+  const [voiceProvider, setVoiceProvider] = useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [captionStyle, setCaptionStyle] = useState("classic")
   const [aspectRatio, setAspectRatio] = useState("9:16")
@@ -385,7 +388,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const { data: editorFormats } = useQuery<{ items: Format[] }>({
     queryKey: ["formats"], queryFn: () => fetchApi("/scripts/formats"), staleTime: Infinity,
   })
-  const { data: voiceData } = useQuery<{ voices: Voice[] }>({
+  const { data: voiceData } = useQuery<{ voices: Voice[]; premium?: PremiumVoice[] }>({
     queryKey: ["voices"], queryFn: () => fetchApi("/scripts/voices"), staleTime: Infinity,
   })
   const { data: captionStyles } = useQuery<{ items: { key: string; label: string; desc: string }[] }>({
@@ -453,6 +456,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           video_id: videoId,
           visual_engine: outputType === "image" ? "stock_image" : "pexels",
           voice_id: outputType === "narrated" ? voiceId : undefined,
+          voice_provider: outputType === "narrated" ? voiceProvider ?? undefined : undefined,
           caption_style: outputType !== "image" && outputType !== "fake_text" ? captionStyle : undefined,
           aspect_ratio: aspectRatio,
         }),
@@ -722,16 +726,42 @@ function ScriptEditor({ videoId }: { videoId: string }) {
               <div>
                 <span style={label}>Voice</span>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <select value={voiceId} onChange={e => setVoiceId(e.target.value)} style={{ ...field, flex: 1, minWidth: 0 }}>
-                    {(voiceData?.voices ?? []).map(v => (
-                      <option key={v.id} value={v.id}>{v.label} · {v.language} · {v.vibe}</option>
-                    ))}
+                  <select
+                    value={voiceProvider ? `${voiceProvider}:${voiceId}` : voiceId}
+                    onChange={e => {
+                      const [a, b] = e.target.value.split(":")
+                      if (b) { setVoiceProvider(a); setVoiceId(b) }
+                      else { setVoiceProvider(null); setVoiceId(a) }
+                    }}
+                    style={{ ...field, flex: 1, minWidth: 0 }}>
+                    <optgroup label="Standard voice — included">
+                      {(voiceData?.voices ?? []).map(v => (
+                        <option key={v.id} value={v.id}>{v.label} · {v.language} · {v.vibe}</option>
+                      ))}
+                    </optgroup>
+                    {(voiceData?.premium ?? []).length > 0 && (
+                      <optgroup label="Studio-grade — sounds human (extra credits)">
+                        {(voiceData?.premium ?? []).map(v => (
+                          <option key={`${v.provider}:${v.id}`} value={`${v.provider}:${v.id}`}>
+                            {v.cloned ? "★ " : ""}{v.name} · {v.language}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
-                  <button onClick={playPreview} disabled={previewLoading} title="Hear this voice"
-                    style={{ ...ghostBtn, padding: "0 12px" }}>
+                  <button onClick={playPreview} disabled={previewLoading || !!voiceProvider}
+                    title={voiceProvider ? "Preview is available for standard voices" : "Hear this voice"}
+                    style={{ ...ghostBtn, padding: "0 12px", opacity: voiceProvider ? 0.5 : 1 }}>
                     <MdOutlinePlayArrow size={18} />
                   </button>
                 </div>
+                {voiceProvider && (
+                  <p style={{ margin: "6px 0 0", fontSize: 11.5, lineHeight: 1.5, color: L.dust }}>
+                    Studio-grade narration — costs 3 extra credits, or none if you&apos;ve added your own{" "}
+                    {voiceProvider === "cartesia" ? "Cartesia" : "ElevenLabs"} key in{" "}
+                    <Link href="/dashboard/settings" style={{ color: L.make }}>Settings</Link>.
+                  </p>
+                )}
               </div>
             )}
             {outputType !== "image" && outputType !== "fake_text" && (

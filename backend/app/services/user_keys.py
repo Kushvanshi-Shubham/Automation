@@ -12,7 +12,7 @@ from app.models.api_key import UserApiKey
 
 logger = logging.getLogger("kliptos.user_keys")
 
-SUPPORTED_PROVIDERS = {"gemini", "openai", "huggingface", "heygen"}
+SUPPORTED_PROVIDERS = {"gemini", "openai", "huggingface", "heygen", "cartesia", "elevenlabs"}
 
 
 async def get_user_keys(db: AsyncSession, user_id) -> dict[str, str]:
@@ -62,6 +62,23 @@ async def validate_key(provider: str, key: str) -> bool:
                 resp = await client.get(
                     "https://api.heygen.com/v2/avatars",
                     headers={"X-Api-Key": key},
+                )
+            return resp.status_code == 200
+        if provider == "cartesia":
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    "https://api.cartesia.ai/voices",
+                    headers={"X-API-Key": key, "Cartesia-Version": "2024-06-10"},
+                )
+            return resp.status_code == 200
+        if provider == "elevenlabs":
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    "https://api.elevenlabs.io/v1/voices", headers={"xi-api-key": key}
                 )
             return resp.status_code == 200
     except Exception as exc:

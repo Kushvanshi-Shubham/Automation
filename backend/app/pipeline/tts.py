@@ -59,12 +59,27 @@ async def synth_script(
     segments: list[dict],
     workdir: Path,
     voice: str = DEFAULT_VOICE,
+    provider: str | None = None,
+    user_keys: dict[str, str] | None = None,
+    language: str = "en",
 ) -> list[dict]:
-    """Synthesize all segments. Returns [{index, audio_path, duration, words}]."""
+    """Synthesize all segments. Returns [{index, audio_path, duration, words}].
+
+    provider=None uses free edge-tts; "cartesia"/"elevenlabs" narrate with
+    the Pro voice lane (services/premium_voice.py), which returns the same
+    shape so captions work identically either way.
+    """
     results = []
     for i, seg in enumerate(segments):
         audio_path = workdir / f"seg_{i:02d}.mp3"
-        duration, words = await synth_segment(seg["text"], audio_path, voice)
+        if provider:
+            from app.services import premium_voice
+
+            duration, words = await premium_voice.synth_with_timings(
+                seg["text"], audio_path, voice, provider, user_keys=user_keys, language=language,
+            )
+        else:
+            duration, words = await synth_segment(seg["text"], audio_path, voice)
         results.append({"index": i, "audio_path": str(audio_path), "duration": duration, "words": words})
-        logger.info("tts segment %d: %.2fs, %d word events", i, duration, len(words))
+        logger.info("tts segment %d (%s): %.2fs, %d word events", i, provider or "edge", duration, len(words))
     return results

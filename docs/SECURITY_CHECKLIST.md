@@ -14,6 +14,10 @@ treated as compromised. Rotate ALL of them when deploying:
 | `SECRET_KEY` (JWT signing) | generate fresh: `python -c "import secrets; print(secrets.token_urlsafe(48))"` | Render env — NOTE: invalidates all sessions |
 | `TOKEN_ENCRYPTION_KEY` (Fernet) | generate fresh — NOTE: re-encrypt or force re-connect of all channel tokens | Render env |
 | NextAuth `AUTH_SECRET` | `npx auth secret` | Vercel env |
+| Cartesia API key (2026-08-06) | play.cartesia.ai → API keys → revoke + create | Render env `CARTESIA_API_KEY` |
+| ElevenLabs API key (2026-08-06) | elevenlabs.io → API keys → rotate (value shown once, starts `sk_`) | Render env `ELEVENLABS_API_KEY` |
+| Neon database password | console.neon.tech → Connect → Reset password | Render env `DATABASE_URL` |
+| Redis Cloud password (if that instance is kept) | Redis Cloud → database → reset | Render env `REDIS_URL` |
 
 Rules going forward:
 - Secrets live ONLY in env vars on the hosting platform. Never in git, never in chat.

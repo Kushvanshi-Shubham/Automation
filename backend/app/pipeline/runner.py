@@ -296,8 +296,19 @@ async def run(job_id: str) -> dict:
             ]
         else:
             _publish(job_key, "running", "voice", 10)
-            voice = (video.script_data or {}).get("voice_id") or tts.DEFAULT_VOICE
-            voiced = await tts.synth_script(segments, workdir, voice=voice)
+            data = video.script_data or {}
+            voice = data.get("voice_id") or tts.DEFAULT_VOICE
+            provider = data.get("voice_provider")  # None = free edge-tts
+            user_keys = {}
+            if provider:
+                from app.services.user_keys import get_user_keys
+
+                async with AsyncSessionLocal() as kdb:
+                    user_keys = await get_user_keys(kdb, video.user_id)
+            voiced = await tts.synth_script(
+                segments, workdir, voice=voice, provider=provider,
+                user_keys=user_keys, language=(data.get("language") or "en"),
+            )
 
         # Stage 2: visuals
         _publish(job_key, "running", "visuals", 35)

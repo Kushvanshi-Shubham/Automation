@@ -3,6 +3,9 @@ from uuid import UUID
 from typing import Optional, Dict, Any
 
 class PipelineStartRequest(BaseModel):
+    # Studio-grade narration: "cartesia" | "elevenlabs" (Pro). None = free
+    # edge-tts. voice_id then refers to that provider's voice.
+    voice_provider: Optional[str] = None
     video_id: UUID
     visual_engine: str = "stock"
     voice_id: Optional[str] = None

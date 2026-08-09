@@ -16,6 +16,7 @@ from app.models.video import Video
 from app.schemas.pipeline import PipelineStartRequest, PipelineStatusResponse
 
 from app.services.progress import publish_progress
+from app.services.user_keys import get_user_keys
 
 logger = logging.getLogger("kliptos.pipeline")
 
@@ -89,12 +90,50 @@ async def start_pipeline(
     if current_user.credit_balance < cost:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Not enough credits")
 
-    if req.voice_id:
+    from app.services import plans, premium_voice
+
+    if req.voice_provider:
+        # Studio-grade narration: Pro only, and it costs extra credits
+        # because it costs us real money (services/credits.py).
+        if req.voice_provider not in premium_voice.PROVIDERS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown narration provider"
+            )
+        plans.require(current_user, "premium_voice")
+        if not req.voice_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Pick a voice for that narration provider",
+            )
+        user_keys = await get_user_keys(db, current_user.id)
+        if not (user_keys.get(req.voice_provider) or premium_voice.platform_key(req.voice_provider)):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Add your {req.voice_provider.title()} key in Settings to use those voices",
+            )
+        # The creator's own key is their spend — no surcharge for BYO.
+        if not user_keys.get(req.voice_provider):
+            from app.services.credits import ENGINE_REAL_COST_USD, credits_for_cost
+
+            cost += credits_for_cost(ENGINE_REAL_COST_USD["premium_voice"])
+            if current_user.credit_balance < cost:
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail=f"Studio-grade narration needs {cost} credits in total",
+                )
+        video.script_data = {
+            **(video.script_data or {}),
+            "voice_provider": req.voice_provider,
+            "voice_id": req.voice_id,
+        }
+    elif req.voice_id:
         from app.services.voices import VALID_VOICE_IDS
 
         if req.voice_id not in VALID_VOICE_IDS:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown voice")
-        video.script_data = {**(video.script_data or {}), "voice_id": req.voice_id}
+        video.script_data = {
+            **(video.script_data or {}), "voice_id": req.voice_id, "voice_provider": None,
+        }
 
     if req.caption_style:
         from app.pipeline.captions import CAPTION_STYLES
