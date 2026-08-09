@@ -18,12 +18,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.retry import get_with_retries
 from app.models.topic import Topic
 from app.services.niches import GENERAL, NICHES, normalize
 
 logger = logging.getLogger("kliptos.harvester")
 
 USER_AGENT = "Kliptos/1.0 (trend discovery; contact: admin@kliptos.app)"
+# Public RSS feeds (Google Trends) treat server-shaped agents differently.
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 TRENDS_RSS_URL = "https://trends.google.com/trending/rss?geo={geo}"
 REDDIT_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 REDDIT_TOP_URL = "https://oauth.reddit.com/r/{sub}/top?t=day&limit={limit}"
@@ -72,7 +78,15 @@ def _score_from_upvotes(ups: int) -> float:
 
 
 async def fetch_google_trends(client: httpx.AsyncClient, geo: str = "US") -> list[dict]:
-    resp = await client.get(TRENDS_RSS_URL.format(geo=geo), headers={"User-Agent": USER_AGENT})
+    # Google throttles datacenter IPs on this feed, so retry rather than
+    # dropping the whole source on one 429. A browser UA fares better than
+    # a bot-shaped one from a server.
+    resp = await get_with_retries(
+        client,
+        TRENDS_RSS_URL.format(geo=geo),
+        headers={"User-Agent": BROWSER_UA},
+        label="google-trends",
+    )
     resp.raise_for_status()
     root = ET.fromstring(resp.text)
     items = []

@@ -72,8 +72,8 @@ def test_rate_limit_blocks_after_threshold(client, auth_headers, monkeypatch):
     for key in r.scan_iter("rl:topics_refresh:*"):
         r.delete(key)
 
-    async def fake_harvest(db):
-        return {"added": 0}
+    async def fake_harvest(db, **kwargs):  # kwargs: geo
+        return {"added": 0, "fetched": 0, "errors": {}}
 
     monkeypatch.setattr("app.routers.topics.harvest_topics", fake_harvest)
 

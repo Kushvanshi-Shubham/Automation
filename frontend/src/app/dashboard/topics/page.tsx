@@ -33,6 +33,7 @@ export default function DiscoverPage() {
   const [source, setSource] = useState<string>("all")
   const [createAs, setCreateAs] = useState("auto")
   const [creatingId, setCreatingId] = useState<string | null>(null)
+  const [region, setRegion] = useState("IN")
 
   const { data: topicsData, isLoading } = useQuery<{ items: Topic[] }>({
     queryKey: ["topics", niche],
@@ -48,8 +49,12 @@ export default function DiscoverPage() {
   const fmt = (key: string | null) => formats?.items.find(f => f.key === key)
 
   const refresh = useMutation({
-    mutationFn: () => fetchApi("/topics/refresh", { method: "POST" }),
+    mutationFn: (): Promise<{ fetched: number; added: number; errors: Record<string, string>; geo: string }> =>
+      fetchApi(`/topics/refresh?geo=${region}`, { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["topics"] }),
+  })
+  const { data: regions } = useQuery<{ items: { key: string; label: string }[]; default: string }>({
+    queryKey: ["regions"], queryFn: () => fetchApi("/topics/regions"), staleTime: Infinity,
   })
 
   const create = useMutation({
@@ -110,6 +115,12 @@ export default function DiscoverPage() {
               </button>
             ))}
           </div>
+          <select value={region} onChange={e => setRegion(e.target.value)} title="Which country's trends to harvest"
+            style={{ background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 6, color: L.ink, fontFamily: grotesque, fontSize: 13, padding: "8px 10px" }}>
+            {(regions?.items ?? [{ key: "IN", label: "India" }]).map(r => (
+              <option key={r.key} value={r.key}>Trends in: {r.label}</option>
+            ))}
+          </select>
           <button onClick={() => refresh.mutate()} disabled={refresh.isPending}
             style={{ display: "flex", alignItems: "center", gap: 6, background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 6, color: L.ink, fontFamily: grotesque, fontSize: 13, padding: "8px 12px", cursor: "pointer" }}>
             <MdOutlineRefresh size={16} className={refresh.isPending ? "animate-spin" : ""} />
@@ -117,6 +128,21 @@ export default function DiscoverPage() {
           </button>
         </div>
       </div>
+
+      {/* Honest reporting: say WHICH source went quiet instead of silently
+          showing half the trends. */}
+      {refresh.data && Object.keys(refresh.data.errors ?? {}).length > 0 && (
+        <div style={{ border: `1px solid ${alpha(L.working, 30)}`, background: alpha(L.working, 6), borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12.5, lineHeight: 1.5, color: L.ash }}>
+          {Object.keys(refresh.data.errors).includes("trends")
+            ? "Google Trends didn't answer this time (it throttles requests from servers) — these results are from YouTube only. Try Refresh again in a minute."
+            : `Some sources went quiet: ${Object.keys(refresh.data.errors).join(", ")}. The rest are shown.`}
+        </div>
+      )}
+      {refresh.data && Object.keys(refresh.data.errors ?? {}).length === 0 && refresh.data.added === 0 && (
+        <div style={{ border: `1px solid ${L.rule}`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12.5, color: L.ash }}>
+          Nothing new since the last harvest — the trends below are still current.
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
