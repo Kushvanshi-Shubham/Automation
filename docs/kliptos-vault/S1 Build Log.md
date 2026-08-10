@@ -2,6 +2,19 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-06 — 🎙️ Studio-grade voice + the infrastructure is live
+**Kliptos is on the internet:** frontend at kliptos.vercel.app, API at kliptos-api.onrender.com (free plan), Neon Postgres, and Cloudflare R2 — storage verified end to end (upload, public read, download, delete).
+
+- **Premium voice lane (e04ff8a)** — Cartesia + ElevenLabs behind one interface. Cartesia tested live: 60 voices including **5 Hindi** ones, which fixes the weakest part of the Shayari/Hindi formats. Word timings come from transcribing the generated speech with our own Whisper, so captions are as tight as with edge-tts and it works for any provider. Pro-gated, +3 credits on our key, free on a BYO key. This is the single most convincing reason to upgrade.
+- **Pro became a real tier (981acb8)** — plan gating, watermark on Free (burned into the caption pass, so zero extra render time), 720p/45s ceilings, and credit prices derived from true cost. Caught a landmine: Veo was priced at 25–30 credits against an $8.50 cost — a ~₹450 loss per render at Indian credit value. Now 170. See [[Pricing]].
+- **Stuck renders can't strand credits (95499d5)** — real cancel endpoint with refund, plus a beat reaper that refunds anything queued past 30 minutes. Found because the live API had no worker: free Render has no background worker, and its free Redis is internal-only.
+- **Trends are India-first (dfa65c6)** — harvest was hardcoded to US trends in an India-first product. Region picker now defaults to India, and failed sources say so instead of silently showing half the results.
+- **Landing page told the truth (7a65d0a, 8eb61e3)** — "$19 · ₹499" read as bad maths; ₹499 is deliberate regional pricing (Decision #10), now labelled as such. Unbuilt features carry an explicit "coming soon" chip.
+- **Shipped assets that were gitignored (1854eac)** — `*.mp4`/`*.mp3` had silently excluded the landing demo reels (404 on Vercel) and the music beds, which would have made every cloud render silent.
+- **Hybrid worker (32fa1e0)** — `scripts/worker-cloud.ps1` runs the renderer on the dev box against the cloud stack, with guards that refuse to start if it would produce videos the live site can't see. Full runbook + R2 traps in [[../DEPLOY|DEPLOY.md]].
+- Fixed along the way: segment rewrites ignored the video's style and the creator's own API key (billed to us); raw `API Error 409` replaced with the API's plain-English messages.
+- 194 backend tests green. ⚠️ Open: a Redis both the cloud API and the worker can reach (reuse the existing Redis Cloud DB), real ElevenLabs key (`sk_…`), R2 vars into Render, and key rotation before real users.
+
 ## 2026-08-05 — 🏁 Redesign interior complete: P6 + P7 (8b596ae, 6cb5248)
 - P6: Settings / Billing / Standing orders / Footage rebuilt on THE LINE — the last old-style app pages. Standing orders + Footage renamed to match the product language; Footage now cross-links to Create and Your styles.
 - P7: landing page rebuilt in the product's own identity — the four stations as the story, real renders as proof, new capabilities named plainly, no gradient-SaaS theater, framer-motion removed. Analytics is now honest (library output stats + "channel numbers come with the YouTube Analytics API"). Publish list themed.

@@ -18,6 +18,11 @@ Owner direction (2026-08-04): build the "personal AI reel factory" pattern (refe
 ### 3. Teach a style
 Upload 2–20 of your reels (existing Footage flow — already Whisper-transcribed) → `style.learn` task mines pace/hooks/transcripts → one LLM pass produces a recipe + caption/music/tone defaults → appears in Create as a personal format (`user:<uuid>`). Table `user_formats` (migration 0011), `/styles` router (max 5 per user), `/dashboard/styles` page with Create bay tabs (Studio | Your styles). Upload-only by design: Kliptos never scrapes reels. ⚠️ Needs a live run with real reels — upload 2+ and teach one.
 
+### 6. Studio-grade narration — shipped 2026-08-06 (`e04ff8a`)
+The reference video's creator was right that **voice is what makes AI content pass as human**, and it was our weakest link. Cartesia and ElevenLabs now sit behind one interface (`services/premium_voice.py`), Pro-gated, +3 credits on our key and free on the creator's own. Cartesia is verified live with 60 voices including 5 Hindi ones.
+
+The interesting problem: neither provider returns word timings from its audio endpoint, and our captions need them. Instead of settling for evenly-spaced guesses, the pipeline transcribes the generated speech with the Whisper model we already ship — provider-agnostic, and more accurate than engine-reported timings because it matches what was actually said.
+
 ### 4. AI presenter (HeyGen) — scaffold shipped, lane pending
 "heygen" is now a BYO-key provider (encrypted like the rest, live-validated against the HeyGen API) and `services/heygen.py` carries the generate→poll→download client. ⚠️ OWNER: get a HeyGen account (avatar + voice clone) — then the presenter option lands in the studio rail with credit pricing above stock renders (see [[Pricing]]).
 
