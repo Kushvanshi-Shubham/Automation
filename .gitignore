@@ -2,6 +2,9 @@
 .env
 .env.local
 .env.production
+# Cloud-mode worker overrides (real Neon/Redis credentials) — the
+# .example file is the one that belongs in git.
+.env.cloud
 *.pem
 client_secrets.json
 

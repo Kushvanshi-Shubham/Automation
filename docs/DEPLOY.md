@@ -45,6 +45,36 @@ and everything runs exactly as before.
 4. The token page shows the endpoint: `https://<account-id>.r2.cloudflarestorage.com`
    → `S3_ENDPOINT_URL`. And `S3_BUCKET_NAME=kliptos-media`.
 
+### R2 gotchas learned the hard way
+- The bucket name in `S3_BUCKET_NAME` must match the bucket the API token is
+  **scoped to**, exactly. A mismatch returns `AccessDenied` on *every*
+  operation (not `NoSuchBucket`), which looks like a bad key but isn't.
+- The `pub-*.r2.dev` URL is rate-limited and **for development only** —
+  Cloudflare says don't use it in production. At launch, attach a custom
+  domain (`media.kliptos.app`) to the bucket instead: free, unmetered, and
+  only `S3_PUBLIC_URL` changes.
+- Token permission must be **Object Read & Write**. Object-scoped tokens
+  legitimately 403 on bucket-level calls (`ListBuckets`, `HeadBucket`) while
+  still allowing get/put — so test with a real upload, not a bucket probe.
+
+## 3a. Hybrid mode: cloud API, worker on the dev box (free)
+
+Render's free plan has no background worker, so renders queued by the live
+API sit at 0% forever. Until the worker is paid for, run it here:
+
+1. `cp backend/.env.cloud.example backend/.env.cloud` and fill in the Neon
+   `DATABASE_URL` plus an **externally reachable** `REDIS_URL` (Render's free
+   Key Value is internal-only — use Redis Cloud or a paid Render plan).
+2. `cd backend; .\scripts\worker-cloud.ps1`
+
+It loads `.env` then `.env.cloud` on top, refuses to start if the database
+isn't Neon / the queue is localhost / no bucket is set (all three would
+silently produce renders the live site can't see), and runs beat in-process
+so standing orders and the stale-render reaper still tick.
+
+Renders only progress while that window is open — the reaper refunds
+anything left stranded, so nothing is lost when the PC sleeps.
+
 ## 3. Render (API + worker)
 
 1. Dashboard → **New → Blueprint** → select the `Automation` repo → Render reads
