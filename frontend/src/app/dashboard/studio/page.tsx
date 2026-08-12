@@ -13,7 +13,7 @@ import { Suspense, useState } from "react"
 import {
   MdOutlineAutoAwesome, MdOutlineContentCopy, MdOutlineEditNote, MdOutlineImage,
   MdOutlineLink, MdOutlinePermMedia, MdOutlinePlayArrow, MdOutlineSave,
-  MdOutlineSmartDisplay, MdOutlineTimer,
+  MdOutlineSmartDisplay, MdOutlineTimer, MdOutlineVisibility,
 } from "react-icons/md"
 import { fetchApi, mediaUrl } from "@/lib/api-client"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
@@ -36,6 +36,15 @@ interface Script {
 interface Voice { id: string; label: string; language: string; gender: string; vibe: string }
 /** Studio-grade narration (Cartesia / ElevenLabs); cloned = the creator's own voice. */
 interface PremiumVoice { id: string; name: string; language: string; provider: string; cloned: boolean }
+interface LookOptions {
+  caption_styles: { key: string; label: string; desc: string }[]
+  caption_animations: { key: string; label: string; desc: string }[]
+  caption_fonts: { key: string; label: string }[]
+  visual_styles: { key: string; label: string }[]
+  defaults: Record<string, string>
+  free_restyles_per_video: number
+}
+interface Proof { url: string; scene: number; duration: number }
 interface Format { key: string; label: string; emoji: string; desc: string; output_type: string; available: boolean; own?: boolean }
 
 const STYLES = [
@@ -54,6 +63,9 @@ const OUTPUT_TYPES = [
   { value: "image", label: "Image post", desc: "3–6 slide carousel with captions (stock photos)", badge: "1 credit" },
   { value: "script", label: "Script only", desc: "Just the script — film it yourself", badge: "Free · 5/day" },
 ]
+
+// White text is the default caption fill; anything else counts as a brand colour.
+const DEFAULT_CAPTION_COLOR = "#ffffff"
 
 const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
 const label: React.CSSProperties = { display: "block", fontSize: 12.5, fontWeight: 600, color: L.ash, marginBottom: 8 }
@@ -346,6 +358,12 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [captionStyle, setCaptionStyle] = useState("classic")
   const [aspectRatio, setAspectRatio] = useState("9:16")
+  const [captionAnimation, setCaptionAnimation] = useState("none")
+  const [captionFont, setCaptionFont] = useState("arial")
+  const [captionColor, setCaptionColor] = useState(DEFAULT_CAPTION_COLOR)
+  const [visualEngine, setVisualEngine] = useState("pexels")
+  const [visualStyle, setVisualStyle] = useState("explainer")
+  const [proofWaiting, setProofWaiting] = useState(false)
 
   const [footageStart, setFootageStart] = useState("")
 
@@ -448,17 +466,62 @@ function ScriptEditor({ videoId }: { videoId: string }) {
       fetchApi(`/scripts/${videoId}/match-footage`, { method: "POST" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["script", videoId] }),
   })
+  // Everything the creator can change about how it LOOKS, in one payload —
+  // the proof render and the paid render send the same thing.
+  const lookPayload = () => ({
+    caption_style: outputType !== "image" && outputType !== "fake_text" ? captionStyle : undefined,
+    caption_animation: outputType !== "image" ? captionAnimation : undefined,
+    caption_font: outputType !== "image" ? captionFont : undefined,
+    caption_color: captionColor.toLowerCase() !== DEFAULT_CAPTION_COLOR ? captionColor : undefined,
+    aspect_ratio: aspectRatio,
+    visual_style: visualEngine === "ai_image" ? visualStyle : undefined,
+    voice_id: outputType === "narrated" ? voiceId : undefined,
+    voice_provider: outputType === "narrated" ? voiceProvider ?? undefined : undefined,
+  })
+
+  const { data: look } = useQuery<LookOptions>({
+    queryKey: ["look-options"], queryFn: () => fetchApi("/pipeline/look-options"), staleTime: Infinity,
+  })
+
+  const { data: proofData } = useQuery<{ proof: Proof | null }>({
+    queryKey: ["proof", videoId],
+    queryFn: () => fetchApi(`/pipeline/proof/${videoId}`),
+    // Poll only while a preview is being made.
+    refetchInterval: () => (proofWaiting ? 3000 : false),
+  })
+
+  // Stop polling once a proof newer than the request arrives.
+  const [proofSeen, setProofSeen] = useState<string | null>(null)
+  if (proofWaiting && proofData?.proof?.url && proofData.proof.url !== proofSeen) {
+    setProofSeen(proofData.proof.url)
+    setProofWaiting(false)
+  }
+
+  const proof = useMutation({
+    mutationFn: () => {
+      setProofSeen(proofData?.proof?.url ?? null)
+      return fetchApi("/pipeline/proof", {
+        method: "POST",
+        body: JSON.stringify({
+          video_id: videoId,
+          scene_index: 0,
+          visual_engine: outputType === "narrated" || outputType === "visual" ? visualEngine : undefined,
+          ...lookPayload(),
+        }),
+      })
+    },
+    onSuccess: () => setProofWaiting(true),
+  })
+
   const render = useMutation({
     mutationFn: () =>
       fetchApi("/pipeline/start", {
         method: "POST",
         body: JSON.stringify({
           video_id: videoId,
-          visual_engine: outputType === "image" ? "stock_image" : "pexels",
-          voice_id: outputType === "narrated" ? voiceId : undefined,
-          voice_provider: outputType === "narrated" ? voiceProvider ?? undefined : undefined,
-          caption_style: outputType !== "image" && outputType !== "fake_text" ? captionStyle : undefined,
-          aspect_ratio: aspectRatio,
+          visual_engine: outputType === "image" ? "stock_image"
+            : outputType === "narrated" || outputType === "visual" ? visualEngine : "pexels",
+          ...lookPayload(),
         }),
       }),
     onSuccess: (d: { job_id: string }) => {
@@ -764,6 +827,39 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                 )}
               </div>
             )}
+            {/* Where the pictures come from */}
+            {(outputType === "narrated" || outputType === "visual") && (
+              <div>
+                <span style={label}>Visuals</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {([
+                    ["pexels", "Stock footage", "Real clips matched to each line · 1 credit"],
+                    ["ai_image", "AI illustrated", "A generated scene per line with slow pan/zoom"],
+                  ] as const).map(([key, title, desc]) => (
+                    <button key={key} onClick={() => setVisualEngine(key)}
+                      style={{ ...optionBtn(visualEngine === key), padding: "9px 12px" }}>
+                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: L.ink }}>{title}</span>
+                      <span style={{ display: "block", marginTop: 2, fontSize: 11.5, lineHeight: 1.4, color: L.dust }}>{desc}</span>
+                    </button>
+                  ))}
+                </div>
+                {visualEngine === "ai_image" && (
+                  <>
+                    <select value={visualStyle} onChange={e => setVisualStyle(e.target.value)}
+                      style={{ ...field, marginTop: 8 }}>
+                      {(look?.visual_styles ?? [{ key: "explainer", label: "Explainer" }]).map(s => (
+                        <option key={s.key} value={s.key}>Look: {s.label}</option>
+                      ))}
+                    </select>
+                    <p style={{ margin: "6px 0 0", fontSize: 11.5, lineHeight: 1.5, color: L.dust }}>
+                      One image per scene, priced from real cost — about {Math.max(1, Math.ceil(segments.length * 0.7))} credits
+                      for {segments.length} scenes. Needs a Gemini key with billing enabled.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
             {outputType !== "image" && outputType !== "fake_text" && (
               <div>
                 <span style={label}>Captions</span>
@@ -772,6 +868,31 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                     <option key={s.key} value={s.key}>{s.label}{s.desc ? ` — ${s.desc}` : ""}</option>
                   ))}
                 </select>
+                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                  <select value={captionAnimation} onChange={e => setCaptionAnimation(e.target.value)}
+                    title="How the words appear" style={{ ...field, flex: 1, minWidth: 0 }}>
+                    {(look?.caption_animations ?? [{ key: "none", label: "Static" }]).map(a => (
+                      <option key={a.key} value={a.key}>{a.label}</option>
+                    ))}
+                  </select>
+                  <select value={captionFont} onChange={e => setCaptionFont(e.target.value)}
+                    title="Caption font" style={{ ...field, flex: 1, minWidth: 0 }}>
+                    {(look?.caption_fonts ?? [{ key: "arial", label: "Arial" }]).map(f => (
+                      <option key={f.key} value={f.key}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 12, color: L.ash }}>
+                  <input type="color" value={captionColor} onChange={e => setCaptionColor(e.target.value)}
+                    style={{ width: 34, height: 26, padding: 0, border: `1px solid ${L.rule}`, borderRadius: 5, background: "none", cursor: "pointer" }} />
+                  Brand colour
+                  {captionColor.toLowerCase() !== DEFAULT_CAPTION_COLOR && (
+                    <button onClick={() => setCaptionColor(DEFAULT_CAPTION_COLOR)}
+                      style={{ marginLeft: "auto", background: "none", border: "none", color: L.dust, fontFamily: grotesque, fontSize: 11.5, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+                      reset
+                    </button>
+                  )}
+                </label>
               </div>
             )}
             <div>
@@ -786,14 +907,45 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                 ))}
               </div>
             </div>
+            {/* Try one scene before spending anything */}
+            {outputType !== "image" && (
+              <div style={{ borderTop: `1px solid ${L.ruleFaint}`, paddingTop: 14 }}>
+                <button onClick={() => proof.mutate()} disabled={proof.isPending || proofWaiting || dirty}
+                  title={dirty ? "Save your changes first" : "Renders one scene so you can judge the look — free"}
+                  style={{ ...ghostBtn, width: "100%", justifyContent: "center", borderColor: alpha(L.make, 40), color: L.make, opacity: dirty ? 0.55 : 1 }}>
+                  <MdOutlineVisibility size={17} />
+                  {proof.isPending || proofWaiting ? "Making a preview…" : "Preview one scene · free"}
+                </button>
+                <p style={{ margin: "6px 0 0", fontSize: 11.5, lineHeight: 1.45, color: L.dust, textAlign: "center" }}>
+                  Judge the voice and captions before you spend a credit.
+                </p>
+                {proof.error && (
+                  <p style={{ margin: "6px 0 0", fontSize: 11.5, color: L.refused }}>{(proof.error as Error).message}</p>
+                )}
+                {proofData?.proof && !proofWaiting && (
+                  <div style={{ marginTop: 10 }}>
+                    <video key={proofData.proof.url} src={mediaUrl(proofData.proof.url)} controls playsInline
+                      style={{ width: "100%", borderRadius: 8, border: `1px solid ${L.rule}`, background: "#000" }} />
+                    <p style={{ margin: "6px 0 0", fontSize: 11.5, color: L.dust }}>
+                      Scene {(proofData.proof.scene ?? 0) + 1} · {proofData.proof.duration}s — change anything above and
+                      preview again as often as you like.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ borderTop: `1px solid ${L.ruleFaint}`, paddingTop: 14 }}>
               <button onClick={() => render.mutate()} disabled={render.isPending || dirty}
-                title={dirty ? "Save your changes first" : "Costs 1 credit"} style={{ ...primaryBtn(render.isPending || dirty), width: "100%" }}>
+                title={dirty ? "Save your changes first" : "Renders the whole video"} style={{ ...primaryBtn(render.isPending || dirty), width: "100%" }}>
                 <MdOutlineSmartDisplay size={18} />
                 {render.isPending ? "Starting…" : outputType === "image" ? "Generate images" : "Generate video"}
               </button>
-              <p style={{ margin: "8px 0 0", fontSize: 11.5, color: L.dust, textAlign: "center" }}>
-                1 credit · refunded automatically if the render fails
+              <p style={{ margin: "8px 0 0", fontSize: 11.5, lineHeight: 1.45, color: L.dust, textAlign: "center" }}>
+                {visualEngine === "ai_image"
+                  ? `About ${Math.max(1, Math.ceil(segments.length * 0.7))} credits · refunded automatically if the render fails`
+                  : "1 credit · refunded automatically if the render fails"}
+                {voiceProvider ? " · +3 for studio narration" : ""}
               </p>
             </div>
           </aside>

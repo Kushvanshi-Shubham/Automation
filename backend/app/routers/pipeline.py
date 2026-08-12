@@ -106,6 +106,16 @@ async def start_pipeline(
     if video.status in ("rendering", "publishing"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already being processed")
 
+    # Validate the look BEFORE any credit maths, so a typo never charges.
+    look_updates = validated_look(
+        caption_style=req.caption_style,
+        caption_animation=req.caption_animation,
+        caption_font=req.caption_font,
+        caption_color=req.caption_color,
+        aspect_ratio=req.aspect_ratio,
+        visual_style=req.visual_style,
+    )
+
     engine = req.visual_engine or ("stock_image" if video.output_type == "image" else "pexels")
     # Credit price comes from the engine's real cost x margin, so a render
     # can never be sold below what it costs us (services/credits.py).
@@ -192,26 +202,9 @@ async def start_pipeline(
             **(video.script_data or {}), "voice_id": req.voice_id, "voice_provider": None,
         }
 
-    if req.caption_style:
-        from app.pipeline.captions import CAPTION_STYLES
-
-        if req.caption_style not in CAPTION_STYLES:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown caption style")
-        video.script_data = {**(video.script_data or {}), "caption_style": req.caption_style}
-
-    if req.aspect_ratio:
-        from app.pipeline.assembler import ASPECT_RATIOS
-
-        if req.aspect_ratio not in ASPECT_RATIOS:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown aspect ratio")
-        video.script_data = {**(video.script_data or {}), "aspect_ratio": req.aspect_ratio}
-
-    if req.visual_style:
-        from app.services.image_gen import VISUAL_STYLES
-
-        if req.visual_style not in VISUAL_STYLES:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown visual style")
-        video.script_data = {**(video.script_data or {}), "visual_style": req.visual_style}
+    # Caption look, aspect and AI visual style — validated above.
+    if look_updates:
+        video.script_data = {**(video.script_data or {}), **look_updates}
 
     # Freeze this render's quality tier from the plan: the worker reads it
     # from script_data, so a plan change mid-render can't alter the output.
@@ -306,6 +299,53 @@ async def get_pipeline_status(
     return {"job_id": job.id, "status": job.status, "progress": job.progress, "error_message": job.error_message}
 
 
+def validated_look(
+    *,
+    caption_style: str | None = None,
+    caption_animation: str | None = None,
+    caption_font: str | None = None,
+    caption_color: str | None = None,
+    aspect_ratio: str | None = None,
+    visual_style: str | None = None,
+) -> dict:
+    """Check every "how it looks" choice and return the script_data updates.
+
+    Shared by the free proof render and the paid render so a look approved
+    in a preview is exactly what the full video uses.
+    """
+    from app.pipeline.assembler import ASPECT_RATIOS
+    from app.pipeline.captions import (
+        CAPTION_ANIMATIONS, CAPTION_FONTS, CAPTION_STYLES, hex_to_ass,
+    )
+    from app.services.image_gen import VISUAL_STYLES
+
+    catalogues = {
+        "caption_style": (caption_style, CAPTION_STYLES, "caption style"),
+        "caption_animation": (caption_animation, CAPTION_ANIMATIONS, "caption animation"),
+        "caption_font": (caption_font, CAPTION_FONTS, "caption font"),
+        "aspect_ratio": (aspect_ratio, ASPECT_RATIOS, "aspect ratio"),
+        "visual_style": (visual_style, VISUAL_STYLES, "visual style"),
+    }
+    updates: dict = {}
+    for field, (value, catalogue, label) in catalogues.items():
+        if value is None:
+            continue
+        if value not in catalogue:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"Unknown {label}"
+            )
+        updates[field] = value
+
+    if caption_color:
+        if hex_to_ass(caption_color) is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Colour must look like #7C3AED",
+            )
+        updates["caption_color"] = caption_color
+    return updates
+
+
 class ProofRequest(BaseModel):
     video_id: UUID
     scene_index: int = 0
@@ -348,32 +388,14 @@ async def start_proof(
             detail="Script-only creations have nothing to preview",
         )
 
-    allowed = {
-        "caption_style": CAPTION_STYLES,
-        "caption_animation": CAPTION_ANIMATIONS,
-        "caption_font": CAPTION_FONTS,
-        "aspect_ratio": ASPECT_RATIOS,
-        "visual_style": VISUAL_STYLES,
-    }
-    updates: dict = {}
-    for field, catalogue in allowed.items():
-        value = getattr(req, field)
-        if value is not None:
-            if value not in catalogue:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=f"Unknown {field.replace('_', ' ')}",
-                )
-            updates[field] = value
-    if req.caption_color:
-        from app.pipeline.captions import hex_to_ass
-
-        if hex_to_ass(req.caption_color) is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Colour must look like #7C3AED",
-            )
-        updates["caption_color"] = req.caption_color
+    updates = validated_look(
+        caption_style=req.caption_style,
+        caption_animation=req.caption_animation,
+        caption_font=req.caption_font,
+        caption_color=req.caption_color,
+        aspect_ratio=req.aspect_ratio,
+        visual_style=req.visual_style,
+    )
     if req.voice_provider or req.voice_id:
         from app.services import premium_voice
         from app.services.voices import VALID_VOICE_IDS

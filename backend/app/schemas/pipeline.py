@@ -8,6 +8,10 @@ class PipelineStartRequest(BaseModel):
     voice_provider: Optional[str] = None
     # Look of AI-generated scenes: explainer | cinematic | documentary | bold
     visual_style: Optional[str] = None
+    # Caption craft — same knobs the free proof render offers.
+    caption_animation: Optional[str] = None
+    caption_font: Optional[str] = None
+    caption_color: Optional[str] = None
     video_id: UUID
     visual_engine: str = "stock"
     voice_id: Optional[str] = None
