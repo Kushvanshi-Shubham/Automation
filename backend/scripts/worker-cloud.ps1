@@ -49,6 +49,21 @@ Write-Host ("  queue    : " + ($env:REDIS_URL -replace ":[^:@/]+@", ":***@"))
 Write-Host ("  media    : " + $env:S3_BUCKET_NAME + " -> " + $env:S3_PUBLIC_URL)
 Write-Host ""
 
-# --pool=solo is required on Windows; -B runs beat (standing orders +
-# the stale-render reaper) inside the same process.
-& ".\.venv\Scripts\celery.exe" -A app.pipeline.celery_app worker -B --loglevel=info --pool=solo
+# --pool=solo is required on Windows. Celery refuses -B (embedded beat) on
+# Windows, so beat runs as its own process — it only drives standing orders
+# and the stale-render reaper; renders work fine without it.
+$beat = Start-Process -FilePath ".\.venv\Scripts\celery.exe" `
+    -ArgumentList "-A", "app.pipeline.celery_app", "beat", "--loglevel=info" `
+    -PassThru -NoNewWindow
+Write-Host ("beat started (pid " + $beat.Id + ") — standing orders + stale-render reaper") -ForegroundColor DarkGray
+Write-Host ""
+
+try {
+    & ".\.venv\Scripts\celery.exe" -A app.pipeline.celery_app worker --loglevel=info --pool=solo
+}
+finally {
+    if ($beat -and -not $beat.HasExited) {
+        Stop-Process -Id $beat.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "beat stopped" -ForegroundColor DarkGray
+    }
+}
