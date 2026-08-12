@@ -26,6 +26,8 @@ LIMITS: dict[str, tuple[int, int]] = {
     "series_create": (6, 60),
     "feedback_note": (12, 60),
     "style_learn": (3, 300),
+    # Proof renders are free, so they need their own ceiling.
+    "pipeline_proof": (20, 300),
 }
 
 

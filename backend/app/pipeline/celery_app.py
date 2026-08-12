@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.pipeline.asset_tasks",
         "app.pipeline.style_tasks",
         "app.pipeline.reaper",
+        "app.pipeline.proof",
     ],
 )
 

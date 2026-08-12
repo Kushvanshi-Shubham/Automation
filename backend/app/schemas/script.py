@@ -19,7 +19,9 @@ class ScriptGenerateRequest(BaseModel):
     # viral_story | news_update | educational | commentary
     style: str = "viral_story"
     tone: str = "engaging and curious"
-    duration_seconds: int = Field(default=60, ge=15, le=180)
+    # Up to 5 minutes so product films / explainers fit in one render; the
+    # plan clamps this down further (services/plans.py).
+    duration_seconds: int = Field(default=60, ge=15, le=300)
     # auto | gemini | openai
     model: str = "auto"
     # Script language (also drives the default voice choice in the UI)
@@ -39,6 +41,8 @@ class ScriptSegment(BaseModel):
     # stock, starting at asset_start seconds. Kept as str: script_data is JSON.
     asset_id: Optional[str] = None
     asset_start: Optional[float] = Field(default=None, ge=0)
+    # Slide-style title held over this scene (explainers/product films).
+    headline: Optional[str] = Field(default=None, max_length=90)
 
 
 class ScriptResponse(BaseModel):

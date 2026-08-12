@@ -52,6 +52,33 @@ def engine_credit_cost(engine: str, scenes: int = 1) -> int | None:
     return credits_for_cost(real)
 
 
+def is_free_restyle(
+    *,
+    has_render: bool,
+    credits_used: int,
+    current_engine: str | None,
+    requested_engine: str,
+    current_voice_provider: str | None,
+    requested_voice_provider: str | None,
+    restyles_used: int,
+    allowance: int,
+) -> bool:
+    """Whether re-rendering should be free.
+
+    Changing how a finished video LOOKS (captions, font, colour, aspect)
+    costs us a fifth of a cent, so charging again would only teach people
+    not to polish their work. Changing what it's MADE OF (visual engine,
+    narration provider) is genuinely new work and pays again.
+    """
+    if not has_render or credits_used <= 0:
+        return False
+    if restyles_used >= allowance:
+        return False
+    if requested_engine != (current_engine or requested_engine):
+        return False
+    return (requested_voice_provider or None) == (current_voice_provider or None)
+
+
 def price_table() -> dict[str, int]:
     """Every engine's credit price — for the UI and the owner's economics."""
     return {name: credits_for_cost(cost) for name, cost in ENGINE_REAL_COST_USD.items()}

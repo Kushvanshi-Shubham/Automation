@@ -394,6 +394,10 @@ async def run(job_id: str) -> dict:
                 style=caption_style,
                 play_res=(aspect["w"], aspect["h"]),
                 watermark=watermark,
+                animation=(video.script_data or {}).get("caption_animation") or "none",
+                font=(video.script_data or {}).get("caption_font"),
+                color=(video.script_data or {}).get("caption_color"),
+                headline=segments[i].get("headline"),
             )
             if output_type == "visual":
                 assembler.render_segment_silent(clip, seg_audio["duration"], seg_out, ass_path=ass_path,

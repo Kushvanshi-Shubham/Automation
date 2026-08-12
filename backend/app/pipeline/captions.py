@@ -4,6 +4,12 @@ Word-boundary events from edge-tts are grouped into short punchy cues
 (2-3 words). The `karaoke` pack additionally colors each word as it is
 spoken (\\k tags) — possible because we keep per-word timings.
 
+On top of the style packs, the "caption craft" layer adds:
+  * animations (CAPTION_ANIMATIONS) — libass override tags on the Dialogue lines
+  * a font choice (CAPTION_FONTS) — swaps the Caption style's Fontname
+  * a brand colour (hex -> ASS BGR) — the text fill, or the highlight colour
+  * per-scene headline overlays — an upper-third title card on its own style
+
 ASS colors are &HAABBGGRR (alpha, blue, green, red).
 """
 from pathlib import Path
@@ -57,6 +63,53 @@ CAPTION_STYLES: dict[str, dict] = {
 
 DEFAULT_CAPTION_STYLE = "classic"
 
+# name -> animation metadata. The tags themselves live in _ANIMATION_PREFIX
+# (typewriter is structural: it emits several Dialogue lines per cue).
+CAPTION_ANIMATIONS: dict[str, dict] = {
+    "none": {"label": "Static", "desc": "Cues cut straight in and out — the default shorts look"},
+    "fade": {"label": "Fade", "desc": "Every cue eases in and out — calm, premium feel"},
+    "pop": {"label": "Pop", "desc": "Cues snap in with a quick scale overshoot — punchy"},
+    "highlight": {"label": "Word highlight", "desc": "Each word changes colour exactly as it is spoken"},
+    "typewriter": {"label": "Typewriter", "desc": "Words appear one at a time, in time with the voice"},
+}
+
+DEFAULT_CAPTION_ANIMATION = "none"
+
+# ASS override prefixes, applied to the start of each cue's Text field.
+_ANIMATION_PREFIX: dict[str, str] = {
+    "none": "",
+    "fade": r"{\fad(120,120)}",
+    "pop": r"{\fscx80\fscy80\t(0,120,\fscx100\fscy100)}",
+    # highlight rides the \k karaoke mechanism, typewriter emits extra lines
+    "highlight": "",
+    "typewriter": "",
+}
+
+# key -> font. Families must exist in the render image; DejaVu/Liberation
+# ship with our Docker base, the rest are there for local/Windows renders.
+CAPTION_FONTS: dict[str, dict] = {
+    "arial": {"label": "Arial", "family": "Arial"},
+    "impact": {"label": "Impact", "family": "Impact"},
+    "verdana": {"label": "Verdana", "family": "Verdana"},
+    "georgia": {"label": "Georgia", "family": "Georgia"},
+    "dejavu": {"label": "DejaVu Sans", "family": "DejaVu Sans"},
+    "liberation": {"label": "Liberation Sans", "family": "Liberation Sans"},
+}
+
+DEFAULT_CAPTION_FONT = "arial"
+
+# Fallback highlight tint when animation="highlight" runs on a style pack that
+# isn't karaoke and no brand colour was supplied (white-on-white = no effect).
+HIGHLIGHT_FALLBACK_COLOUR = "&H0000F7FF"
+
+# Headline overlay geometry, tuned for a 1920-high frame (scaled like the rest).
+HEADLINE_FONTSIZE = 72
+HEADLINE_BOX_PAD = 12
+HEADLINE_MARGIN_V = 200      # from the top (Alignment 8); clears the Mark
+HEADLINE_MAX_CHARS = 90
+HEADLINE_WRAP_CHARS = 28
+HEADLINE_MAX_LINES = 2
+
 _HEADER_TMPL = """[Script Info]
 ScriptType: v4.00+
 PlayResX: {play_x}
@@ -66,12 +119,20 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,Arial,{fontsize},{primary},{secondary},{outline_colour},{back_colour},{bold},0,0,0,100,100,1,0,{border_style},{outline},0,{alignment},60,60,{margin_v},1
+Style: Caption,{fontname},{fontsize},{primary},{secondary},{outline_colour},{back_colour},{bold},0,0,0,100,100,1,0,{border_style},{outline},0,{alignment},60,60,{margin_v},1
 Style: Mark,Arial,{mark_size},&H80FFFFFF,&H80FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,40,40,{mark_margin},1
-
+{headline_style}
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
+
+# Only emitted when a headline is actually requested, so files without one stay
+# byte-identical to the pre-headline output. Alignment 8 = top-centre,
+# BorderStyle 3 = opaque box (drawn from OutlineColour, shadowed with BackColour).
+_HEADLINE_STYLE_TMPL = (
+    "Style: Headline,{headline_font},{headline_size},&H00FFFFFF,&H00FFFFFF,"
+    "&HA0101010,&HA0000000,-1,0,0,0,100,100,0,0,3,{headline_pad},0,8,60,60,{headline_margin},1\n"
+)
 
 # Free-plan mark. Burned in with the captions (same encode pass) so it
 # costs nothing; Pro renders simply omit the line.
@@ -151,14 +212,100 @@ def _karaoke_text(cue: dict, uppercase: bool) -> str:
     return " ".join(parts) if parts else _escape(cue["text"], uppercase)
 
 
+def hex_to_ass(hex_str: str | None) -> str | None:
+    """'#7C3AED' -> '&H00ED3A7C' (ASS is &HAABBGGRR). None on anything odd —
+    a bad brand colour must never break a render."""
+    if not isinstance(hex_str, str):
+        return None
+    h = hex_str.strip().lstrip("#").strip()
+    if len(h) == 3:  # #abc -> #aabbcc
+        h = "".join(c * 2 for c in h)
+    if len(h) == 8:  # #rrggbbaa -> drop the alpha, we always render opaque
+        h = h[:6]
+    if len(h) != 6:
+        return None
+    try:
+        int(h, 16)
+    except ValueError:
+        return None
+    r, g, b = h[0:2], h[2:4], h[4:6]
+    return f"&H00{b}{g}{r}".upper()
+
+
+def _wrap_headline(text: str) -> list[str]:
+    words, lines, cur = text.split(), [], ""
+    for w in words:
+        if cur and len(cur) + 1 + len(w) > HEADLINE_WRAP_CHARS:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = f"{cur} {w}".strip()
+    if cur:
+        lines.append(cur)
+    if len(lines) > HEADLINE_MAX_LINES:
+        lines = lines[:HEADLINE_MAX_LINES]
+        lines[-1] = lines[-1] + "…"
+    return lines or [""]
+
+
+def headline_text(raw: str) -> str:
+    """Capped, wrapped, escaped headline ready for an ASS Text field."""
+    flat = " ".join(str(raw).split())[:HEADLINE_MAX_CHARS]
+    return "\\N".join(_escape(line, uppercase=False) for line in _wrap_headline(flat))
+
+
+def _cue_text(cue: dict, uppercase: bool, karaoke: bool) -> str:
+    return _karaoke_text(cue, uppercase) if karaoke else _escape(cue["text"], uppercase)
+
+
+def _dialogue(start: float, end: float, style: str, text: str, layer: int = 0) -> str:
+    return f"Dialogue: {layer},{_ass_time(start)},{_ass_time(end)},{style},,0,0,0,,{text}\n"
+
+
+def _typewriter_lines(cue: dict, uppercase: bool, prefix: str) -> list[str]:
+    """One Dialogue line per word prefix, so the cue builds up word by word.
+    Falls back to the plain cue when the cue carries no word timings."""
+    words = cue.get("words") or []
+    if not words:
+        return []
+    out = []
+    for k in range(1, len(words) + 1):
+        shown = " ".join(w["word"] for w in words[:k])
+        out.append(_dialogue(
+            words[k - 1]["start"], cue["end"], "Caption",
+            f"{prefix}{_escape(shown, uppercase)}",
+        ))
+    return out
+
+
 def write_ass(
     cues: list[dict],
     out_path: Path,
     style: str = DEFAULT_CAPTION_STYLE,
     play_res: tuple[int, int] = (1080, 1920),
     watermark_seconds: float | None = None,
+    animation: str = "none",
+    font: str | None = None,
+    color: str | None = None,
+    headline: str | None = None,
+    headline_seconds: float | None = None,
 ) -> Path:
     cfg = dict(CAPTION_STYLES.get(style, CAPTION_STYLES[DEFAULT_CAPTION_STYLE]))
+    anim = animation if animation in CAPTION_ANIMATIONS else DEFAULT_CAPTION_ANIMATION
+    cfg["fontname"] = CAPTION_FONTS.get(font or "", CAPTION_FONTS[DEFAULT_CAPTION_FONT])["family"]
+
+    # Brand colour: the text fill, except for "highlight" where it is the
+    # colour a word turns into as it is spoken (ASS SecondaryColour).
+    brand = hex_to_ass(color)
+    if anim == "highlight":
+        if brand:
+            cfg["secondary"] = brand
+        elif not cfg["karaoke"]:
+            cfg["secondary"] = HIGHLIGHT_FALLBACK_COLOUR
+    elif brand:
+        cfg["primary"] = brand
+    karaoke = bool(cfg["karaoke"]) or anim == "highlight"
+
     # Style values are tuned for a 1920-high frame; scale to the actual
     # height so captions keep the same relative size in 1:1 / 16:9.
     s = play_res[1] / 1920
@@ -166,16 +313,39 @@ def write_ass(
         cfg[key] = max(1, round(cfg[key] * s)) if cfg[key] else cfg[key]
     cfg["mark_size"] = max(12, round(34 * s))
     cfg["mark_margin"] = max(10, round(48 * s))
+
+    head = str(headline).strip() if headline else ""
+    cfg["headline_style"] = _HEADLINE_STYLE_TMPL.format(
+        headline_font=cfg["fontname"],
+        headline_size=max(16, round(HEADLINE_FONTSIZE * s)),
+        headline_pad=max(4, round(HEADLINE_BOX_PAD * s)),
+        # sits well below the Mark (top-centre, ~48+34 scaled) — no collision
+        headline_margin=max(24, round(HEADLINE_MARGIN_V * s)),
+    ) if head else ""
+
     lines = [_HEADER_TMPL.format(play_x=play_res[0], play_y=play_res[1], **cfg)]
     if watermark_seconds and watermark_seconds > 0:
         lines.append(
             f"Dialogue: 1,{_ass_time(0)},{_ass_time(watermark_seconds)},Mark,,0,0,0,,{WATERMARK_TEXT}\n"
         )
+    if head:
+        until = headline_seconds if headline_seconds and headline_seconds > 0 else None
+        if until is None:
+            until = max((c["end"] for c in cues), default=0.0) or 4.0
+        lines.append(_dialogue(
+            0.0, until, "Headline", f"{{\\fad(200,200)}}{headline_text(head)}", layer=2,
+        ))
+
+    prefix = _ANIMATION_PREFIX.get(anim, "")
     for cue in cues:
-        text = _karaoke_text(cue, cfg["uppercase"]) if cfg["karaoke"] else _escape(cue["text"], cfg["uppercase"])
-        lines.append(
-            f"Dialogue: 0,{_ass_time(cue['start'])},{_ass_time(cue['end'])},Caption,,0,0,0,,{text}\n"
-        )
+        typed = _typewriter_lines(cue, cfg["uppercase"], prefix) if anim == "typewriter" else []
+        if typed:
+            lines.extend(typed)
+        else:
+            lines.append(_dialogue(
+                cue["start"], cue["end"], "Caption",
+                f"{prefix}{_cue_text(cue, cfg['uppercase'], karaoke)}",
+            ))
     out_path.write_text("".join(lines), encoding="utf-8")
     return out_path
 
@@ -188,10 +358,16 @@ def build_segment_captions(
     style: str = DEFAULT_CAPTION_STYLE,
     play_res: tuple[int, int] = (1080, 1920),
     watermark: bool = False,
+    animation: str = "none",
+    font: str | None = None,
+    color: str | None = None,
+    headline: str | None = None,
 ) -> Path:
     cues = group_words(words) if words else fallback_cues(text, duration)
     return write_ass(
         cues, out_path, style=style, play_res=play_res,
         # +0.2s so the mark never flickers out between segments
         watermark_seconds=(duration + 0.2) if watermark else None,
+        animation=animation, font=font, color=color, headline=headline,
+        headline_seconds=(duration + 0.2) if headline else None,
     )

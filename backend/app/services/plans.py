@@ -36,7 +36,7 @@ PLANS: dict[str, dict] = {
         "label": "Pro",
         "watermark": False,
         "max_height": 1920,          # full 1080x1920
-        "max_duration_seconds": 180,
+        "max_duration_seconds": 300,  # long enough for a product explainer
         "publish": True,
         "standing_orders": True,
         "teach_style": True,
@@ -50,7 +50,7 @@ PLANS: dict[str, dict] = {
         "label": "Studio",
         "watermark": False,
         "max_height": 1920,
-        "max_duration_seconds": 180,
+        "max_duration_seconds": 300,  # long enough for a product explainer
         "publish": True,
         "standing_orders": True,
         "teach_style": True,

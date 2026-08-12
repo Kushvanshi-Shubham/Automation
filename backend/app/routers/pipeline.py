@@ -14,6 +14,8 @@ from app.models.pipeline_job import PipelineJob
 from app.models.user import User
 from app.models.video import Video
 from app.schemas.pipeline import PipelineStartRequest, PipelineStatusResponse
+from pydantic import BaseModel
+from typing import Optional
 
 from app.services.progress import publish_progress
 from app.services.user_keys import get_user_keys
@@ -24,6 +26,9 @@ router = APIRouter(prefix="/pipeline", tags=["Pipeline"], dependencies=[Depends(
 
 # Variable credit pricing per engine — see docs/kliptos-vault/Pricing.md
 ENGINE_CREDIT_COST = {"pexels": 1, "stock": 1, "stock_image": 1, "ai_image": 2}
+# Re-rendering the SAME content with a different caption look / voice /
+# aspect is free this many times per video (real cost ≈ $0.002).
+FREE_RESTYLES_PER_VIDEO = 3
 # Which engines fit which output type. ai_image on a video type means every
 # scene is a generated illustration with pan/zoom instead of stock footage.
 TYPE_ENGINES: dict[str, set[str]] = {
@@ -40,6 +45,35 @@ async def list_caption_styles():
     from app.pipeline.captions import CAPTION_STYLES
 
     return {"items": [{"key": k, "label": v["label"], "desc": v["desc"]} for k, v in CAPTION_STYLES.items()]}
+
+
+@router.get("/look-options")
+async def look_options():
+    """Everything a creator can change about how a video LOOKS, in one call:
+    caption packs, animations, fonts, and AI visual styles."""
+    from app.pipeline.captions import (
+        CAPTION_ANIMATIONS, CAPTION_FONTS, CAPTION_STYLES,
+        DEFAULT_CAPTION_ANIMATION, DEFAULT_CAPTION_FONT, DEFAULT_CAPTION_STYLE,
+    )
+    from app.services.image_gen import DEFAULT_VISUAL_STYLE, VISUAL_STYLES
+
+    return {
+        "caption_styles": [
+            {"key": k, "label": v["label"], "desc": v["desc"]} for k, v in CAPTION_STYLES.items()
+        ],
+        "caption_animations": [
+            {"key": k, "label": v["label"], "desc": v["desc"]} for k, v in CAPTION_ANIMATIONS.items()
+        ],
+        "caption_fonts": [{"key": k, "label": v["label"]} for k, v in CAPTION_FONTS.items()],
+        "visual_styles": [{"key": k, "label": k.title()} for k in VISUAL_STYLES],
+        "defaults": {
+            "caption_style": DEFAULT_CAPTION_STYLE,
+            "caption_animation": DEFAULT_CAPTION_ANIMATION,
+            "caption_font": DEFAULT_CAPTION_FONT,
+            "visual_style": DEFAULT_VISUAL_STYLE,
+        },
+        "free_restyles_per_video": FREE_RESTYLES_PER_VIDEO,
+    }
 
 
 @router.get("/aspect-ratios")
@@ -89,7 +123,28 @@ async def start_pipeline(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Engine '{engine}' doesn't fit a {video.output_type} creation",
         )
-    if current_user.credit_balance < cost:
+
+    # Restyling something already paid for is free. Changing the CONTENT
+    # (visual engine, or narration provider) is a new render and costs
+    # again — a caption tweak costs us a fifth of a cent, so charging for
+    # it would just teach creators not to polish their work.
+    from app.services.credits import is_free_restyle
+
+    data = video.script_data or {}
+    restyle_allowance = int(data.get("restyles_used") or 0)
+    is_restyle = is_free_restyle(
+        has_render=video.video_url is not None,
+        credits_used=video.credits_used or 0,
+        current_engine=video.visual_engine,
+        requested_engine=engine,
+        current_voice_provider=data.get("voice_provider"),
+        requested_voice_provider=req.voice_provider,
+        restyles_used=restyle_allowance,
+        allowance=FREE_RESTYLES_PER_VIDEO,
+    )
+    if is_restyle:
+        cost = 0
+    elif current_user.credit_balance < cost:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Not enough credits")
 
     from app.services import plans, premium_voice
@@ -181,12 +236,16 @@ async def start_pipeline(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Video is already being processed")
 
     # Deduct credits through the ledger, create the job, and COMMIT — the job
-    # must be durable before the worker can possibly pick it up.
-    current_user.credit_balance -= cost
-    video.credits_used = cost
+    # must be durable before the worker can possibly pick it up. A free
+    # restyle skips the debit but still counts against the allowance.
     video.visual_engine = engine
-    db.add(CreditLedger(user_id=current_user.id, amount=-cost, type="video_debit",
-                        description=f"Render ({engine})", video_id=video.id))
+    if is_restyle:
+        video.script_data = {**(video.script_data or {}), "restyles_used": restyle_allowance + 1}
+    else:
+        current_user.credit_balance -= cost
+        video.credits_used = cost
+        db.add(CreditLedger(user_id=current_user.id, amount=-cost, type="video_debit",
+                            description=f"Render ({engine})", video_id=video.id))
 
     job = PipelineJob(video_id=video.id, user_id=current_user.id, status="queued",
                       progress={"stage": "queued", "percent": 0})
@@ -245,6 +304,123 @@ async def get_pipeline_status(
     if job is None or job.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
     return {"job_id": job.id, "status": job.status, "progress": job.progress, "error_message": job.error_message}
+
+
+class ProofRequest(BaseModel):
+    video_id: UUID
+    scene_index: int = 0
+    # Style choices to try out. Saved on the video so the full render uses
+    # whatever the creator settled on in the proof.
+    voice_id: Optional[str] = None
+    voice_provider: Optional[str] = None
+    caption_style: Optional[str] = None
+    caption_animation: Optional[str] = None
+    caption_font: Optional[str] = None
+    caption_color: Optional[str] = None
+    aspect_ratio: Optional[str] = None
+    visual_style: Optional[str] = None
+    visual_engine: Optional[str] = None
+
+
+@router.post("/proof", dependencies=[Depends(rate_limit("pipeline_proof"))])
+async def start_proof(
+    req: ProofRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render ONE scene, free, so style decisions cost nothing.
+
+    No credits, no ledger entry, no change to the video's status — the
+    output lives under proofs/ and never enters the library.
+    """
+    from app.pipeline.captions import CAPTION_ANIMATIONS, CAPTION_FONTS, CAPTION_STYLES
+    from app.pipeline.assembler import ASPECT_RATIOS
+    from app.services.image_gen import VISUAL_STYLES
+
+    video = await db.get(Video, req.video_id)
+    if video is None or video.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
+    if not (video.script_data or {}).get("segments"):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Generate a script first")
+    if video.output_type == "script":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Script-only creations have nothing to preview",
+        )
+
+    allowed = {
+        "caption_style": CAPTION_STYLES,
+        "caption_animation": CAPTION_ANIMATIONS,
+        "caption_font": CAPTION_FONTS,
+        "aspect_ratio": ASPECT_RATIOS,
+        "visual_style": VISUAL_STYLES,
+    }
+    updates: dict = {}
+    for field, catalogue in allowed.items():
+        value = getattr(req, field)
+        if value is not None:
+            if value not in catalogue:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"Unknown {field.replace('_', ' ')}",
+                )
+            updates[field] = value
+    if req.caption_color:
+        from app.pipeline.captions import hex_to_ass
+
+        if hex_to_ass(req.caption_color) is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Colour must look like #7C3AED",
+            )
+        updates["caption_color"] = req.caption_color
+    if req.voice_provider or req.voice_id:
+        from app.services import premium_voice
+        from app.services.voices import VALID_VOICE_IDS
+
+        if req.voice_provider:
+            if req.voice_provider not in premium_voice.PROVIDERS:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown narration provider")
+            plans.require(current_user, "premium_voice")
+            updates["voice_provider"] = req.voice_provider
+        elif req.voice_id and req.voice_id not in VALID_VOICE_IDS:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown voice")
+        if req.voice_id:
+            updates["voice_id"] = req.voice_id
+        if req.voice_provider is None and req.voice_id:
+            updates["voice_provider"] = None
+
+    if req.visual_engine:
+        if req.visual_engine not in ENGINE_CREDIT_COST:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown visual engine")
+        if req.visual_engine not in TYPE_ENGINES.get(video.output_type or "narrated", set()):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Engine '{req.visual_engine}' doesn't fit a {video.output_type} creation",
+            )
+        video.visual_engine = req.visual_engine
+
+    if updates:
+        video.script_data = {**(video.script_data or {}), **updates}
+    await db.commit()
+
+    from app.pipeline.proof import render_proof
+
+    render_proof.delay(str(video.id), req.scene_index)
+    return {"video_id": video.id, "scene_index": req.scene_index, "status": "rendering"}
+
+
+@router.get("/proof/{video_id}")
+async def get_proof(
+    video_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The latest proof for this video, if one has finished."""
+    video = await db.get(Video, video_id)
+    if video is None or video.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
+    return {"proof": (video.script_data or {}).get("proof")}
 
 
 @router.post("/{job_id}/cancel")
