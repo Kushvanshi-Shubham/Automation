@@ -6,6 +6,8 @@ class PipelineStartRequest(BaseModel):
     # Studio-grade narration: "cartesia" | "elevenlabs" (Pro). None = free
     # edge-tts. voice_id then refers to that provider's voice.
     voice_provider: Optional[str] = None
+    # Look of AI-generated scenes: explainer | cinematic | documentary | bold
+    visual_style: Optional[str] = None
     video_id: UUID
     visual_engine: str = "stock"
     voice_id: Optional[str] = None

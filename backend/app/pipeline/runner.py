@@ -327,6 +327,17 @@ async def run(job_id: str) -> dict:
                         raise RuntimeError("pinned footage no longer exists — unpin that scene and retry")
                     asset_paths[aid] = await _resolve_asset_source(asset.path, workdir)
 
+        # AI-illustrated video: every scene is a generated image with slow
+        # pan/zoom instead of stock footage. The creator's own pinned
+        # footage still wins per scene, so real UI can sit beside it.
+        ai_visuals = (video.visual_engine or "") == "ai_image" and output_type != "image"
+        gen_keys: dict[str, str] = {}
+        if ai_visuals:
+            from app.services.user_keys import get_user_keys
+
+            async with AsyncSessionLocal() as gdb:
+                gen_keys = await get_user_keys(gdb, video.user_id)
+
         used_ids: set[int] = set()
         clips = []
         async with httpx.AsyncClient(timeout=60) as client:
@@ -338,6 +349,20 @@ async def run(job_id: str) -> dict:
                         float(seg.get("asset_start") or 0.0),
                         voiced[i]["duration"] + 0.5,
                         clip_path,
+                    )
+                elif ai_visuals:
+                    from app.services import image_gen
+
+                    still = workdir / f"scene_{i:02d}.jpg"
+                    prompt = image_gen.scene_prompt(
+                        seg.get("visual_prompt") or seg["text"],
+                        aspect=(video.script_data or {}).get("aspect_ratio") or assembler.DEFAULT_ASPECT,
+                        style=(video.script_data or {}).get("visual_style") or image_gen.DEFAULT_VISUAL_STYLE,
+                    )
+                    await image_gen.generate_image(prompt, still, user_keys=gen_keys)
+                    assembler.image_to_clip(
+                        still, voiced[i]["duration"] + 0.4, clip_path,
+                        width=aspect["w"], height=aspect["h"], zoom_in=(i % 2 == 0),
                     )
                 elif seg.get("media_id"):  # user pinned a specific clip in the studio
                     await pexels.fetch_clip_by_id(client, int(seg["media_id"]), clip_path,

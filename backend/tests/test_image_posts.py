@@ -50,9 +50,17 @@ def test_engine_type_matching(client, auth_headers, monkeypatch):
         json={"custom_prompt": "engine match test two", "output_type": "narrated"},
     ).json()["video_id"]
 
-    # image engine on a narrated creation → 422
+    # ai_image on a narrated creation is VALID now — every scene becomes a
+    # generated illustration with pan/zoom instead of stock footage.
     resp = client.post(
         "/api/pipeline/start", headers=auth_headers,
         json={"video_id": narrated_video, "visual_engine": "ai_image"},
+    )
+    assert resp.status_code in (200, 402)  # 402 only when credits are short
+
+    # stock_image still doesn't fit a narrated creation.
+    resp = client.post(
+        "/api/pipeline/start", headers=auth_headers,
+        json={"video_id": narrated_video, "visual_engine": "stock_image"},
     )
     assert resp.status_code == 422

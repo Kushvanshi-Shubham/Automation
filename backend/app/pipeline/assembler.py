@@ -144,6 +144,44 @@ def render_clip(
     )
 
 
+def image_to_clip(
+    image: Path,
+    duration: float,
+    out_path: Path,
+    width: int = 1080,
+    height: int = 1920,
+    zoom_in: bool = True,
+) -> None:
+    """Turn a still into a moving shot (Ken Burns) so AI-generated scenes
+    don't look like a slideshow.
+
+    Alternating zoom direction between scenes keeps a long video from
+    feeling mechanical — the caller flips zoom_in per index.
+    """
+    frames = max(2, int(round(max(0.5, duration) * 30)))
+    # Oversample first: zoompan crops from the source, so a larger canvas
+    # keeps the pan sharp instead of soft-scaling a 1080-wide image.
+    big_w, big_h = width * 2, height * 2
+    if zoom_in:
+        z = "min(1+0.0009*on,1.18)"
+    else:
+        z = "max(1.18-0.0009*on,1)"
+    vf = (
+        f"scale={big_w}:{big_h}:force_original_aspect_ratio=increase,"
+        f"crop={big_w}:{big_h},"
+        f"zoompan=z='{z}':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height},"
+        "fps=30,format=yuv420p"
+    )
+    _run([
+        "-loop", "1", "-i", str(image),
+        "-t", f"{max(0.5, duration):.2f}",
+        "-vf", vf,
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-an",
+        str(out_path),
+    ])
+
+
 def cut_source(source: Path, start: float, duration: float, out_path: Path) -> None:
     """Cut a piece of creator footage for use as ONE segment's visual.
 

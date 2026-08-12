@@ -75,8 +75,11 @@ def test_credit_costs_come_from_real_cost(monkeypatch):
     monkeypatch.setattr("app.config.settings.CREDIT_PRICE_USD", 0.10)
     # 1 credit floor for the near-free stock lane
     assert engine_credit_cost("pexels") == 1
-    # AI images (~$0.20 real) must cost more than a stock render
-    assert engine_credit_cost("ai_image") == 4
+    # AI images are billed per picture: a 12-scene explainer is a bigger job
+    # than a 4-scene short, so the price follows the scene count.
+    assert engine_credit_cost("ai_image", scenes=1) == 1
+    assert engine_credit_cost("ai_image", scenes=6) == 5
+    assert engine_credit_cost("ai_image", scenes=12) == 9
     # A premium engine can never be sold below cost: $8.50 at 2x margin
     assert engine_credit_cost("veo_fast") == 170
     assert engine_credit_cost("nope") is None

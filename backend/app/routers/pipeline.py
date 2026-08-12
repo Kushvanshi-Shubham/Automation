@@ -24,10 +24,11 @@ router = APIRouter(prefix="/pipeline", tags=["Pipeline"], dependencies=[Depends(
 
 # Variable credit pricing per engine — see docs/kliptos-vault/Pricing.md
 ENGINE_CREDIT_COST = {"pexels": 1, "stock": 1, "stock_image": 1, "ai_image": 2}
-# Which engines fit which output type
-TYPE_ENGINES = {
-    "narrated": {"pexels", "stock"},
-    "visual": {"pexels", "stock"},
+# Which engines fit which output type. ai_image on a video type means every
+# scene is a generated illustration with pan/zoom instead of stock footage.
+TYPE_ENGINES: dict[str, set[str]] = {
+    "narrated": {"pexels", "stock", "ai_image"},
+    "visual": {"pexels", "stock", "ai_image"},
     "fake_text": {"pexels", "stock"},
     "image": {"stock_image", "ai_image"},
 }
@@ -76,7 +77,8 @@ async def start_pipeline(
     # can never be sold below what it costs us (services/credits.py).
     from app.services.credits import engine_credit_cost
 
-    cost = engine_credit_cost(engine) if engine in ENGINE_CREDIT_COST else None
+    scene_count = len((video.script_data or {}).get("segments") or [])
+    cost = engine_credit_cost(engine, scenes=scene_count) if engine in ENGINE_CREDIT_COST else None
     if cost is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -148,6 +150,13 @@ async def start_pipeline(
         if req.aspect_ratio not in ASPECT_RATIOS:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown aspect ratio")
         video.script_data = {**(video.script_data or {}), "aspect_ratio": req.aspect_ratio}
+
+    if req.visual_style:
+        from app.services.image_gen import VISUAL_STYLES
+
+        if req.visual_style not in VISUAL_STYLES:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown visual style")
+        video.script_data = {**(video.script_data or {}), "visual_style": req.visual_style}
 
     # Freeze this render's quality tier from the plan: the worker reads it
     # from script_data, so a plan change mid-render can't alter the output.

@@ -21,6 +21,49 @@ STYLE_SUFFIX = (
     "no text, no watermarks, no borders."
 )
 
+# Per-aspect framing so a generated scene fills the frame without letterboxing.
+_ASPECT_FRAMING = {
+    "9:16": "Vertical portrait composition (9:16), full-bleed",
+    "1:1": "Square composition (1:1), centred subject",
+    "16:9": "Wide cinematic composition (16:9), full-bleed",
+}
+
+# Looks for a whole video. "explainer" is the one that suits product films:
+# clean, on-brand, no stock-photo cheese.
+VISUAL_STYLES = {
+    "explainer": (
+        "Modern flat vector illustration, clean geometric shapes, generous negative space, "
+        "restrained 2-3 colour palette, subtle depth, professional and corporate"
+    ),
+    "cinematic": (
+        "Cinematic photographic still, shallow depth of field, dramatic natural light, "
+        "filmic colour grade, photorealistic"
+    ),
+    "documentary": (
+        "Documentary photograph, natural available light, candid framing, realistic, "
+        "unstaged, muted colours"
+    ),
+    "bold": (
+        "Bold graphic poster art, high contrast, saturated colour blocking, "
+        "strong silhouettes, striking and simple"
+    ),
+}
+DEFAULT_VISUAL_STYLE = "explainer"
+
+
+def scene_prompt(subject: str, aspect: str = "9:16", style: str = DEFAULT_VISUAL_STYLE) -> str:
+    """Prompt for one scene's illustration — framed for the target aspect.
+
+    Text is banned on purpose: captions and headlines are burned in later,
+    and generated lettering is almost always misspelled.
+    """
+    framing = _ASPECT_FRAMING.get(aspect, _ASPECT_FRAMING["9:16"])
+    look = VISUAL_STYLES.get(style, VISUAL_STYLES[DEFAULT_VISUAL_STYLE])
+    return (
+        f"{subject.strip()}. {look}. {framing}. "
+        "Absolutely no text, no words, no letters, no numbers, no logos, no watermarks, no borders."
+    )
+
 
 def _client(user_keys: dict[str, str] | None = None):
     from google import genai
