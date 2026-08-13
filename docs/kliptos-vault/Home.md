@@ -16,6 +16,10 @@
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
 
+## Status — 2026-08-14
+- **New since the 6th:** free **proof renders** (approve one scene before spending), **free restyles** (3 per video when only the look changes), **caption craft** (5 animations, 6 fonts, brand colour, per-scene headline overlays), **AI-illustrated video** (a generated scene per line with Ken Burns motion — needs Gemini billing), and Pro films up to **5 minutes**. See [[S1 Build Log]].
+- Owner is testing against a real 4.5-minute product deck (Tcher). Honest ceiling for that job: ~85% with AI visuals + his own screen recordings; the animated diagram and logo animation remain motion-design work no generative tool does well.
+
 ## Status — 2026-08-06
 - **DEPLOYED:** frontend **kliptos.vercel.app** · API **kliptos-api.onrender.com** (free tier, sleeps) · Neon Postgres · Cloudflare R2 (verified end to end). See [[../DEPLOY|DEPLOY.md]].
 - **Working end-to-end (local):** sign-in → India-first trends with recommended format → create from a **trend, a link, your own script, or your own footage** → 9 formats or **a style taught from your own reels** → edit every line, pin footage or auto-match it → render with **studio-grade voice** (Cartesia/ElevenLabs, Hindi included), captions, music → publish/schedule to YouTube → **feedback notes** that improve every future video → standing orders on autopilot.

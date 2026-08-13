@@ -2,6 +2,18 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-14 — 🎨 Approve before you pay: proof renders, free restyles, caption craft, AI-illustrated video
+The theme was making style decisions **cheap**, because you used to spend a credit just to discover the captions were wrong.
+
+- **Free proof render (741ecd4, 68e626f)** — `POST /pipeline/proof` renders ONE scene with whatever voice, caption look, animation and visual style you want to try. No credits, no ledger entry, output lives under `proofs/` and never enters the library. The studio rail has a "Preview one scene · free" button with an inline player; your choices are saved so the paid render uses exactly what you approved.
+- **Free restyles** — re-rendering a finished video is free up to 3 times when only the *look* changes. A caption tweak costs us a fifth of a cent; charging for it would only teach creators not to polish their work. Changing the visual engine or narration provider is real work and charges again.
+- **Caption craft** — five animations (fade, pop, word-highlight, typewriter, static), six fonts, a brand colour, and **per-scene headline overlays** (the upper-third title card an explainer deck needs). All authored in our own ASS layer: no third-party captions API, no per-video cost, full control.
+- **AI-illustrated video (754de76)** — `ai_image` is now a valid engine for narrated/visual output: one generated illustration per scene, turned into a moving shot with alternating Ken Burns zoom. Four looks (explainer/cinematic/documentary/bold), aspect-aware prompts, text banned from the images. Credits scale with scene count. ⚠️ Needs Gemini **billing** — the free tier reports `limit: 0` for image models (~₹40 per 12-scene film).
+- **Longer films** — Pro/Studio duration cap 180s → **300s**, so a product presentation renders in one piece.
+- **A real bug, frame-verified (42399cc)** — typewriter captions stacked on screen (`LEARNING / ACCESSIBLE / LEARNING` piled up the frame) because every build-up step ran to the end of the cue. Each step now hands over to the next word. The old test asserted the broken behaviour; there is now a test that fails if *any* animation ever puts two captions on screen at once.
+- Also caught: the paid render silently dropped animation/font/colour (they weren't on the request schema), so a look approved in a preview wasn't what got rendered. Both paths now share one validator.
+- 223 backend tests green. Testing traps discovered on this box are written down in the memory note *Kliptos testing notes* — the suite shares one sqlite file and one user, so DB-writing fixtures leak between modules.
+
 ## 2026-08-06 — 🎙️ Studio-grade voice + the infrastructure is live
 **Kliptos is on the internet:** frontend at kliptos.vercel.app, API at kliptos-api.onrender.com (free plan), Neon Postgres, and Cloudflare R2 — storage verified end to end (upload, public read, download, delete).
 

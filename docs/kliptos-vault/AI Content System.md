@@ -18,6 +18,9 @@ Owner direction (2026-08-04): build the "personal AI reel factory" pattern (refe
 ### 3. Teach a style
 Upload 2–20 of your reels (existing Footage flow — already Whisper-transcribed) → `style.learn` task mines pace/hooks/transcripts → one LLM pass produces a recipe + caption/music/tone defaults → appears in Create as a personal format (`user:<uuid>`). Table `user_formats` (migration 0011), `/styles` router (max 5 per user), `/dashboard/styles` page with Create bay tabs (Studio | Your styles). Upload-only by design: Kliptos never scrapes reels. ⚠️ Needs a live run with real reels — upload 2+ and teach one.
 
+### 7. Beyond shorts: explainers and product films — shipped 2026-08-14
+The owner's push was that Kliptos shouldn't be a script tool for 60-second shorts only. What that took: **AI-illustrated scenes** (no stock footage at all — a generated illustration per line with Ken Burns motion), **per-scene headline overlays** (slide titles, not just narration captions), **5-minute films**, and an **approve-before-you-pay loop** (free single-scene proof, then free restyles). Tested against a real 4.5-minute EdTech product deck rather than a toy script — the honest gap that remains is bespoke motion graphics of the customer's own product, which is a Canva job, not a generative one.
+
 ### 6. Studio-grade narration — shipped 2026-08-06 (`e04ff8a`)
 The reference video's creator was right that **voice is what makes AI content pass as human**, and it was our weakest link. Cartesia and ElevenLabs now sit behind one interface (`services/premium_voice.py`), Pro-gated, +3 credits on our key and free on the creator's own. Cartesia is verified live with 60 voices including 5 Hindi ones.
 

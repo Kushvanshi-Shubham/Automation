@@ -30,6 +30,16 @@ Seven of Pro's upgrades cost us **nothing** to serve — no watermark, 1080p, lo
 
 A 170-credit Veo render is intentionally out of reach of a ₹499 monthly allowance; that lane is meant to be bought with a top-up, which is exactly how an $8.50 render should feel.
 
+## Approving costs nothing (2026-08-14)
+A **proof render** — one scene with the chosen voice, caption look, animation and visual style — is **free**, unlimited, and never touches the ledger. Re-rendering a finished video is also **free up to 3 times** when only the look changes; changing the visual engine or narration provider is new work and charges again (`credits.is_free_restyle`).
+
+Why give it away: a stock render costs us ≈$0.002. Charging a credit for a caption tweak would earn ₹10 and teach the creator not to polish their video — a bad trade for a product whose whole pitch is "you approve every word".
+
+| Metered work | Real cost | Credits |
+|:---|:---|:---|
+| AI-illustrated video | $0.035 per scene | scales with scene count (12 scenes ≈ 9) |
+| Studio-grade voice (Cartesia/ElevenLabs) | ~$0.15/60s | 3 — **0 if the creator brings their own key** |
+
 ## Real economics today
 Every lane in production is near-free: Pexels API (free), edge-tts (free), Whisper (local CPU), Gemini Flash (fractions of a cent), R2 (zero egress). A stock short costs ≈ **$0.002**, so 50 Pro renders ≈ ₹9 against ₹499 revenue. See `/api/billing/economics` (owner-only) for live numbers.
 
