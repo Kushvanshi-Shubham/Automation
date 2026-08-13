@@ -264,17 +264,26 @@ def _dialogue(start: float, end: float, style: str, text: str, layer: int = 0) -
 
 def _typewriter_lines(cue: dict, uppercase: bool, prefix: str) -> list[str]:
     """One Dialogue line per word prefix, so the cue builds up word by word.
-    Falls back to the plain cue when the cue carries no word timings."""
+
+    Each prefix must END where the next word begins — if every line ran to
+    the end of the cue they would all be on screen together and libass
+    would stack them, showing the same words several times over.
+
+    Falls back to the plain cue when the cue carries no word timings.
+    """
     words = cue.get("words") or []
     if not words:
         return []
     out = []
     for k in range(1, len(words) + 1):
         shown = " ".join(w["word"] for w in words[:k])
-        out.append(_dialogue(
-            words[k - 1]["start"], cue["end"], "Caption",
-            f"{prefix}{_escape(shown, uppercase)}",
-        ))
+        start = words[k - 1]["start"]
+        # Last prefix holds until the cue ends; the others hand over to the
+        # next word so exactly one line is ever visible.
+        end = cue["end"] if k == len(words) else words[k]["start"]
+        if end <= start:  # zero-length word events would flicker
+            continue
+        out.append(_dialogue(start, end, "Caption", f"{prefix}{_escape(shown, uppercase)}"))
     return out
 
 

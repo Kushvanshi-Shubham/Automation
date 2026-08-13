@@ -105,9 +105,14 @@ def test_typewriter_emits_one_line_per_word(tmp_path: Path):
     assert _dialogue_text(typed_cues[0]) == "THE"
     assert _dialogue_text(typed_cues[1]) == "THE OCEAN"
     assert _dialogue_text(typed_cues[2]) == "THE OCEAN COVERS"
-    # each stage starts on its own word and runs to the cue end
+    # Each stage starts on its own word and HANDS OVER to the next one.
+    # (It must not run to the cue end — that stacks every prefix on screen,
+    # which is what a real render showed before this was fixed.)
     assert typed_cues[1].startswith("Dialogue: 0,0:00:00.29,")
-    assert typed_cues[0].split(",")[2] == typed_cues[2].split(",")[2]
+    assert typed_cues[0].split(",")[2] == "0:00:00.29", "step 1 ends where word 2 starts"
+    assert typed_cues[1].split(",")[2] == "0:00:00.71", "step 2 ends where word 3 starts"
+    # Only the final step of a cue holds until the cue ends.
+    assert typed_cues[2].split(",")[2] > typed_cues[1].split(",")[2]
 
 
 def test_typewriter_without_word_timings_falls_back(tmp_path: Path):
@@ -268,3 +273,47 @@ def test_new_params_compose_with_style_packs_and_aspect(tmp_path: Path):
     assert "The ocean covers" in out                # minimal keeps sentence case
     assert len(_dialogues(out, "Headline")) == 1
     assert captions.WATERMARK_TEXT in out
+
+
+def _seconds(stamp: str) -> float:
+    """'0:00:01.44' -> 1.44"""
+    h, m, s = stamp.split(":")
+    return int(h) * 3600 + int(m) * 60 + float(s)
+
+
+def _spans(text: str, style: str = "Caption") -> list[tuple[float, float, str]]:
+    spans = []
+    for ln in _dialogues(text, style):
+        parts = ln.split(",", 9)
+        spans.append((_seconds(parts[1]), _seconds(parts[2]), parts[9]))
+    return sorted(spans)
+
+
+def test_no_animation_ever_puts_two_captions_on_screen_at_once(tmp_path):
+    """Overlapping cues get stacked vertically by libass — the same words
+    appear two or three times up the frame. Caught in a real render: the
+    typewriter build-up held every prefix until the end of the cue."""
+    for anim in CAPTION_ANIMATIONS:
+        text = _render(tmp_path, f"overlap_{anim}", animation=anim)
+        spans = _spans(text)
+        assert spans, f"{anim} produced no caption lines"
+        for (a_start, a_end, a_text), (b_start, b_end, _) in zip(spans, spans[1:]):
+            assert a_end <= b_start + 1e-6, (
+                f"{anim}: '{a_text}' runs to {a_end} but the next caption starts "
+                f"at {b_start} — they would stack on screen"
+            )
+
+
+def test_typewriter_builds_each_cue_up_word_by_word(tmp_path):
+    """WORDS groups into several cues (punctuation breaks them), so the
+    build-up restarts per cue. Within a cue each step must extend the one
+    before it — never repeat or reorder."""
+    spans = _spans(_render(tmp_path, "tw_order", animation="typewriter"))
+    previous = ""
+    for _, _, current in spans:
+        words = current.split()
+        if len(words) == 1:
+            previous = current  # a new cue starts its own build-up
+            continue
+        assert current.startswith(previous), f"'{current}' does not extend '{previous}'"
+        previous = current
