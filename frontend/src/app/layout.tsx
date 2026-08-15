@@ -62,7 +62,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable, archivo.variable, jetbrains.variable)}>
       {/* suppressHydrationWarning: browser extensions inject attributes into <body> pre-hydration */}
-      <body suppressHydrationWarning className={`${inter.className} bg-zinc-950 text-zinc-50 min-h-screen antialiased`}>
+      {/* Background/ink come from the design tokens, not hardcoded zinc — otherwise
+          light mode shows black on overscroll and on pages shorter than the viewport. */}
+      <body
+        suppressHydrationWarning
+        className={`${inter.className} min-h-screen antialiased`}
+        style={{ background: "var(--k-floor)", color: "var(--k-ink)" }}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
