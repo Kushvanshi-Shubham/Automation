@@ -16,6 +16,11 @@
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
 
+## Status — 2026-08-15
+- **The front door works now.** Signup was never broken — Google OAuth creates the account on first sign-in with 3 free credits — but the page said "Sign in to Kliptos" and read as members-only. Reframed as **"Create your account"**, and the sign-in + legal pages (the last ones still on the old dark design) are now in the system. Live-verified on kliptos.vercel.app. See [[S1 Build Log]].
+- **Unbuilt, and genuinely so:** email/password auth and the onboarding niche picker. Google is still the only way in.
+- **Next build priorities** (supersedes the 08-06 list below — caption craft shipped 08-14): shared Redis so cloud renders work for anyone but the owner · email/password + onboarding niche picker · landing-page micro-interactions · mobile as its own product
+
 ## Status — 2026-08-14
 - **New since the 6th:** free **proof renders** (approve one scene before spending), **free restyles** (3 per video when only the look changes), **caption craft** (5 animations, 6 fonts, brand colour, per-scene headline overlays), **AI-illustrated video** (a generated scene per line with Ken Burns motion — needs Gemini billing), and Pro films up to **5 minutes**. See [[S1 Build Log]].
 - Owner is testing against a real 4.5-minute product deck (Tcher). Honest ceiling for that job: ~85% with AI visuals + his own screen recordings; the animated diagram and logo animation remain motion-design work no generative tool does well.

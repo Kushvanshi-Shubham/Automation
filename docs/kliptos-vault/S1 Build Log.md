@@ -2,6 +2,17 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-15 — 🚪 The front door: sign-in reframed as sign-up, and the pages the redesign missed
+Owner's report was "the signup still not showing, it only shows sign in". The interesting part is that **signup was never broken** — `auth_google` creates the account on first Google login and grants the 3 free credits with a ledger entry. With OAuth there is no separate registration step. But the page said *"Sign in to Kliptos"*, which a first-time visitor correctly reads as members-only, so the product was turning away new users at the exact moment they were about to convert. A conversion bug made entirely of copy.
+
+- **Sign-in reframed (4dfa237)** — now leads with **"Create your account"**, says the same button signs returning users in, and lists what the free tier actually gives (3 credits, 5 scripts/day, the four ways to start a video). Rewritten in THE LINE system.
+- **It was the last page still wearing the old design.** After P7 the log claimed every page was converted; that was true only of pages inside the dashboard shell. `(auth)/sign-in` sat in a route group (**not** `src/app/sign-in/`) and had never been touched — so a visitor went from the new landing page straight into what looked like a different company.
+- **Legal pages too (19fc106)** — found by re-checking the *live* routes after deploying, not the local ones: `/terms`, `/privacy` and `/refunds` share one `LegalPage` shell that was still hardcoded dark. That mattered immediately, because the new sign-in page puts Terms and Privacy right under the Google button. Content untouched, shell on tokens.
+- **A quiet light-mode bug** — the root `layout.tsx` hardcoded `bg-zinc-950 text-zinc-50` on `<body>`. Every converted page painted over it, so it was invisible except as black on overscroll and on pages shorter than the viewport. Now driven by `--k-floor`/`--k-ink`.
+- **Method worth keeping:** fetch every route and grep the HTML for the old palette. Clicking through the app finds nothing, because the app shell is exactly the part that was already converted.
+- Verified live on kliptos.vercel.app: `/`, `/sign-in`, `/terms`, `/privacy`, `/refunds` all 200, old palette gone, tokens present. Local renders confirmed healthy the same day — a 55s video rendered in 107s and uploaded to R2.
+- Still unbuilt (and not a copy problem): **email/password auth** and the **onboarding niche picker**. Google remains the only door.
+
 ## 2026-08-14 — 🎨 Approve before you pay: proof renders, free restyles, caption craft, AI-illustrated video
 The theme was making style decisions **cheap**, because you used to spend a credit just to discover the captions were wrong.
 
