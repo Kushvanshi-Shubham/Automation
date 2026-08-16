@@ -49,3 +49,8 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Celery beat runtime state (recreated on every worker start)
+celerybeat-schedule
+celerybeat-schedule-*
+celerybeat.pid
