@@ -16,6 +16,11 @@
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
 
+## Status — 2026-08-16
+- **Kliptos has its own domain: https://www.kliptos.app** (live, TLS issued, serving from Vercel). Registered at Name.com, DNS on Cloudflare, two CNAMEs to Vercel set to **DNS only** — proxying breaks Vercel's cert issuance. www is canonical; the apex 308-redirects to it.
+- ⚠️ **Until the env vars move, sign-in is broken on the new domain** — NextAuth still advertises `kliptos.vercel.app/api/auth/callback/google`, so users get bounced to the old host. Needs `NEXTAUTH_URL`/`AUTH_URL` on Vercel, the redirect URI in the Google OAuth console, and `FRONTEND_URL`/`CORS_ORIGINS` on Render.
+- Next on the domain: Cloudflare **Email Routing** → `shubham@kliptos.app` (the business email Google for Startups requires, and it makes `support@kliptos.app` in the legal pages real), then `media.kliptos.app` for R2 to replace the rate-limited `pub-*.r2.dev`.
+
 ## Status — 2026-08-15
 - **The front door works now.** Signup was never broken — Google OAuth creates the account on first sign-in with 3 free credits — but the page said "Sign in to Kliptos" and read as members-only. Reframed as **"Create your account"**, and the sign-in + legal pages (the last ones still on the old dark design) are now in the system. Live-verified on kliptos.vercel.app. See [[S1 Build Log]].
 - **Unbuilt, and genuinely so:** email/password auth and the onboarding niche picker. Google is still the only way in.

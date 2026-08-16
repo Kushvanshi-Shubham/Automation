@@ -49,7 +49,7 @@ envVarGroups:
         sync: false
       - key: REDIS_URL             # Render Key Value internal URL
         sync: false
-      - key: FRONTEND_URL          # https://kliptos.vercel.app (later https://kliptos.app)
+      - key: FRONTEND_URL          # https://www.kliptos.app (www is canonical; apex 308s to it)
         sync: false
       - key: API_PUBLIC_URL        # https://kliptos-api.onrender.com
         sync: false
