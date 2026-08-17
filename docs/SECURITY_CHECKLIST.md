@@ -23,6 +23,25 @@ Rules going forward:
 - Secrets live ONLY in env vars on the hosting platform. Never in git, never in chat.
 - `.env` files stay gitignored (verified — they are).
 - BYO user keys are Fernet-encrypted at rest and never returned by the API (verified).
+- **Never screenshot a secret.** Console pages show API keys in plaintext on
+  creation; an image of that screen is as compromising as pasting the string.
+  A key created in the console has to be typed straight into `.env` or the
+  hosting dashboard and never captured anywhere else.
+
+### Burned 2026-08-17 — delete, do not reuse
+Migrating Google credentials from the personal account to
+`shubham@kliptos.app` / project `kliptos-505809`. During that move:
+
+| Secret | How it leaked | Status |
+|---|---|---|
+| API key `AIzaSyCD6Rz…vyng` (project `kliptos-505809`) | visible in a screenshot shared in chat | **DELETE in console, replace** |
+
+The OAuth client secret for `538089125633-…apps.googleusercontent.com` was
+NOT exposed — only its download filename reached the chat, and the JSON was
+read into `.env` programmatically without the value being printed. Client IDs
+are not secrets. Delete the downloaded `client_secret_*.json` from `Downloads`
+once the values are in the hosting dashboards; it is a plaintext secret at a
+path that is now public knowledge.
 
 ## ✅ Implemented protections (hardening sprint, 2026-08-02)
 - Single-use Redis OAuth state nonces (YouTube + Instagram connect)
