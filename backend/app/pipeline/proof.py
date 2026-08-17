@@ -91,13 +91,14 @@ async def _run(video_id: str, scene_index: int = 0) -> dict:
             from app.services import image_gen
 
             still = workdir / "proof.jpg"
+            aspect_ratio = data.get("aspect_ratio") or assembler.DEFAULT_ASPECT
             await image_gen.generate_image(
                 image_gen.scene_prompt(
                     seg.get("visual_prompt") or seg["text"],
-                    aspect=data.get("aspect_ratio") or assembler.DEFAULT_ASPECT,
+                    aspect=aspect_ratio,
                     style=data.get("visual_style") or image_gen.DEFAULT_VISUAL_STYLE,
                 ),
-                still, user_keys=user_keys,
+                still, user_keys=user_keys, aspect=aspect_ratio,
             )
             assembler.image_to_clip(still, duration + 0.4, clip_path,
                                     width=aspect["w"], height=aspect["h"])

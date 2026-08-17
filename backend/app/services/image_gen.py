@@ -10,10 +10,13 @@ from app.config import settings
 
 logger = logging.getLogger("kliptos.image_gen")
 
+# Verified against Vertex 2026-08-17. The "-preview" ids that used to be here
+# 404 on Vertex; these four are live. Newest-and-cheapest first, pro last as a
+# quality fallback.
 MODEL_PREFERENCE = [
+    "gemini-3.1-flash-image",
     "gemini-2.5-flash-image",
-    "gemini-3.1-flash-image-preview",
-    "gemini-3-pro-image-preview",
+    "gemini-3-pro-image",
 ]
 
 STYLE_SUFFIX = (
@@ -66,24 +69,39 @@ def scene_prompt(subject: str, aspect: str = "9:16", style: str = DEFAULT_VISUAL
 
 
 def _client(user_keys: dict[str, str] | None = None):
-    from google import genai
+    from app.services.google_ai import gemini_client
 
-    key = (user_keys or {}).get("gemini") or settings.GEMINI_API_KEY
-    if not key:
-        raise RuntimeError("No Gemini key available for image generation")
-    return genai.Client(api_key=key)
+    client, _ = gemini_client((user_keys or {}).get("gemini"))
+    return client
 
 
-async def generate_image(prompt: str, out_path, user_keys: dict[str, str] | None = None) -> str:
+async def generate_image(
+    prompt: str,
+    out_path,
+    user_keys: dict[str, str] | None = None,
+    aspect: str = "9:16",
+) -> str:
     """Generate one image, write bytes to out_path. Returns the model used."""
+    from google.genai import types
+
     client = _client(user_keys)
+    # Asking for the aspect in the prompt does NOT work — the models return
+    # 1024x1024 regardless. image_config is what actually reframes the output
+    # (verified: 9:16 -> 768x1344), which matters because a square scene would
+    # have to be cropped and would cut the subject.
+    config = types.GenerateContentConfig(
+        image_config=types.ImageConfig(aspect_ratio=aspect)
+    )
     last_error: Exception | None = None
     for model in MODEL_PREFERENCE:
         try:
             resp = await client.aio.models.generate_content(
                 model=model,
                 contents=prompt + STYLE_SUFFIX,
+                config=config,
             )
+            if not resp.candidates:
+                raise RuntimeError("model returned no candidates (likely filtered)")
             for part in resp.candidates[0].content.parts:
                 inline = getattr(part, "inline_data", None)
                 if inline and inline.data:

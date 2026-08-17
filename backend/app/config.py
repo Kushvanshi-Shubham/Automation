@@ -51,6 +51,17 @@ class Settings(BaseSettings):
     YOUTUBE_API_KEY: Optional[str] = None
     PEXELS_API_KEY: Optional[str] = None
     GOOGLE_CLOUD_PROJECT: Optional[str] = None
+    # Vertex ("Agent Platform") serves the same Gemini models but bills the
+    # Cloud account, so trial credits apply. The Gemini Developer API is a
+    # separate wallet that welcome credits cannot pay for on accounts created
+    # after 2026-03-02 — which is why our own calls go through Vertex and only
+    # a creator's BYO key uses the Developer API.
+    # "global" is required: regional endpoints 404 on the -latest aliases.
+    GOOGLE_VERTEX_LOCATION: str = "global"
+    # Credentials, in precedence order. SA_JSON is the inline blob for hosts
+    # that only take env vars (Render); SA_JSON_PATH is the local file.
+    GOOGLE_SA_JSON: Optional[str] = None
+    GOOGLE_SA_JSON_PATH: Optional[str] = None
     HUGGINGFACE_API_KEY: Optional[str] = None
     HIGGSFIELD_API_KEY: Optional[str] = None
     # Studio-grade narration (the Pro voice lane) — BYO-key friendly.

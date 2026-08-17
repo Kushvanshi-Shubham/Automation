@@ -8,6 +8,7 @@ treated as compromised. Rotate ALL of them when deploying:
 |---|---|---|
 | Google OAuth client secret | console.cloud.google.com → Credentials → regenerate secret | Render env `GOOGLE_CLIENT_SECRET` + Vercel `AUTH_GOOGLE_SECRET` |
 | Gemini API key | aistudio.google.com → API keys → delete + create | Render env `GEMINI_API_KEY` |
+| Vertex service-account key (`vertex-express@kliptos-505809`) | console → IAM → Service Accounts → Keys → delete + create | Render env `GOOGLE_SA_JSON`, local `backend/secrets/vertex-sa.json` (gitignored) |
 | OpenAI API key | platform.openai.com → API keys | Render env `OPENAI_API_KEY` |
 | Pexels API key | pexels.com/api → regenerate | Render env `PEXELS_API_KEY` |
 | YouTube Data API key | console.cloud.google.com → Credentials | Render env `YOUTUBE_API_KEY` |

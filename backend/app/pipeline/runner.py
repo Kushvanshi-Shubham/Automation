@@ -89,9 +89,8 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
     from app.services.user_keys import get_user_keys
 
     engine = video.visual_engine or "stock_image"
-    orientation = ASPECT_RATIOS.get(
-        (video.script_data or {}).get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT]
-    )["orientation"]
+    aspect = (video.script_data or {}).get("aspect_ratio") or assembler.DEFAULT_ASPECT
+    orientation = ASPECT_RATIOS.get(aspect, ASPECT_RATIOS[assembler.DEFAULT_ASPECT])["orientation"]
     slides = segments[:8]
     images: list[str] = []
 
@@ -106,7 +105,7 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
             prompt = seg.get("visual_prompt") or seg["text"]
             _publish(job_key, "running", "images", 10 + i / len(slides) * 80)
             if engine == "ai_image":
-                await image_gen.generate_image(prompt, out_path, user_keys=user_keys)
+                await image_gen.generate_image(prompt, out_path, user_keys=user_keys, aspect=aspect)
             elif seg.get("media_id"):  # user pinned a specific photo
                 await pexels.fetch_photo_by_id(client, int(seg["media_id"]), out_path)
                 used_ids.add(int(seg["media_id"]))
@@ -354,12 +353,13 @@ async def run(job_id: str) -> dict:
                     from app.services import image_gen
 
                     still = workdir / f"scene_{i:02d}.jpg"
+                    aspect_ratio = (video.script_data or {}).get("aspect_ratio") or assembler.DEFAULT_ASPECT
                     prompt = image_gen.scene_prompt(
                         seg.get("visual_prompt") or seg["text"],
-                        aspect=(video.script_data or {}).get("aspect_ratio") or assembler.DEFAULT_ASPECT,
+                        aspect=aspect_ratio,
                         style=(video.script_data or {}).get("visual_style") or image_gen.DEFAULT_VISUAL_STYLE,
                     )
-                    await image_gen.generate_image(prompt, still, user_keys=gen_keys)
+                    await image_gen.generate_image(prompt, still, user_keys=gen_keys, aspect=aspect_ratio)
                     assembler.image_to_clip(
                         still, voiced[i]["duration"] + 0.4, clip_path,
                         width=aspect["w"], height=aspect["h"], zoom_in=(i % 2 == 0),

@@ -38,10 +38,13 @@ def _lenient_json(text: str) -> dict:
 
 
 async def _gemini_json(system: str, user: str, temperature: float, api_key: str | None = None) -> dict:
-    from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key or settings.GEMINI_API_KEY)
+    from app.services.google_ai import gemini_client
+
+    # Our own calls go via Vertex (Cloud billing, trial credits apply); a
+    # creator's BYO key goes to the Developer API on their quota.
+    client, _ = gemini_client(api_key)
     resp = await client.aio.models.generate_content(
         model=GEMINI_MODEL,
         contents=user,

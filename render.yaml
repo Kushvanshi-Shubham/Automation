@@ -59,7 +59,9 @@ envVarGroups:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: GEMINI_API_KEY
+      - key: GEMINI_API_KEY      # only a fallback now; our calls go via Vertex
+        sync: false
+      - key: GOOGLE_SA_JSON      # whole vertex-sa.json as one line - Vertex auth
         sync: false
       - key: YOUTUBE_API_KEY
         sync: false

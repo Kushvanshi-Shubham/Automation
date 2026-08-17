@@ -54,3 +54,9 @@ docker-compose.override.yml
 celerybeat-schedule
 celerybeat-schedule-*
 celerybeat.pid
+
+# Service-account and OAuth client JSONs - never commit
+backend/secrets/
+*-*.json.key
+client_secret_*.json
+*-????????????.json
