@@ -16,6 +16,12 @@
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
 
+## Status — 2026-08-17
+- **AI-illustrated video works for the first time**, proved end to end on the live stack. It was never a billing switch: the Gemini Developer API is a separate prepaid wallet that Cloud credits can't pay for on accounts created after 2 March 2026. Our calls now go through **Vertex**, which bills the Cloud account. See [[S1 Build Log]] and the memory note *Kliptos Google AI billing*.
+- **Shared Redis is done** — the deployed API and the local worker use one queue. Cloud renders work while the dev PC is on; a real always-on worker still wants a VM (the ₹28,694 trial credit could fund one until 16 Nov).
+- **⚠️ Hindi captions are broken** — Devanagari vowel marks render as detached dotted circles because every caption font is Latin-only. Affects every Hindi video ever made. Top of the bug list.
+- **Two users on the live DB**, one of them not the owner's address — possibly a real first signup.
+
 ## Status — 2026-08-16
 - **Kliptos has its own domain: https://www.kliptos.app** (live, TLS issued, serving from Vercel). Registered at Name.com, DNS on Cloudflare, two CNAMEs to Vercel set to **DNS only** — proxying breaks Vercel's cert issuance. www is canonical; the apex 308-redirects to it.
 - ⚠️ **Until the env vars move, sign-in is broken on the new domain** — NextAuth still advertises `kliptos.vercel.app/api/auth/callback/google`, so users get bounced to the old host. Needs `NEXTAUTH_URL`/`AUTH_URL` on Vercel, the redirect URI in the Google OAuth console, and `FRONTEND_URL`/`CORS_ORIGINS` on Render.

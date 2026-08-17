@@ -2,6 +2,20 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-17 — 🖼️ AI images finally work, and the reason they never did
+The AI-illustrated lane has been dead since it shipped, returning `limit: 0` for every image model. We assumed it needed a billing switch. It didn't.
+
+**Google runs two doors to the same Gemini models, billing from different wallets.** The **Gemini Developer API** (AI Studio) is a separate prepaid wallet, and for accounts created after **2 March 2026** the $300 Cloud welcome credit *cannot be spent on it at all* — while its free tier reports zero image quota. So no amount of paying into Google Cloud was ever going to unblock it. **Vertex** ("Agent Platform") serves identical models and bills the Cloud account, where the credit actually lives.
+
+- **Migration (`f970699`)** — our own script *and* image calls now go through Vertex; a creator's BYO key still goes to the Developer API so it stays on their quota and their bill. That branch lives in one place, `services/google_ai.py`.
+- **Two things only live testing caught.** The image models **ignore aspect-ratio instructions in the prompt** and return 1024×1024 regardless — `image_config` is what actually reframes them, so 9:16 now comes back as 768×1376 instead of a square that would have cropped subjects' heads off. And the `-preview` model ids in `MODEL_PREFERENCE` **404 on Vertex**; replaced with the three that are live.
+- **Proved end to end on the live stack:** a free proof render on a real video — Vertex image → Ken Burns → narration → captions → R2. 1080×1920 h264 + aac, 7.1s, 42s to render, downloaded back from R2 and frame-verified.
+- Getting there meant defeating a brand-new Cloud **organization's** secure-by-default policies (three constraints, and Google evaluates the legacy *and* managed twin of each), plus learning that "Vertex AI User" is now **"Agent Platform User"**.
+- Also this day: the domain moved to **www.kliptos.app**, Cloudflare Email Routing gave us `shubham@kliptos.app`, and the **shared Redis finally landed** so the deployed API and the local worker use one queue.
+- 223 backend tests green.
+
+**⚠️ Found while frame-checking that render: Hindi captions are broken.** The Devanagari vowel marks render as detached dotted circles, because all six `CAPTION_FONTS` are Latin-only (Arial, Impact, Verdana, Georgia, DejaVu Sans, Liberation Sans) and libass cannot shape Devanagari with them. Every Hindi video ever rendered has shipped with mangled captions — in an India-first product that advertises 5 Hindi voices. Needs a Devanagari font (Noto Sans Devanagari) added, auto-selected by script detection, and present in the Docker image as well as locally.
+
 ## 2026-08-15 — 🚪 The front door: sign-in reframed as sign-up, and the pages the redesign missed
 Owner's report was "the signup still not showing, it only shows sign in". The interesting part is that **signup was never broken** — `auth_google` creates the account on first Google login and grants the 3 free credits with a ledger entry. With OAuth there is no separate registration step. But the page said *"Sign in to Kliptos"*, which a first-time visitor correctly reads as members-only, so the product was turning away new users at the exact moment they were about to convert. A conversion bug made entirely of copy.
 
