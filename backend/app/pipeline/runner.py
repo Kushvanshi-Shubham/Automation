@@ -28,6 +28,10 @@ from app.services.progress import publish_progress
 
 logger = logging.getLogger("kliptos.runner")
 
+# Instagram carousels top out at 10 images; every other surface we post to
+# allows at least that many.
+MAX_CAROUSEL_SLIDES = 10
+
 MUSIC_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "music"
 
 
@@ -91,7 +95,16 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
     engine = video.visual_engine or "stock_image"
     aspect = (video.script_data or {}).get("aspect_ratio") or assembler.DEFAULT_ASPECT
     orientation = ASPECT_RATIOS.get(aspect, ASPECT_RATIOS[assembler.DEFAULT_ASPECT])["orientation"]
-    slides = segments[:8]
+    # A carousel is slides, not seconds: the creator picks how many, the script
+    # is generated with that many segments, and we use all of them. The cap is
+    # the platform ceiling (Instagram allows 10), not a magic number - and we
+    # say so when it bites instead of dropping segments in silence.
+    slides = segments[:MAX_CAROUSEL_SLIDES]
+    if len(segments) > MAX_CAROUSEL_SLIDES:
+        logger.warning(
+            "image post: script had %d segments, keeping the first %d (platform cap)",
+            len(segments), MAX_CAROUSEL_SLIDES,
+        )
     images: list[str] = []
 
     if engine == "ai_image":

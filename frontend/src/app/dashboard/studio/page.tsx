@@ -60,7 +60,7 @@ const TONE_PRESETS = [
 const OUTPUT_TYPES = [
   { value: "narrated", label: "Narrated short", desc: "AI voice narrates over visuals", badge: "1 credit" },
   { value: "visual", label: "Visual short", desc: "On-screen text + music, no voice — add trending audio when posting", badge: "1 credit" },
-  { value: "image", label: "Image post", desc: "3–6 slide carousel with captions (stock photos)", badge: "1 credit" },
+  { value: "image", label: "Image post", desc: "3–10 slide carousel with captions", badge: "1 credit" },
   { value: "script", label: "Script only", desc: "Just the script — film it yourself", badge: "Free · 5/day" },
 ]
 
@@ -70,6 +70,12 @@ const DEFAULT_CAPTION_COLOR = "#ffffff"
 const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
 // Target length. The backend budgets the script at ~2.5 words/second and
 // clamps to the plan cap, so these are requests rather than guarantees.
+// An image post is a carousel, not a video: the creator picks SLIDES, not
+// seconds. Segments come from the target duration, so we convert - this must
+// track SECONDS_PER_SEGMENT in script_gen.py. Instagram caps carousels at 10.
+const SECONDS_PER_SEGMENT = 8.5
+const SLIDE_CHOICES = [3, 4, 5, 6, 7, 8, 9, 10]
+
 const DURATION_CHOICES = [
   { seconds: 15, label: "15s — a single beat" },
   { seconds: 30, label: "30s — one idea" },
@@ -134,6 +140,7 @@ function EmptyStudio() {
   const [tone, setTone] = useState(TONE_PRESETS[0])
   const [customTone, setCustomTone] = useState("")
   const [duration, setDuration] = useState(60)
+  const [slides, setSlides] = useState(5)
   const [instructions, setInstructions] = useState("")
   const [language, setLanguage] = useState("English")
 
@@ -171,7 +178,9 @@ function EmptyStudio() {
                 tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
                 custom_instructions: instructions.trim() || undefined,
                 ...(format === "custom" ? { style, output_type: outputType } : { format }),
-                duration_seconds: effectiveDuration,
+                duration_seconds: outputType === "image"
+                  ? Math.round(slides * SECONDS_PER_SEGMENT)
+                  : effectiveDuration,
               }
         ),
       }),
@@ -338,7 +347,17 @@ function EmptyStudio() {
                     </select>
                   </div>
                 )}
-                {mode !== "own" && (
+                {mode !== "own" && outputType === "image" && (
+                  <div>
+                    <span style={label}>Slides</span>
+                    <select value={slides} onChange={e => setSlides(Number(e.target.value))} style={field}>
+                      {SLIDE_CHOICES.map(n => (
+                        <option key={n} value={n}>{n} slides</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {mode !== "own" && outputType !== "image" && (
                   <div>
                     <span style={label}>Length</span>
                     <select value={effectiveDuration} onChange={e => setDuration(Number(e.target.value))} style={field}>
