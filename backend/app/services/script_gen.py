@@ -1,4 +1,4 @@
-"""Script generation for 60-second vertical shorts (Gemini free-tier first, GPT-4o fallback).
+"""Script generation for vertical video, 15s to 5 minutes.
 
 Supports multiple creation styles plus a bring-your-own-script mode that
 preserves the user's wording and only adds structure + visual prompts.
@@ -10,6 +10,10 @@ from fastapi import HTTPException, status
 from app.services.llm import generate_json
 
 logger = logging.getLogger("kliptos.script_gen")
+
+# A segment is 1-2 sentences (~25 words max) at ~2.5 words/second, so it lands
+# a little under 10s. Used to turn a target duration into a segment count.
+SECONDS_PER_SEGMENT = 8.5
 
 _BASE_RULES = """
 Rules:
@@ -99,10 +103,17 @@ async def generate_script(
     reference_text: str | None = None,
 ) -> dict:
     system = STYLE_PROMPTS.get(style, STYLE_PROMPTS[DEFAULT_STYLE])
+    # Stating the target alone is not enough: a segment is capped at ~25 words
+    # (~10s), so the model writes a Shorts-shaped 5-7 of them whatever length
+    # was asked for, and a 2-minute request came back at 60s. Spelling out the
+    # segment count is what actually scales the script.
+    segments_wanted = max(3, round(duration_seconds / SECONDS_PER_SEGMENT))
     user_prompt = (
         f"Topic: {topic}\n"
         f"Tone: {tone}\n"
         f"Target duration: {duration_seconds} seconds\n"
+        f"Write EXACTLY {segments_wanted} segments so the narration fills the full "
+        f"{duration_seconds} seconds. Do not stop early.\n"
         + (f"Write ALL narration text in {language}. Keep visual_prompt, title, description and tags in English.\n" if language != "English" else "")
         + (f"Hook inspiration (improve on it): {hook_hint}\n" if hook_hint else "")
         + (

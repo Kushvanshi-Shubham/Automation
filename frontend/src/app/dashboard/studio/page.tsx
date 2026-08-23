@@ -68,6 +68,19 @@ const OUTPUT_TYPES = [
 const DEFAULT_CAPTION_COLOR = "#ffffff"
 
 const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
+// Target length. The backend budgets the script at ~2.5 words/second and
+// clamps to the plan cap, so these are requests rather than guarantees.
+const DURATION_CHOICES = [
+  { seconds: 15, label: "15s — a single beat" },
+  { seconds: 30, label: "30s — one idea" },
+  { seconds: 45, label: "45s — standard Short" },
+  { seconds: 60, label: "60s — full Short" },
+  { seconds: 90, label: "90s — room to explain" },
+  { seconds: 120, label: "2 min — explainer" },
+  { seconds: 180, label: "3 min — deep dive" },
+  { seconds: 300, label: "5 min — full film" },
+]
+
 const label: React.CSSProperties = { display: "block", fontSize: 12.5, fontWeight: 600, color: L.ash, marginBottom: 8 }
 const field: React.CSSProperties = {
   width: "100%", boxSizing: "border-box", background: L.floor, border: `1px solid ${L.rule}`,
@@ -120,6 +133,7 @@ function EmptyStudio() {
   const [model, setModel] = useState("auto")
   const [tone, setTone] = useState(TONE_PRESETS[0])
   const [customTone, setCustomTone] = useState("")
+  const [duration, setDuration] = useState(60)
   const [instructions, setInstructions] = useState("")
   const [language, setLanguage] = useState("English")
 
@@ -132,6 +146,15 @@ function EmptyStudio() {
   const { data: formats } = useQuery<{ items: Format[] }>({
     queryKey: ["formats"], queryFn: () => fetchApi("/scripts/formats"), staleTime: Infinity,
   })
+  // The duration cap is a plan feature; never hardcode it here.
+  const { data: planData } = useQuery<{ features: { max_duration_seconds: number } }>({
+    queryKey: ["plan"], queryFn: () => fetchApi("/billing/plan"), staleTime: 60_000,
+  })
+  const maxSeconds = planData?.features?.max_duration_seconds ?? 300
+  // A Free cap (45s) is below the 60s default, so clamp for BOTH the shown
+  // value and the request — otherwise the select displays one length and
+  // sends another.
+  const effectiveDuration = Math.min(duration, maxSeconds)
 
   const create = useMutation({
     mutationFn: () =>
@@ -148,6 +171,7 @@ function EmptyStudio() {
                 tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
                 custom_instructions: instructions.trim() || undefined,
                 ...(format === "custom" ? { style, output_type: outputType } : { format }),
+                duration_seconds: effectiveDuration,
               }
         ),
       }),
@@ -311,6 +335,16 @@ function EmptyStudio() {
                     <select value={tone} onChange={e => setTone(e.target.value)} style={{ ...field, textTransform: "capitalize" }}>
                       {TONE_PRESETS.map(t => <option key={t} value={t}>{t}</option>)}
                       <option value="__custom__">Custom…</option>
+                    </select>
+                  </div>
+                )}
+                {mode !== "own" && (
+                  <div>
+                    <span style={label}>Length</span>
+                    <select value={effectiveDuration} onChange={e => setDuration(Number(e.target.value))} style={field}>
+                      {DURATION_CHOICES.filter(d => d.seconds <= maxSeconds).map(d => (
+                        <option key={d.seconds} value={d.seconds}>{d.label}</option>
+                      ))}
                     </select>
                   </div>
                 )}
