@@ -40,7 +40,13 @@ class Settings(BaseSettings):
     @field_validator("ADMIN_EMAILS", mode="before")
     @classmethod
     def parse_admin_emails(cls, v):
+        # Accept a JSON list ('["a@b.com"]') or comma-separated ('a@b.com,c@d.com').
+        # Without the JSON branch a bracketed paste silently becomes ONE bogus
+        # entry and the owner just never gets admin, with nothing logged.
         if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                return [str(e).strip().lower() for e in json.loads(v)]
             return [e.strip().lower() for e in v.split(",") if e.strip()]
         return v
 
