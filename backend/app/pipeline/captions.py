@@ -12,6 +12,7 @@ On top of the style packs, the "caption craft" layer adds:
 
 ASS colors are &HAABBGGRR (alpha, blue, green, red).
 """
+import shutil
 from pathlib import Path
 
 MAX_WORDS_PER_CUE = 3
@@ -98,6 +99,44 @@ CAPTION_FONTS: dict[str, dict] = {
 
 DEFAULT_CAPTION_FONT = "arial"
 
+# Devanagari (Hindi, Marathi) needs a font that can shape it. None of the
+# CAPTION_FONTS families can: libass keeps the requested family, fails to
+# compose the vowel marks, and every Hindi caption came out as consonants
+# followed by loose dotted circles. Windows happens to substitute Nirmala UI,
+# but the render image ships only DejaVu + Liberation and has nothing to fall
+# back to, so we bundle the font and hand it to libass directly.
+FONTS_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
+DEVANAGARI_FAMILY = "Noto Sans Devanagari"
+DEVANAGARI_FILES = ("NotoSansDevanagari-Bold.ttf", "NotoSansDevanagari-Regular.ttf")
+
+
+def _has_devanagari(text: str) -> bool:
+    # U+0900-U+097F is the Devanagari block.
+    return any("ऀ" <= ch <= "ॿ" for ch in text)
+
+
+def needs_bundled_font(cues: list[dict]) -> bool:
+    """True when the cues contain a script our normal fonts cannot shape."""
+    return any(_has_devanagari(str(c.get("text") or "")) for c in cues)
+
+
+def stage_fonts(workdir: Path) -> bool:
+    """Copy the bundled fonts next to the ASS file.
+
+    ffmpeg runs with cwd set to that directory and the filtergraph takes
+    `fontsdir=.` — a relative path, because an absolute Windows path puts a
+    colon inside the filter description and the parser splits on it.
+    """
+    copied = False
+    for name in DEVANAGARI_FILES:
+        src = FONTS_DIR / name
+        if src.is_file():
+            shutil.copy2(src, workdir / name)
+            copied = True
+    if not copied:
+        logger.warning("bundled fonts missing at %s — non-Latin captions may not render", FONTS_DIR)
+    return copied
+
 # Fallback highlight tint when animation="highlight" runs on a style pack that
 # isn't karaoke and no brand colour was supplied (white-on-white = no effect).
 HIGHLIGHT_FALLBACK_COLOUR = "&H0000F7FF"
@@ -119,7 +158,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,{fontname},{fontsize},{primary},{secondary},{outline_colour},{back_colour},{bold},0,0,0,100,100,1,0,{border_style},{outline},0,{alignment},60,60,{margin_v},1
+Style: Caption,{fontname},{fontsize},{primary},{secondary},{outline_colour},{back_colour},{bold},0,0,0,100,100,{spacing},0,{border_style},{outline},0,{alignment},60,60,{margin_v},1
 Style: Mark,Arial,{mark_size},&H80FFFFFF,&H80FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,8,40,40,{mark_margin},1
 {headline_style}
 [Events]
@@ -302,6 +341,17 @@ def write_ass(
     cfg = dict(CAPTION_STYLES.get(style, CAPTION_STYLES[DEFAULT_CAPTION_STYLE]))
     anim = animation if animation in CAPTION_ANIMATIONS else DEFAULT_CAPTION_ANIMATION
     cfg["fontname"] = CAPTION_FONTS.get(font or "", CAPTION_FONTS[DEFAULT_CAPTION_FONT])["family"]
+    # Latin captions get 1px of letter-spacing; it reads better at size.
+    cfg["spacing"] = 1
+    # The creator's font choice only applies to scripts it can actually draw.
+    if needs_bundled_font(cues):
+        cfg["fontname"] = DEVANAGARI_FAMILY
+        # Spacing MUST be 0 here. libass applies it between glyphs, which pulls
+        # every Devanagari vowel mark off its consonant and leaves a row of
+        # dotted circles. This - not the font - was the actual bug: the render
+        # stayed broken with Noto loaded until spacing went to 0.
+        cfg["spacing"] = 0
+        stage_fonts(out_path.parent)
 
     # Brand colour: the text fill, except for "highlight" where it is the
     # colour a word turns into as it is spoken (ASS SecondaryColour).

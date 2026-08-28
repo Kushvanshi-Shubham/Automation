@@ -60,3 +60,6 @@ backend/secrets/
 *-*.json.key
 client_secret_*.json
 *-????????????.json
+
+# Detached worker logs (see scripts/worker-cloud.ps1)
+*.log

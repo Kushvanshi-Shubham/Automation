@@ -58,7 +58,7 @@ def render_segment(
     if ass_path is not None:
         # Run with cwd = the ASS file's directory and reference it by bare
         # filename — sidesteps Windows drive-letter escaping in filter args.
-        vf = f"{vf},ass={ass_path.name}"
+        vf = f"{vf},ass={ass_path.name}:fontsdir=."
     _run(
         [
             "-stream_loop", "-1",
@@ -86,7 +86,7 @@ def render_segment_silent(
     """Visual-only segment: no narration track (music is added after concat)."""
     vf = _vf(width, height)
     if ass_path is not None:
-        vf = f"{vf},ass={ass_path.name}"
+        vf = f"{vf},ass={ass_path.name}:fontsdir=."
     _run(
         [
             "-stream_loop", "-1",
@@ -129,7 +129,7 @@ def render_clip(
     aspect, captions burned in, ORIGINAL audio kept."""
     vf = _vf(width, height)
     if ass_path is not None:
-        vf = f"{vf},ass={ass_path.name}"
+        vf = f"{vf},ass={ass_path.name}:fontsdir=."
     _run(
         [
             "-ss", f"{start:.2f}",

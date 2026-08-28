@@ -2,7 +2,9 @@
 # API:    default CMD (migrations + uvicorn)
 # Worker: celery -A app.pipeline.celery_app worker -B --loglevel=info
 # ffmpeg + fonts are baked in: the render pipeline shells out to ffmpeg and
-# burns ASS captions, which need real fonts on the system.
+# burns ASS captions, which need real fonts on the system. Noto covers the
+# non-Latin scripts DejaVu/Liberation cannot shape; assets/fonts is handed to
+# libass directly too, so Devanagari works even without this package.
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -13,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         fonts-dejavu-core \
         fonts-liberation \
+        fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
