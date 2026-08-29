@@ -82,7 +82,10 @@ async def _run(video_id: str, scene_index: int = 0) -> dict:
                     user_keys=user_keys, language=data.get("language") or "en",
                 )
             else:
-                duration, words = await tts.synth_segment(seg["text"], audio_path, voice)
+                duration, words = await tts.synth_segment(
+                    seg["text"], audio_path, voice,
+                    rate=tts.rate_for(data.get("words_per_second")),
+                )
             duration = min(duration, MAX_PROOF_SECONDS)
 
         # Visual for this one scene

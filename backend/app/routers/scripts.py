@@ -319,7 +319,12 @@ async def get_script(
 ):
     video = await _get_owned_video(video_id, db, current_user)
     data = video.script_data or {}
-    defaults = {k: data[k] for k in ("voice_id", "caption_style", "music_mood", "background_query") if data.get(k)}
+    defaults = {
+        k: data[k]
+        for k in ("voice_id", "caption_style", "music_mood", "background_query",
+                  "visual_style", "words_per_second")
+        if data.get(k)
+    }
     return {
         "video_id": video.id,
         "segments": data.get("segments", []),

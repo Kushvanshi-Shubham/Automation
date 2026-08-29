@@ -320,6 +320,7 @@ async def run(job_id: str) -> dict:
             voiced = await tts.synth_script(
                 segments, workdir, voice=voice, provider=provider,
                 user_keys=user_keys, language=(data.get("language") or "en"),
+                words_per_second=data.get("words_per_second"),
             )
 
         # Stage 2: visuals

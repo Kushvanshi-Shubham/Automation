@@ -20,6 +20,10 @@ FORMATS: dict[str, dict] = {
         "when": "personal drama, confessions, wild it-happened-to-me stories",
         "output_type": "narrated",
         "style": "viral_story",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "documentary",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 2.5,
         "available": True,
         "script_recipe": (
             "FORMAT: Reddit-style story. Write in FIRST PERSON as if the narrator is reading their "
@@ -43,6 +47,10 @@ FORMATS: dict[str, dict] = {
         "when": "two-person drama or twists that land as a chat screenshot",
         "output_type": "fake_text",
         "style": "viral_story",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "bold",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 2.5,
         "available": True,
         "script_recipe": (
             "FORMAT: text-message conversation between exactly TWO people. Each segment is ONE chat "
@@ -66,6 +74,10 @@ FORMATS: dict[str, dict] = {
         "when": "surprising facts, hidden details, stories where context matters",
         "output_type": "narrated",
         "style": "viral_story",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "cinematic",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 2.5,
         "available": True,
         "script_recipe": None,  # this IS the base viral_story style
         "background_query": None,
@@ -83,6 +95,10 @@ FORMATS: dict[str, dict] = {
         "when": "news, world events, releases, results — anything time-sensitive",
         "output_type": "narrated",
         "style": "news_update",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "documentary",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 2.8,
         "available": True,
         "script_recipe": (
             "FORMAT: breaking-news explainer. Hook = the headline stated as urgently as the facts "
@@ -104,7 +120,11 @@ FORMATS: dict[str, dict] = {
         "desc": "Big on-screen lines over cinematic footage — no narration",
         "when": "mindset, discipline, self-improvement, inspirational themes",
         "output_type": "visual",
-        "style": "viral_story",
+        "style": "motivational",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "cinematic",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 2.0,
         "available": True,
         "script_recipe": (
             "FORMAT: motivational short. 5-8 segments, each ONE powerful line of on-screen text "
@@ -126,7 +146,11 @@ FORMATS: dict[str, dict] = {
         "desc": "On-screen text + vibe footage — attach the trending sound when posting",
         "when": "music releases, aesthetic moments, hype trends where vibe beats narration",
         "output_type": "visual",
-        "style": "viral_story",
+        "style": "lyrical",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "cinematic",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 1.6,
         "available": True,
         "script_recipe": None,  # the visual output type already carries its recipe
         "background_query": None,
@@ -143,7 +167,11 @@ FORMATS: dict[str, dict] = {
         "desc": "Original Hindi shayari, slow narration over aesthetic footage",
         "when": "poetry, romance, melancholy, Hindi-audience emotional topics",
         "output_type": "narrated",
-        "style": "viral_story",
+        "style": "poetry",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "cinematic",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 1.2,
         "available": True,
         "script_recipe": (
             "FORMAT: shayari (Urdu-flavored Hindi poetry). Write an ORIGINAL shayari of 2-4 couplets "
@@ -167,6 +195,10 @@ FORMATS: dict[str, dict] = {
         "when": "game patches, esports, gaming culture and releases",
         "output_type": "narrated",
         "style": "news_update",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "bold",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 2.8,
         "available": True,
         "script_recipe": (
             "FORMAT: gaming update. You're the friend who read the patch notes so the viewer doesn't "
@@ -190,6 +222,10 @@ FORMATS: dict[str, dict] = {
         "when": "lists, tips, rankings, facts that work as swipeable slides",
         "output_type": "image",
         "style": "viral_story",
+        # What AI-generated scenes should look like for THIS format.
+        "visual_style": "bold",
+        # Narration pace; drives both the script budget and the TTS rate.
+        "words_per_second": 2.5,
         "available": True,
         "script_recipe": None,  # the image output type already carries its recipe
         "background_query": None,
@@ -220,4 +256,11 @@ def render_defaults(fmt: dict) -> dict:
         out["music_mood"] = fmt["music_mood"]
     if fmt.get("background_query"):
         out["background_query"] = fmt["background_query"]
+    # A format's look and pace are as much a part of it as its voice. Without
+    # these every format fell back to the generic default, so a shayari was
+    # rendered as corporate flat-vector art narrated at news pace.
+    if fmt.get("visual_style"):
+        out["visual_style"] = fmt["visual_style"]
+    if fmt.get("words_per_second"):
+        out["words_per_second"] = fmt["words_per_second"]
     return out

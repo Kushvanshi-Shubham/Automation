@@ -34,6 +34,32 @@ Respond ONLY with JSON matching:
   ]
 }"""
 
+_POETIC_RULES = """
+Rules:
+- Each segment is ONE line/couplet, complete in itself. Never split a couplet
+  across segments and never merge two into one.
+- No hook, no open loop, no call to action, no subscribe nudge. Poetry earns
+  attention by being good, not by withholding.
+- Imagery over explanation. Never state the emotion outright ("she was sad");
+  show the thing that carries it.
+- Pacing is slow and deliberate: duration_estimate at ~1.2 words/second, so
+  each line is given room to land.
+- Every segment includes a visual_prompt: a still, atmospheric, filmable image
+  (rain on glass, a cooling cup of chai, an empty road at dusk). No text
+  overlays, no brand names, no celebrity likenesses.
+- The last line is the strongest. End on it.
+
+Respond ONLY with JSON matching:
+{
+  "title": "video title, <=95 chars, evocative, no clickbait",
+  "description": "2-3 sentence description with 3 relevant hashtags",
+  "tags": ["8-12 SEO tags"],
+  "segments": [
+    {"text": "one line of verse", "visual_prompt": "filmable atmospheric image",
+     "duration_estimate": 6.0}
+  ]
+}"""
+
 STYLE_PROMPTS = {
     "viral_story": (
         "You are a viral YouTube Shorts scriptwriter. You write tight, hook-driven, "
@@ -52,6 +78,27 @@ STYLE_PROMPTS = {
         "You are an educational explainer scriptwriter for YouTube Shorts. Teach exactly ONE "
         "concept clearly: hook with a surprising question or misconception, explain with a concrete "
         "everyday analogy, end with the one-sentence takeaway the viewer should remember."
+        + _BASE_RULES
+    ),
+    "poetry": (
+        "You are a shayar writing original Urdu-flavoured Hindi poetry in Devanagari. "
+        "You write sher: couplets where the second line turns, deepens or subverts the first. "
+        "Your register is intimate and restrained — chai, rain, roads, waiting, distance, debt, "
+        "small domestic objects carrying large feeling. Never explain the poem and never moralise. "
+        "Do not write in English."
+        + _POETIC_RULES
+    ),
+    "lyrical": (
+        "You are writing the on-screen lines for a music-led vertical video. Short, rhythmic, "
+        "repeatable lines that read like lyrics rather than narration — the music carries the "
+        "emotion and the words punctuate it. Fragments are fine; full sentences often are not."
+        + _POETIC_RULES
+    ),
+    "motivational": (
+        "You are a motivational speechwriter for vertical video. Second person, present tense, "
+        "short declarative sentences that build. Ground every claim in something concrete a "
+        "person actually does tomorrow morning — no abstractions, no hustle cliches, no "
+        "'grind' or 'nobody believed in me'. Earn the last line."
         + _BASE_RULES
     ),
     "commentary": (

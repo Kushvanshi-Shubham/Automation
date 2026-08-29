@@ -31,7 +31,7 @@ interface AssetItem { id: string; filename: string; kind: string; status: string
 interface MediaOption { id: number; thumb: string; kind: string; duration?: number; photographer?: string }
 interface Script {
   video_id: string; segments: Segment[]; total_duration: number; output_type: string
-  format?: string | null; defaults?: { voice_id?: string; caption_style?: string } | null
+  format?: string | null; defaults?: { voice_id?: string; caption_style?: string; visual_style?: string } | null
 }
 interface Voice { id: string; label: string; language: string; gender: string; vibe: string }
 /** Studio-grade narration (Cartesia / ElevenLabs); cloned = the creator's own voice. */
@@ -493,6 +493,10 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     setDirty(false)
     if (data.defaults?.voice_id) setVoiceId(data.defaults.voice_id)
     if (data.defaults?.caption_style) setCaptionStyle(data.defaults.caption_style)
+    // The format decides how its scenes should look; "explainer" is only a
+    // fallback for formats with no opinion. Without this a shayari rendered
+    // as corporate flat-vector art.
+    if (data.defaults?.visual_style) setVisualStyle(data.defaults.visual_style)
   }
 
   const save = useMutation({

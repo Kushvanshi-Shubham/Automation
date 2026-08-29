@@ -16,10 +16,29 @@ logger = logging.getLogger("kliptos.tts")
 
 DEFAULT_VOICE = "en-US-ChristopherNeural"
 
+# edge-tts reads everything at one conversational pace. A shayari asked for
+# "slow and deliberate" and got news-reader delivery, because nothing here
+# could slow it down. Formats declare words_per_second; this converts that
+# into the rate edge-tts understands, relative to its natural ~2.5 w/s.
+BASE_WORDS_PER_SECOND = 2.5
+MIN_RATE_PCT, MAX_RATE_PCT = -45, 25
 
-async def _synth_once(text: str, out_path: Path, voice: str) -> tuple[float, list[dict]]:
+
+def rate_for(words_per_second: float | None) -> str | None:
+    """An edge-tts rate string like "-40%", or None to leave it alone."""
+    if not words_per_second or words_per_second <= 0:
+        return None
+    pct = round((words_per_second / BASE_WORDS_PER_SECOND - 1) * 100)
+    pct = max(MIN_RATE_PCT, min(MAX_RATE_PCT, pct))
+    return None if pct == 0 else f"{pct:+d}%"
+
+
+async def _synth_once(text: str, out_path: Path, voice: str, rate: str | None = None) -> tuple[float, list[dict]]:
     # boundary= must be requested explicitly in edge-tts 7.x, else no events.
-    communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
+    kwargs = {"boundary": "WordBoundary"}
+    if rate:
+        kwargs["rate"] = rate
+    communicate = edge_tts.Communicate(text, voice, **kwargs)
     words: list[dict] = []
     with open(out_path, "wb") as f:
         async for chunk in communicate.stream():
@@ -41,14 +60,16 @@ async def _synth_once(text: str, out_path: Path, voice: str) -> tuple[float, lis
     return probe_duration(out_path), words
 
 
-async def synth_segment(text: str, out_path: Path, voice: str = DEFAULT_VOICE) -> tuple[float, list[dict]]:
+async def synth_segment(
+    text: str, out_path: Path, voice: str = DEFAULT_VOICE, rate: str | None = None
+) -> tuple[float, list[dict]]:
     """Synthesize one segment (retried — edge-tts is a free network service
     and drops connections now and then).
 
     Returns (duration_seconds, words) where words is
     [{"word": str, "start": float, "end": float}] in segment-local seconds.
     """
-    result = await with_retries(lambda: _synth_once(text, out_path, voice), label="edge-tts")
+    result = await with_retries(lambda: _synth_once(text, out_path, voice, rate), label="edge-tts")
     from app.services.costs import track
 
     track("tts_segment")
@@ -62,6 +83,7 @@ async def synth_script(
     provider: str | None = None,
     user_keys: dict[str, str] | None = None,
     language: str = "en",
+    words_per_second: float | None = None,
 ) -> list[dict]:
     """Synthesize all segments. Returns [{index, audio_path, duration, words}].
 
@@ -79,7 +101,9 @@ async def synth_script(
                 seg["text"], audio_path, voice, provider, user_keys=user_keys, language=language,
             )
         else:
-            duration, words = await synth_segment(seg["text"], audio_path, voice)
+            duration, words = await synth_segment(
+                seg["text"], audio_path, voice, rate=rate_for(words_per_second)
+            )
         results.append({"index": i, "audio_path": str(audio_path), "duration": duration, "words": words})
         logger.info("tts segment %d (%s): %.2fs, %d word events", i, provider or "edge", duration, len(words))
     return results
