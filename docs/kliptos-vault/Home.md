@@ -16,6 +16,14 @@
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
 
+## Status — 2026-08-30
+- **Formats are genuinely different now.** Each declares its own script style, visual look and narration pace — before, 7 of 9 shared a viral-Shorts writer and *every* format rendered as corporate flat-vector art at news pace. See [[S1 Build Log]].
+- **Hindi captions fixed**, and not for the reason we assumed: it was ASS letter-spacing detaching the vowel marks, not a missing font.
+- **The full cloud path is verified** — deployed API → shared Redis → worker → Vertex → R2.
+- **Hackathons dropped.** Both required a brand-new project, so Kliptos could not be entered and a win would have credited an unrelated demo. The route to funding is incorporation → DPIIT → Startup India Seed Fund (₹20 lakh).
+- **Next up:** sub-moods (sad/love/nostalgic), a real music library (two tracks today), and the studio — per-scene manual control, which is the big one.
+- ⚠️ Owner still has not run a full render through the UI, and Razorpay KYC has not started.
+
 ## Status — 2026-08-17
 - **AI-illustrated video works for the first time**, proved end to end on the live stack. It was never a billing switch: the Gemini Developer API is a separate prepaid wallet that Cloud credits can't pay for on accounts created after 2 March 2026. Our calls now go through **Vertex**, which bills the Cloud account. See [[S1 Build Log]] and the memory note *Kliptos Google AI billing*.
 - **Shared Redis is done** — the deployed API and the local worker use one queue. Cloud renders work while the dev PC is on; a real always-on worker still wants a VM (the ₹28,694 trial credit could fund one until 16 Nov).

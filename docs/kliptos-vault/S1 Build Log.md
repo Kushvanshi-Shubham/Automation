@@ -2,6 +2,27 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-30 — 🎭 Every format was the same video wearing a different name
+The owner rendered the first real shayari and it landed badly: *"totally was reading lines"*, *"the visual never matched not even 1%"*, *"the background music all waste"*. He was right, and the interesting part is that **the writing was never the problem** — the couplets were good and the visual prompts were apt. Everything downstream of them was generic.
+
+Three separate defaults were flattening every format into the same video:
+
+- **7 of 9 formats pointed at the `viral_story` script style** — a viral-Shorts prompt instructing the model to open a loop and nudge for subscribes. That is the wrong writer for poetry, for music, for motivational. Added **`poetry`** (sher, where the second line turns the first), **`lyrical`** and **`motivational`**. Poetry and lyrical needed their own rule set, because the prose rules actively fight verse: a three-second hook, one idea per segment, 2.5 words a second.
+- **No format declared a visual style**, so all of them fell back to `explainer` — *"flat vector, geometric, corporate."* That is why "rain on a window pane" came back as an infographic. Formats now choose their own look; shayari and music get `cinematic`.
+- **The pace a format asked for was unreachable.** `edge_tts.Communicate()` was called with no `rate`, so "slow and deliberate" was read at news speed no matter what. Formats declare `words_per_second` and it is converted to a real TTS rate (1.2 w/s → −45%).
+
+Shayari now: poetry style, cinematic visuals, Hindi voice, 7.5s per couplet instead of 2–4. The studio had also **hardcoded `explainer`** and sent it on every render, overriding whatever the backend chose (`beac711`).
+
+**Hindi captions, and a wrong diagnosis worth recording.** Devanagari rendered as consonants trailed by loose dotted circles, and the obvious explanation — a missing font — was wrong. Swapping in Noto Sans Devanagari changed nothing. The cause was **`Spacing=1` in the ASS Caption style**: libass applies letter-spacing *between glyphs*, which detaches every vowel mark from the consonant it belongs to, and Devanagari is built from exactly that attachment. One field. Spacing is now 1 for Latin and 0 for Devanagari (`f6fa828`).
+
+The font still earns its place, but only for the cloud: this dev box has Nirmala UI and fontconfig quietly substitutes it, while the render image ships DejaVu and Liberation and has nothing that can draw the script. Noto is bundled and staged beside the ASS file with `fontsdir=.` — relative deliberately, since an absolute Windows path puts a colon inside the ffmpeg filter description and the parser splits on it.
+
+**Also this week:** a **Length** picker (15s–5min) — the backend always accepted `duration_seconds` but the studio never sent it, so every script was silently 60s, and stating a target was not enough on its own because the model wrote a Shorts-shaped 5–7 segments regardless until the prompt named an explicit count (`a539498`). Image posts got a **Slides** picker instead, since a carousel has no duration and six segments were being discarded in silence (`7d14f07`).
+
+**And the cloud path is finally real.** Render's `REDIS_URL` had bad credentials, so the API could not enqueue at all — proved fixed by watching the deployed API write a rate-limit key into the same Redis the worker reads, then enqueueing a proof render and getting a 1080×1920 file back from R2.
+
+⚠️ **Still generic:** the music library is **two files**. Every "calm" video in the product gets the same track. That is a sourcing and licensing job, not a coding one.
+
 ## 2026-08-17 — 🖼️ AI images finally work, and the reason they never did
 The AI-illustrated lane has been dead since it shipped, returning `limit: 0` for every image model. We assumed it needed a billing switch. It didn't.
 
