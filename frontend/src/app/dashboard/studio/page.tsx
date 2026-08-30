@@ -45,7 +45,7 @@ interface LookOptions {
   free_restyles_per_video: number
 }
 interface Proof { url: string; scene: number; duration: number }
-interface Format { key: string; label: string; emoji: string; desc: string; output_type: string; available: boolean; own?: boolean }
+interface Format { key: string; label: string; emoji: string; desc: string; output_type: string; available: boolean; own?: boolean; moods?: { key: string; label: string }[] | null }
 
 const STYLES = [
   { value: "viral_story", label: "Viral Story", desc: "Hook-driven storytelling (default)" },
@@ -141,6 +141,7 @@ function EmptyStudio() {
   const [customTone, setCustomTone] = useState("")
   const [duration, setDuration] = useState(60)
   const [slides, setSlides] = useState(5)
+  const [mood, setMood] = useState("")
   const [instructions, setInstructions] = useState("")
   const [language, setLanguage] = useState("English")
 
@@ -178,6 +179,7 @@ function EmptyStudio() {
                 tone: tone === "__custom__" ? (customTone || TONE_PRESETS[0]) : tone,
                 custom_instructions: instructions.trim() || undefined,
                 ...(format === "custom" ? { style, output_type: outputType } : { format }),
+                ...(mood ? { mood } : {}),
                 duration_seconds: outputType === "image"
                   ? Math.round(slides * SECONDS_PER_SEGMENT)
                   : effectiveDuration,
@@ -234,7 +236,7 @@ function EmptyStudio() {
             <span style={label}>Pick a format — each one is a full recipe: script rules, footage, captions, pacing, music</span>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {(formats?.items ?? []).filter(f => !f.own).map(f => (
-                <button key={f.key} onClick={() => f.available && setFormat(f.key)} disabled={!f.available}
+                <button key={f.key} onClick={() => { if (f.available) { setFormat(f.key); setMood("") } }} disabled={!f.available}
                   title={f.available ? f.desc : `${f.desc} — coming soon`} style={optionBtn(format === f.key, !f.available)}>
                   <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: L.ink }}>{f.label}</span>
                   <span style={{ display: "block", marginTop: 4, fontSize: 12, lineHeight: 1.45, color: L.dust }}>
@@ -242,11 +244,32 @@ function EmptyStudio() {
                   </span>
                 </button>
               ))}
-              <button onClick={() => setFormat("custom")} style={optionBtn(format === "custom")}>
+              <button onClick={() => { setFormat("custom"); setMood("") }} style={optionBtn(format === "custom")}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: L.ink }}>Custom</span>
                 <span style={{ display: "block", marginTop: 4, fontSize: 12, lineHeight: 1.45, color: L.dust }}>Pick output type &amp; style yourself</span>
               </button>
             </div>
+            {(() => {
+              // A mood is a sub-flavour of the chosen format: sad vs love
+              // shayari are different videos, not different settings. Only
+              // formats that define moods show this.
+              const chosen = (formats?.items ?? []).find(f => f.key === format)
+              const options = chosen?.moods
+              if (!options?.length) return null
+              return (
+                <div style={{ marginTop: 18 }}>
+                  <span style={label}>Mood — steers the writing, the music and the look</span>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {options.map(m => (
+                      <button key={m.key} onClick={() => setMood(mood === m.key ? "" : m.key)}
+                        style={optionBtn(mood === m.key)}>
+                        <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: L.ink }}>{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             <div style={{ marginTop: 14 }}>
               <span style={label}>Your styles — learned from your own reference reels</span>

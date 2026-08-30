@@ -47,6 +47,7 @@ async def list_formats(
     items = [
         {"key": k, "label": f["label"], "emoji": f["emoji"], "desc": f["desc"],
          "output_type": f["output_type"], "available": f["available"], "controls": f["controls"],
+         "moods": [{"key": mk, "label": mv["label"]} for mk, mv in (f.get("moods") or {}).items()] or None,
          "own": False}
         for k, f in FORMATS.items()
     ]
@@ -204,6 +205,19 @@ async def generate_script(
         instructions = f"{IMAGE_TYPE_NOTE}\n{instructions or ''}".strip()
     if fmt is not None and fmt.get("script_recipe"):
         instructions = f"{fmt['script_recipe']}\n{instructions or ''}".strip()
+
+    # A mood is a sub-flavour of a format: "sad shayari" and "love shayari"
+    # want different words, different music and sometimes a different look.
+    mood_cfg = None
+    if fmt is not None and req.mood:
+        available = fmt.get("moods") or {}
+        if req.mood not in available:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Unknown mood for the {fmt['label']} format",
+            )
+        mood_cfg = available[req.mood]
+        instructions = f"{instructions or ''}\n{mood_cfg['prompt']}".strip()
     elif user_fmt is not None and user_fmt.script_recipe:
         instructions = f"{user_fmt.script_recipe}\n{instructions or ''}".strip()
 
@@ -282,6 +296,12 @@ async def generate_script(
     if fmt is not None:
         script_data["format"] = req.format
         script_data.update(render_defaults(fmt))
+        if mood_cfg is not None:
+            script_data["mood"] = req.mood
+            # The mood is more specific than the format, so it wins.
+            for key in ("music_mood", "visual_style"):
+                if mood_cfg.get(key):
+                    script_data[key] = mood_cfg[key]
     elif user_fmt is not None:
         script_data["format"] = req.format
         script_data.update(user_defaults)

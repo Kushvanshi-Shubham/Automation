@@ -36,7 +36,13 @@ MUSIC_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "music"
 
 
 # Filename keywords per mood; a format's music_mood narrows the pick.
-MOOD_KEYWORDS = {"calm": ("wallpaper", "calm", "ambient"), "energetic": ("carefree", "upbeat", "energetic")}
+MOOD_KEYWORDS = {
+    "calm": ("calm", "ambient", "wallpaper"),
+    "energetic": ("energetic", "upbeat", "carefree"),
+    "melancholy": ("melancholy", "sad", "anguish"),
+    "tender": ("tender", "bittersweet", "sweeter"),
+    "uplifting": ("uplifting", "inspired", "hopeful"),
+}
 
 
 def _pick_music(mood: str | None = None) -> Path | None:
@@ -45,7 +51,16 @@ def _pick_music(mood: str | None = None) -> Path | None:
     tracks = sorted(MUSIC_DIR.glob("*.mp3"))
     if mood in MOOD_KEYWORDS:
         matching = [t for t in tracks if any(k in t.stem.lower() for k in MOOD_KEYWORDS[mood])]
+        if not matching:
+            # Falling back to "any track" is why every video sounded the same.
+            # It is still the right behaviour, but it should not be silent.
+            logger.warning(
+                "no music matches mood %r — falling back to the whole library "
+                "(run scripts/seed_music.py to populate it)", mood,
+            )
         tracks = matching or tracks
+    elif mood:
+        logger.warning("unknown music mood %r — using the whole library", mood)
     return random.choice(tracks) if tracks else None
 
 

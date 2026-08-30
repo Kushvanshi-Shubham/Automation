@@ -16,6 +16,8 @@ class ScriptGenerateRequest(BaseModel):
     # Format = full pipeline recipe (reddit_story, fake_text, …). When set it
     # drives output_type/style/defaults; output_type above is then ignored.
     format: Optional[str] = None
+    # Sub-flavour of the format, e.g. sad/love/nostalgic shayari.
+    mood: Optional[str] = None
     # viral_story | news_update | educational | commentary
     style: str = "viral_story"
     tone: str = "engaging and curious"

@@ -142,3 +142,59 @@ def test_pick_music_mood(tmp_path, monkeypatch):
     assert runner._pick_music("energetic").stem.startswith("carefree")
     assert runner._pick_music(None) is not None       # no mood -> any track
     assert runner._pick_music("dubstep") is not None  # unknown mood -> fallback
+
+
+def test_every_format_declares_its_own_look_and_pace():
+    """A format that doesn't choose falls back to a generic default, which is
+    how a shayari ended up as corporate flat-vector art read at news pace."""
+    from app.services.formats import FORMATS
+    from app.services.script_gen import STYLE_PROMPTS
+    from app.services.image_gen import VISUAL_STYLES
+
+    for key, fmt in FORMATS.items():
+        assert fmt["style"] in STYLE_PROMPTS, f"{key}: unknown script style"
+        assert fmt.get("visual_style") in VISUAL_STYLES, f"{key}: missing/unknown visual_style"
+        wps = fmt.get("words_per_second")
+        assert wps and 0.8 <= wps <= 4.0, f"{key}: implausible words_per_second {wps!r}"
+
+
+def test_every_declared_mood_is_usable():
+    """Moods steer music and look, so what they name has to exist."""
+    from app.services.formats import FORMATS
+    from app.services.image_gen import VISUAL_STYLES
+    from app.pipeline.runner import MOOD_KEYWORDS
+
+    found = 0
+    for key, fmt in FORMATS.items():
+        for mood_key, mood in (fmt.get("moods") or {}).items():
+            found += 1
+            assert mood.get("label"), f"{key}/{mood_key}: no label"
+            assert mood.get("prompt"), f"{key}/{mood_key}: no prompt"
+            if mood.get("music_mood"):
+                assert mood["music_mood"] in MOOD_KEYWORDS, (
+                    f"{key}/{mood_key}: music mood {mood['music_mood']!r} has no keywords, "
+                    "so it would silently fall back to the whole library"
+                )
+            if mood.get("visual_style"):
+                assert mood["visual_style"] in VISUAL_STYLES, f"{key}/{mood_key}: unknown visual_style"
+    assert found >= 8, "expected sub-moods on shayari, music_visual and motivational"
+
+
+def test_tts_rate_tracks_requested_pace():
+    """Formats ask for a pace; without a real rate the request was ignored."""
+    from app.pipeline.tts import rate_for
+
+    assert rate_for(1.2) == "-45%"      # shayari: slow and deliberate
+    assert rate_for(2.5) is None        # edge-tts default, leave it alone
+    assert rate_for(None) is None
+    assert rate_for(0) is None
+    # clamped, so nothing turns into a slur or a chipmunk
+    assert rate_for(0.1) == "-45%"
+    assert rate_for(99) == "+25%"
+
+
+def test_unknown_mood_is_rejected(client, auth_headers, capture_generate):
+    resp = client.post("/api/scripts/generate", headers=auth_headers,
+                       json={"custom_prompt": "rainy evening", "format": "shayari",
+                             "mood": "not-a-real-mood"})
+    assert resp.status_code == 422, resp.text

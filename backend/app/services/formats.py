@@ -138,6 +138,11 @@ FORMATS: dict[str, dict] = {
         "language": None,
         "music_mood": "calm",
         "tone": "calm and powerful",
+        "moods": {
+            "discipline": {"label": "Discipline", "prompt": "Angle: discipline over motivation. Concrete daily actions, no inspiration talk.", "music_mood": "uplifting"},
+            "comeback": {"label": "Comeback", "prompt": "Angle: recovering from a real setback. Honest about the low point.", "music_mood": "uplifting"},
+            "calm": {"label": "Calm resolve", "prompt": "Angle: quiet steadiness rather than intensity. Lower the volume, not the stakes.", "music_mood": "calm"},
+        },
         "controls": ["captions", "aspect", "scenes"],
     },
     "music_visual": {
@@ -159,6 +164,12 @@ FORMATS: dict[str, dict] = {
         "language": None,
         "music_mood": "energetic",
         "tone": "hype and energetic",
+        "moods": {
+            "hype": {"label": "Hype / Party", "prompt": "Mood: hype. Short punchy lines, present tense, built to be repeated.", "music_mood": "energetic"},
+            "chill": {"label": "Chill / Lo-fi", "prompt": "Mood: chill. Unhurried, spacious lines. Nothing shouts.", "music_mood": "calm"},
+            "romantic": {"label": "Romantic", "prompt": "Mood: romantic. Intimate, second person, softer imagery.", "music_mood": "tender"},
+            "sad": {"label": "Sad / Emotional", "prompt": "Mood: sad. Sparse lines with space between them. Understated.", "music_mood": "melancholy"},
+        },
         "controls": ["captions", "aspect", "scenes"],
     },
     "shayari": {
@@ -186,6 +197,33 @@ FORMATS: dict[str, dict] = {
         "language": "Hindi",
         "music_mood": "calm",
         "tone": "soulful and poetic",
+        "moods": {
+            "sad": {
+                "label": "Sad / Dard",
+                "prompt": "Mood: dard. Loss, distance, the ache of something that did not happen. "
+                          "Restrained, never self-pitying. No consolation in the last line.",
+                "music_mood": "melancholy",
+            },
+            "love": {
+                "label": "Love / Ishq",
+                "prompt": "Mood: ishq. Longing and tenderness, addressed to someone. "
+                          "Warm rather than tragic. Let the last line turn toward hope.",
+                "music_mood": "tender",
+            },
+            "nostalgic": {
+                "label": "Nostalgia / Yaad",
+                "prompt": "Mood: yaad. Memory, childhood, a place or a person outgrown. "
+                          "Concrete remembered objects carry the feeling.",
+                "music_mood": "calm",
+            },
+            "motivational": {
+                "label": "Hausla / Resolve",
+                "prompt": "Mood: hausla. Rising after a setback. Defiant, not preachy, "
+                          "and never a slogan. Earn the final line.",
+                "music_mood": "uplifting",
+                "visual_style": "bold",
+            },
+        },
         "controls": ["voice", "captions", "aspect", "scenes"],
     },
     "gaming_update": {
