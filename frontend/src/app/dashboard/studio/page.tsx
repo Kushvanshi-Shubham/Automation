@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
-import {
+import { MdOutlineAdd, MdOutlineDelete, MdOutlineArrowDownward, MdOutlineArrowUpward,
   MdOutlineAutoAwesome, MdOutlineContentCopy, MdOutlineEditNote, MdOutlineImage,
   MdOutlineLink, MdOutlinePermMedia, MdOutlinePlayArrow, MdOutlineSave,
   MdOutlineSmartDisplay, MdOutlineTimer, MdOutlineVisibility,
@@ -626,6 +626,11 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   }
 
   const totalDuration = segments.reduce((sum, s) => sum + (s.duration_estimate || 0), 0)
+  // An empty scene is rejected at render time; say so here rather than after
+  // the click, and point at the scene rather than just refusing.
+  const blankScenes = segments
+    .map((seg, i) => (seg.text.trim() ? null : i + 1))
+    .filter((n): n is number => n !== null)
   const outputType = data?.output_type ?? "narrated"
   const editorFormat = editorFormats?.items.find(f => f.key === data?.format)
   const typeName = editorFormat ? editorFormat.label
@@ -636,6 +641,42 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     setSegments(prev => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
     setDirty(true)
   }
+  // Structural edits. The script arrived as a fixed list of scenes: you could
+  // rewrite one but not move, drop or add one, so a script that was nearly
+  // right had to be regenerated whole.
+  const moveSegment = (index: number, delta: number) => {
+    const to = index + delta
+    if (to < 0 || to >= segments.length) return
+    setSegments(prev => {
+      const next = [...prev]
+      const tmp = next[index]
+      next[index] = next[to]
+      next[to] = tmp
+      return next
+    })
+    setDirty(true)
+  }
+  const deleteSegment = (index: number) => {
+    // A script with no scenes cannot render, so never remove the last one.
+    if (segments.length <= 1) return
+    setSegments(prev => prev.filter((_, i) => i !== index))
+    setDirty(true)
+  }
+  const addSegment = (afterIndex: number) => {
+    setSegments(prev => {
+      const next = [...prev]
+      next.splice(afterIndex + 1, 0, {
+        text: "",
+        visual_prompt: "",
+        // A believable placeholder until the line is written and the real
+        // estimate replaces it.
+        duration_estimate: 5,
+      } as Segment)
+      return next
+    })
+    setDirty(true)
+  }
+
   const copyScript = () => navigator.clipboard.writeText(segments.map(s => s.text).join("\n\n"))
 
   return (
@@ -719,6 +760,15 @@ function ScriptEditor({ videoId }: { videoId: string }) {
             <p style={{ margin: 0, fontSize: 12.5, color: L.refused }}>{(matchFootage.error as Error).message}</p>
           )}
 
+          {blankScenes.length > 0 && (
+            <div style={{ ...card, padding: "12px 16px", borderColor: alpha(L.refused, 45), display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 13, color: L.refused }}>
+                {blankScenes.length === 1
+                  ? `Scene ${blankScenes[0]} has no text — write it or delete it before rendering.`
+                  : `Scenes ${blankScenes.join(", ")} have no text — write them or delete them before rendering.`}
+              </span>
+            </div>
+          )}
           {segments.map((segment, i) => (
             <div key={i} style={{ ...card, overflow: "hidden" }}>
               <div style={{ padding: "10px 18px", borderBottom: `1px solid ${L.ruleFaint}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: L.benchRaised }}>
@@ -727,6 +777,35 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                   <span style={{ marginLeft: 10, fontFamily: mono, fontSize: 11, fontWeight: 400, color: L.dust }}>~{segment.duration_estimate}s</span>
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {(() => {
+                    const iconBtn = (disabled: boolean) => ({
+                      display: "flex", alignItems: "center", background: "transparent",
+                      border: "none", color: disabled ? L.dust : L.ash, padding: "6px 7px",
+                      borderRadius: 6, cursor: disabled ? "default" : "pointer",
+                      opacity: disabled ? 0.4 : 1,
+                    } as React.CSSProperties)
+                    return (
+                      <>
+                        <button onClick={() => moveSegment(i, -1)} disabled={i === 0}
+                          title="Move up" style={iconBtn(i === 0)}>
+                          <MdOutlineArrowUpward size={15} />
+                        </button>
+                        <button onClick={() => moveSegment(i, 1)} disabled={i === segments.length - 1}
+                          title="Move down" style={iconBtn(i === segments.length - 1)}>
+                          <MdOutlineArrowDownward size={15} />
+                        </button>
+                        <button onClick={() => addSegment(i)} title="Add a scene below"
+                          style={iconBtn(false)}>
+                          <MdOutlineAdd size={16} />
+                        </button>
+                        <button onClick={() => deleteSegment(i)} disabled={segments.length <= 1}
+                          title={segments.length <= 1 ? "A script needs at least one scene" : "Delete this scene"}
+                          style={{ ...iconBtn(segments.length <= 1), color: segments.length <= 1 ? L.dust : L.refused }}>
+                          <MdOutlineDelete size={15} />
+                        </button>
+                      </>
+                    )
+                  })()}
                   {outputType !== "script" && (
                     <button onClick={() => openSwap(i)}
                       style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", color: segment.media_id || segment.asset_id ? L.live : L.ash, fontFamily: grotesque, fontSize: 12.5, fontWeight: 500, padding: "6px 10px", borderRadius: 6, cursor: "pointer" }}>

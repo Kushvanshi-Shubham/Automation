@@ -107,3 +107,20 @@ def test_pick_file_respects_orientation():
     # no orientation match -> falls back instead of failing the render
     portrait_only = {"video_files": [{"file_type": "video/mp4", "width": 1080, "height": 1920, "link": "p"}]}
     assert _pick_file(portrait_only, 1920, 1080, "landscape")["link"] == "p"
+
+
+def test_render_refuses_a_blank_scene(client, auth_headers, script_video):
+    """The studio can add an empty scene. An empty line reaches TTS as "" and
+    fails mid-render — after the credit is taken — so it must be caught here."""
+    saved = client.get(f"/api/scripts/{script_video}", headers=auth_headers).json()
+    segments = saved["segments"]
+    segments.append({"text": "   ", "visual_prompt": "a blank one", "duration_estimate": 5})
+    assert client.put(f"/api/scripts/{script_video}", headers=auth_headers,
+                      json={"segments": segments}).status_code == 200
+
+    resp = client.post("/api/pipeline/start", headers=auth_headers,
+                       json={"video_id": script_video})
+    assert resp.status_code == 422, resp.text
+    detail = resp.json()["detail"]
+    # names the offending scene so it can be fixed
+    assert str(len(segments)) in detail and "no text" in detail.lower()

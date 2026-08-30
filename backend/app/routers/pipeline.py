@@ -96,8 +96,20 @@ async def start_pipeline(
     video = await db.get(Video, req.video_id)
     if video is None or video.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
-    if not (video.script_data or {}).get("segments"):
+    segments = (video.script_data or {}).get("segments")
+    if not segments:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Video has no script yet")
+    # The studio can add a blank scene, and a blank scene reaches TTS as an
+    # empty string and fails mid-render — after the credit is taken. Catch it
+    # here, naming the scene so it can actually be fixed.
+    blank = [i + 1 for i, seg in enumerate(segments) if not str(seg.get("text") or "").strip()]
+    if blank:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Scene {blank[0]} has no text — write it or delete the scene"
+            if len(blank) == 1
+            else f"Scenes {', '.join(map(str, blank))} have no text — write them or delete them",
+        )
     if video.output_type == "script":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
