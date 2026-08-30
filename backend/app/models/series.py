@@ -23,6 +23,11 @@ class Series(Base):
     output_type = Column(String, default="narrated", nullable=False)  # narrated | visual
     language = Column(String, default="English", nullable=False)
     voice_id = Column(String, nullable=True)
+    # An autopilot episode never sees the studio, so the series has to carry
+    # every creative choice a human would otherwise make.
+    mood = Column(String, nullable=True)                 # sub-flavour of the format
+    duration_seconds = Column(Integer, nullable=True)    # null -> generator default
+    visual_engine = Column(String, nullable=True)        # pexels | stock_image | ai_image
 
     interval_hours = Column(Integer, default=24, nullable=False)
     # auto_publish: render → straight to YouTube; otherwise stop at "ready" for review

@@ -45,6 +45,11 @@ class SeriesCreate(BaseModel):
     output_type: str = "narrated"
     language: str = "English"
     voice_id: Optional[str] = None
+    # An autopilot episode never reaches the studio, so the series carries the
+    # creative choices a human would otherwise make there.
+    mood: Optional[str] = None
+    duration_seconds: Optional[int] = Field(default=None, ge=15, le=300)
+    visual_engine: Optional[str] = None
     interval_hours: int = 24
     auto_publish: bool = False
     channel_id: Optional[UUID] = None
@@ -53,6 +58,9 @@ class SeriesCreate(BaseModel):
 
 class SeriesUpdate(BaseModel):
     is_active: Optional[bool] = None
+    mood: Optional[str] = None
+    duration_seconds: Optional[int] = Field(default=None, ge=15, le=300)
+    visual_engine: Optional[str] = None
     name: Optional[str] = Field(default=None, min_length=2, max_length=80)
     topic_prompt: Optional[str] = Field(default=None, max_length=300)
     interval_hours: Optional[int] = None
@@ -71,6 +79,9 @@ class SeriesResponse(BaseModel):
     output_type: str
     language: str
     voice_id: Optional[str]
+    mood: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    visual_engine: Optional[str] = None
     interval_hours: int
     auto_publish: bool
     channel_id: Optional[UUID]
@@ -81,6 +92,11 @@ class SeriesResponse(BaseModel):
     last_error: Optional[str]
     video_count: int = 0
     model_config = ConfigDict(from_attributes=True)
+
+
+# ai_image costs real money per scene and a series runs unattended, so it is
+# an explicit opt-in rather than something a format can turn on by itself.
+VALID_SERIES_ENGINES = {"pexels", "stock_image", "ai_image"}
 
 
 def _validate(req: SeriesCreate):
@@ -101,6 +117,21 @@ def _validate(req: SeriesCreate):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown voice")
     if req.publish_privacy not in VALID_PRIVACY:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid privacy")
+    # A mood belongs to a format, so it only means something alongside one.
+    if req.mood:
+        from app.services.formats import FORMATS
+
+        moods = (FORMATS.get(req.format or "") or {}).get("moods") or {}
+        if req.mood not in moods:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="That mood isn't available for this format",
+            )
+    if req.visual_engine and req.visual_engine not in VALID_SERIES_ENGINES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Unknown visual engine",
+        )
 
 
 async def _with_counts(db: AsyncSession, items: list[Series]) -> list[SeriesResponse]:

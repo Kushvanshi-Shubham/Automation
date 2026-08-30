@@ -28,6 +28,21 @@ logger = logging.getLogger("kliptos.series")
 SERIES_RENDER_COST = 1
 
 
+
+def _script_problems(segments: list[dict]) -> str | None:
+    """Why this script should not be rendered unattended, or None.
+
+    Deliberately narrow: these are the failures that would otherwise reach a
+    published video or crash the render, not a judgement on writing quality.
+    """
+    if not segments:
+        return "the script came back empty"
+    blank = [i + 1 for i, seg in enumerate(segments) if not str(seg.get("text") or "").strip()]
+    if blank:
+        return f"scene {blank[0]} has no text"
+    return None
+
+
 async def _tick() -> int:
     """Dispatch every due series; returns how many were dispatched."""
     now = datetime.now(timezone.utc)
@@ -111,7 +126,7 @@ async def _run_one(series_id: str) -> dict:
 
     # A format is the run's full pipeline recipe — derived at RUN time so
     # recipe improvements apply to every future episode automatically.
-    from app.services.formats import FORMATS, render_defaults
+    from app.services.formats import DEFAULT_TONE, FORMATS, render_defaults
 
     fmt = FORMATS.get(series.format) if series.format else None
     style = fmt["style"] if fmt else series.style
@@ -119,6 +134,11 @@ async def _run_one(series_id: str) -> dict:
     language = series.language
     if fmt and fmt.get("language") and language == "English":
         language = fmt["language"]
+    # The interactive path takes tone from the format; autopilot never did, so
+    # every episode was written in the generator's default voice.
+    tone = (fmt or {}).get("tone") or DEFAULT_TONE
+    # A mood is the sub-flavour: sad vs love shayari are different videos.
+    mood_cfg = ((fmt or {}).get("moods") or {}).get(series.mood or "")
 
     instructions = [variety_note] if variety_note else []
     if notes:
@@ -129,11 +149,15 @@ async def _run_one(series_id: str) -> dict:
         instructions.insert(0, VISUAL_TYPE_NOTE)
     if fmt and fmt.get("script_recipe"):
         instructions.insert(0, fmt["script_recipe"])
+    if mood_cfg:
+        instructions.append(mood_cfg["prompt"])
 
     script = await script_gen.generate_script(
         topic=subject,
         hook_hint=hook_hint,
         style=style,
+        tone=tone,
+        duration_seconds=series.duration_seconds or 60,
         language=language,
         custom_instructions="\n".join(instructions) or None,
         user_keys=user_keys,
@@ -152,6 +176,11 @@ async def _run_one(series_id: str) -> dict:
         if fmt is not None:
             script_data["format"] = series.format
             script_data.update(render_defaults(fmt))
+            if mood_cfg:
+                script_data["mood"] = series.mood
+                for key in ("music_mood", "visual_style"):
+                    if mood_cfg.get(key):
+                        script_data[key] = mood_cfg[key]
         # An explicit series voice beats the format's default.
         if series.voice_id:
             script_data["voice_id"] = series.voice_id
@@ -164,7 +193,7 @@ async def _run_one(series_id: str) -> dict:
             title=script.get("title"),
             description=script.get("description"),
             tags=script.get("tags"),
-            visual_engine="pexels",
+            visual_engine=series.visual_engine or "pexels",
             credits_used=SERIES_RENDER_COST,
             script_data=script_data,
         )
@@ -174,6 +203,16 @@ async def _run_one(series_id: str) -> dict:
         user.credit_balance -= SERIES_RENDER_COST
         db.add(CreditLedger(user_id=user.id, amount=-SERIES_RENDER_COST, type="video_debit",
                             description=f"Series render: {series.name}", video_id=video.id))
+
+        # An autopilot episode is rendered and possibly published without any
+        # human seeing it, so a malformed script would ship unnoticed. Cheap
+        # sanity checks here, before the render burns a credit.
+        problems = _script_problems(script["segments"])
+        if problems:
+            series.last_error = f"Episode skipped: {problems}"
+            await db.commit()
+            logger.warning("series '%s' skipped an episode: %s", series.name, problems)
+            return {"skipped": "bad_script", "reason": problems}
 
         job = PipelineJob(video_id=video.id, user_id=user.id, status="queued",
                           progress={"stage": "queued", "percent": 0})

@@ -190,6 +190,11 @@ function CreateForm({ onDone }: { onDone: () => void }) {
   const [language, setLanguage] = useState("English")
   const [voiceId, setVoiceId] = useState("")
   const [interval, setInterval] = useState(24)
+  // An autopilot episode never reaches the studio, so these have to be
+  // decided here or the series ships the generic default forever.
+  const [seriesMood, setSeriesMood] = useState("")
+  const [seriesDuration, setSeriesDuration] = useState(60)
+  const [seriesEngine, setSeriesEngine] = useState("pexels")
   const [autoPublish, setAutoPublish] = useState(false)
   const [channelId, setChannelId] = useState("")
   const [privacy, setPrivacy] = useState("unlisted")
@@ -208,7 +213,7 @@ function CreateForm({ onDone }: { onDone: () => void }) {
     queryKey: ["channels"],
     queryFn: () => fetchApi("/channels"),
   })
-  const { data: formats } = useQuery<{ items: { key: string; label: string; output_type: string; available: boolean; own?: boolean }[] }>({
+  const { data: formats } = useQuery<{ items: { key: string; label: string; output_type: string; available: boolean; own?: boolean; moods?: { key: string; label: string }[] | null }[] }>({
     queryKey: ["formats"],
     queryFn: () => fetchApi("/scripts/formats"),
     staleTime: Infinity,
@@ -232,6 +237,9 @@ function CreateForm({ onDone }: { onDone: () => void }) {
           output_type: format === "custom" ? outputType : effectiveOutput === "fake_text" ? "narrated" : effectiveOutput,
           language,
           voice_id: voiceId || null,
+          mood: seriesMood || null,
+          duration_seconds: seriesDuration,
+          visual_engine: seriesEngine,
           interval_hours: interval,
           auto_publish: autoPublish,
           channel_id: autoPublish ? channelId || null : null,
@@ -289,10 +297,40 @@ function CreateForm({ onDone }: { onDone: () => void }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <span style={label}>Format</span>
-          <select value={format} onChange={e => setFormat(e.target.value)}
+          <select value={format} onChange={e => { setFormat(e.target.value); setSeriesMood("") }}
             title="The recipe every episode runs" style={field}>
             {seriesFormats.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
             <option value="custom">Custom</option>
+          </select>
+        </div>
+        {(() => {
+          const moods = seriesFormats.find(f => f.key === format)?.moods
+          if (!moods?.length) return null
+          return (
+            <div>
+              <span style={label}>Mood</span>
+              <select value={seriesMood} onChange={e => setSeriesMood(e.target.value)} style={field}>
+                <option value="">Format default</option>
+                {moods.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+              </select>
+            </div>
+          )
+        })()}
+        <div>
+          <span style={label}>Length</span>
+          <select value={seriesDuration} onChange={e => setSeriesDuration(Number(e.target.value))} style={field}>
+            {[15, 30, 45, 60, 90, 120, 180, 300].map(sec => (
+              <option key={sec} value={sec}>{sec < 60 ? `${sec}s` : `${sec / 60} min`}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <span style={label}>Visuals</span>
+          <select value={seriesEngine} onChange={e => setSeriesEngine(e.target.value)}
+            title="AI images cost credits per scene on every episode" style={field}>
+            <option value="pexels">Stock footage</option>
+            <option value="stock_image">Stock photos</option>
+            <option value="ai_image">AI images — costs more each episode</option>
           </select>
         </div>
         {format === "custom" && (

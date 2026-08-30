@@ -210,3 +210,42 @@ def test_run_one_applies_format_recipe(client, auth_headers, monkeypatch):
     assert data["format"] == "reddit_story"
     assert data["background_query"]
     assert data["music_mood"] == "calm"
+
+
+def test_series_carries_mood_length_and_engine(client, auth_headers):
+    """An autopilot episode never reaches the studio, so the series has to hold
+    the creative choices a human would otherwise make there."""
+    resp = client.post("/api/series", headers=auth_headers, json={
+        "name": "Nightly shayari", "format": "shayari", "mood": "sad",
+        "duration_seconds": 45, "visual_engine": "ai_image", "interval_hours": 24,
+    })
+    assert resp.status_code in (200, 201), resp.text
+    body = resp.json()
+    assert body["mood"] == "sad"
+    assert body["duration_seconds"] == 45
+    assert body["visual_engine"] == "ai_image"
+
+
+def test_series_rejects_a_mood_the_format_does_not_have(client, auth_headers):
+    resp = client.post("/api/series", headers=auth_headers, json={
+        "name": "Wrong mood", "format": "breaking_news", "mood": "sad",
+    })
+    assert resp.status_code == 422, resp.text
+
+
+def test_series_rejects_unknown_engine(client, auth_headers):
+    resp = client.post("/api/series", headers=auth_headers, json={
+        "name": "Bad engine", "format": "shayari", "visual_engine": "midjourney",
+    })
+    assert resp.status_code == 422, resp.text
+
+
+def test_autopilot_gate_blocks_only_broken_scripts():
+    """Unattended episodes are never reviewed, so a script that would crash the
+    render must be caught — without refusing merely short ones."""
+    from app.pipeline.series_tasks import _script_problems
+
+    assert _script_problems([]) is not None
+    assert _script_problems([{"text": "a"}, {"text": "   "}]) is not None
+    assert _script_problems([{"text": "one scene only"}]) is None
+    assert _script_problems([{"text": "a"}, {"text": "b"}]) is None
