@@ -2,6 +2,23 @@
 
 Running log of actual build work. Newest first.
 
+## 2026-08-31 — 🎛️ The creator can restructure a script, and autopilot stopped shipping blind
+Two gaps closed, and answering the owner's question — *"is the studio work only for the Studio tab?"* — is what found the second one.
+
+**There is one editor, not a tab.** Discover → click a trend, Library → continue editing, and Create all route to `/dashboard/studio?video=<id>`. So studio work reaches every video whatever created it, and so does everything shipped this week, since format style, mood, look and pace all live in generation.
+
+**The studio can now restructure, not just rewrite.** It already had a lot — rewrite a line, swap in a Pexels photo or your own footage, edit the visual direction, preview a voice — but the scene list itself was fixed. A script that was 80% right had to be regenerated whole, losing the lines that were already good. Each scene now has move up/down, add-below and delete, with delete refused on the last remaining one.
+
+That introduced a way to break a render: a blank line reaches TTS as an empty string and fails partway through, **after the credit is taken**. The render now refuses to start and names the offending scene, and the studio warns above the list rather than letting the click fail (`a45d4bd`).
+
+**Autopilot was the real exception.** `series_tasks` writes, renders and sometimes publishes an episode with no human ever seeing it — and it could pick a format but nothing else. No mood, no length, no visual engine, so every episode was 60 seconds of stock footage regardless of what the series was for. It also never passed the format's **tone** to the generator, something the interactive path always did, so episodes were written in the default voice while the same format wrote properly in the studio.
+
+Migration **0012** gives a series `mood`, `duration_seconds` and `visual_engine` (validated on Postgres; downgrades and re-upgrades cleanly). A mood is checked against the chosen format so it cannot name one that does not exist. AI images stay an explicit opt-in, labelled as costing more each episode, because a series runs unattended and that engine spends real money on every run. And `_script_problems()` skips an episode whose script is empty or has a blank scene, recording the reason on the series instead of failing mid-render (`41a23bb`).
+
+**The gate started too strict and the existing tests caught it.** I had it refusing single-scene scripts — which is a judgement about writing quality, not the crash-or-ship failure the check exists for, and my own docstring said so. Two `test_series` tests failed and were right to. 232 tests pass.
+
+**Also today:** the founder-pack description of Kliptos was rewritten. The old one still called the codebase a "pure skeleton, 3/10, every endpoint returns hardcoded data" — an audit from 28 July that has been obsolete for a month.
+
 ## 2026-08-30 — 🎭 Every format was the same video wearing a different name
 The owner rendered the first real shayari and it landed badly: *"totally was reading lines"*, *"the visual never matched not even 1%"*, *"the background music all waste"*. He was right, and the interesting part is that **the writing was never the problem** — the couplets were good and the visual prompts were apt. Everything downstream of them was generic.
 

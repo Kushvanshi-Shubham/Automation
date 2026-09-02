@@ -16,6 +16,13 @@
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
 
+## Status — 2026-08-31
+- **What Kliptos is, stated plainly:** an AI Shorts studio. Start from a trend, a link, your own script or your own footage; pick a **format** (a full recipe: script style, visual look, narration pace, captions, music, sub-mood); Kliptos writes, narrates, sources or generates the visuals, burns captions and renders a vertical video. You approve every word and can render one scene free first. Standing orders run it unattended. India-first: Hindi voices, Devanagari captions, shayari and music formats, ₹ pricing.
+- **The studio can restructure a script now** — move, add and delete scenes, not just rewrite lines. And it is one editor: trend-created and library videos open the same screen.
+- **Autopilot no longer ships blind** — a series carries mood, length and visual engine, gets the format's tone, and an episode with a broken script is skipped with the reason recorded instead of failing after the credit is spent.
+- ⚠️ **Render is warning about bandwidth (>70%).** Video playback is on R2 so it should be trivial; worth reading the breakdown, but it is really a nudge to do the Google Cloud migration while the ₹28,694 credit lasts (expires 16 Nov).
+- **Still yours:** incorporation + DPIIT, Razorpay KYC, and a judgement call on whether output quality is finally good enough.
+
 ## Status — 2026-08-30
 - **Formats are genuinely different now.** Each declares its own script style, visual look and narration pace — before, 7 of 9 shared a viral-Shorts writer and *every* format rendered as corporate flat-vector art at news pace. See [[S1 Build Log]].
 - **Hindi captions fixed**, and not for the reason we assumed: it was ASS letter-spacing detaching the vowel marks, not a missing font.
