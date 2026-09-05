@@ -87,7 +87,12 @@ Opus Clip cuts long videos into shorts. CapCut is a manual editor. InVideo is te
 Don't promise outcomes you can't demonstrate. → *"More videos published, more consistently."*
 
 **"You're finishing your degree — what happens after?"**
-→ `[FILL IN — a real number of hours, and what happens in June]`
+Correct their premise: not a student with free time — **employed, and the degree completes 16 Sept 2026.**
+→ *"I'm working a job and my degree finishes on the 16th. Everything you've seen was built in evenings and weekends. From late September that constraint loosens — `[X hours/week]`. I'd go full-time at `[the milestone that would justify it]`."*
+
+This is stronger than a student answer. Shipping a nine-format pipeline while employed says more about execution than free time ever could. But be ready for the follow-up, because it always comes: **"Would you leave the job for this, and at what point?"** Have a real answer — revenue figure, user count, or funded runway. "When it makes sense" reads as no.
+
+⚠️ **Check your employment contract before taking money or filing for the seed fund.** Indian employment agreements frequently assign IP created during employment — sometimes including work done on your own time and equipment. If your employer has any claim on Kliptos, that surfaces during diligence and kills the round, not before it. Worth reading the clause now while it costs nothing.
 
 **"What's your unfair advantage?"**
 → Built the whole pipeline solo and understands every layer; India-first where competitors are translated-into-Hindi.
