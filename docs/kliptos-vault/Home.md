@@ -13,8 +13,14 @@
 - [[Pricing]] — plans, credits, India/US localization
 - [[Risks]] — top risks and mitigations
 - [[Roadmap]] — S1 → S4 stages and gates
+- [[Pitch]] — the thesis, the story, the cross-questions, and what must not be overclaimed
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
+
+## Status — 2026-09-06
+- **The pitch has a thesis now.** Not "AI makes videos" — *people quit content creation because it takes too long, not because they are bad at it.* The line that carries it: **"I cannot make them famous, but I could pave an easier and faster path."** Everything else follows from that. See [[Pitch]].
+- A judge/possible investor rated the first write-up **1/10** — it had been written for technical due diligence (architecture, margins, weaknesses first) when what was wanted was the product and the story. Register matters as much as honesty.
+- ⚠️ Several things described in the pitch **do not exist yet** — gaming montage with highlight detection, an interface that adapts per video type, trend mash-ups, payments. [[Pitch]] lists them so they are never claimed as built.
 
 ## Status — 2026-08-31
 - **What Kliptos is, stated plainly:** an AI Shorts studio. Start from a trend, a link, your own script or your own footage; pick a **format** (a full recipe: script style, visual look, narration pace, captions, music, sub-mood); Kliptos writes, narrates, sources or generates the visuals, burns captions and renders a vertical video. You approve every word and can render one scene free first. Standing orders run it unattended. India-first: Hindi voices, Devanagari captions, shayari and music formats, ₹ pricing.
