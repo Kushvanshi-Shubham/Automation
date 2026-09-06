@@ -1,0 +1,118 @@
+# Kliptos on a single VM: API + worker + beat + Redis behind Caddy.
+#
+# Why one box: rendering is CPU-bound and the worker has to be always-on, which
+# the Render free plan cannot do at all (no background workers, sleeps after 15
+# minutes). Neon still holds the data and R2 still holds the media, so this
+# machine is disposable — rebuild it and nothing is lost.
+#
+# Redis moves ON to this box deliberately. It used to live in us-east-1 while
+# Neon and the API were in Asia, and the worker logged four disconnects in
+# 3.5 hours because of it.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d
+#
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Not published to the host: only the API and worker need it, and an open
+    # 6379 on a public IP is how Redis instances get mined.
+    expose:
+      - "6379"
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # The image CMD runs `alembic upgrade head` before uvicorn, so schema
+    # changes land on deploy. Only this service migrates — the worker must not
+    # race it.
+    env_file: [.env]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PORT: "8000"
+    expose:
+      - "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health',timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # concurrency=1 on purpose: ffmpeg already uses every core it can get, so
+    # two parallel renders on a 2-vCPU box make both slower than running them
+    # in turn. Raise this only alongside more vCPUs.
+    command: ["celery", "-A", "app.pipeline.celery_app", "worker",
+              "--loglevel=info", "--concurrency=1"]
+    env_file: [.env]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      # Scratch space for renders before they upload to R2. A named volume
+      # rather than the container filesystem so a restart mid-render doesn't
+      # leave the image fat.
+      - render_scratch:/app/output
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Its own container rather than `worker -B`: with -B, every extra worker
+    # would fire the scheduled tasks again, so standing orders would run twice.
+    # --schedule is explicit: beat writes celerybeat-schedule to its CWD by
+    # default, which is the container filesystem and is lost on restart, so the
+    # next-run times would reset and standing orders could fire early.
+    command: ["celery", "-A", "app.pipeline.celery_app", "beat", "--loglevel=info",
+              "--schedule=/app/beatdata/celerybeat-schedule"]
+    env_file: [.env]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - beat_state:/app/beatdata
+    working_dir: /app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # holds the TLS certs — losing this re-issues them
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  redis_data:
+  render_scratch:
+  beat_state:
+  caddy_data:
+  caddy_config:

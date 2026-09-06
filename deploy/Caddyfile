@@ -1,0 +1,29 @@
+# TLS for the API. Caddy gets and renews a Let's Encrypt certificate on its
+# own, which is the whole reason it is here rather than plain nginx.
+#
+# api.kliptos.app must resolve to this VM's external IP, and in Cloudflare it
+# must be "DNS only" (grey cloud) — a proxied record makes Cloudflare answer
+# the ACME challenge and Caddy never gets a cert.
+
+api.kliptos.app {
+	encode gzip
+
+	# The browser calls this from https://www.kliptos.app, so the API's own
+	# CORS_ORIGINS has to include that origin. Caddy does not add CORS headers
+	# here on purpose: two layers both setting them is how you end up with a
+	# duplicated Access-Control-Allow-Origin and a request the browser refuses.
+	reverse_proxy api:8000 {
+		# Renders and uploads are slow; the default 30s would cut them off.
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 3
+		}
+	}
+}
