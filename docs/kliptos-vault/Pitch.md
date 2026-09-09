@@ -54,15 +54,24 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
 
 **Real and working in production:** everything in the feature list above.
 
+**Built since 2026-09-09, so it moved out of the list below:**
+- **Trend mash-up** — pick a trend, then a second one, and both are written
+  into ONE script. Earlier notes here promised *four* topics; it ships as
+  **two**, because asked to connect three or more unrelated trends the model
+  produces mush and two is what reads as a take. Say two.
+- **Interface that adapts per video type** — partly. The create screen already
+  varied (mood, slides, length, style); what was added is narration pace and
+  music mood in the studio, and hiding per-scene visual direction on formats
+  that run one continuous background. Do not claim a wholly different screen
+  per format — claim that the controls match the format.
+
 **NOT built — say "next", never "has":**
 - **Gaming montage** — no automatic highlight detection, no beat-syncing. Clip cutting from uploads exists; choosing the best moments and cutting to music does not.
-- **Interface that adapts per video type** — same screen for every format today.
-- **Trend mash-up** — combining four trending topics into one video.
 - **Payments** — checkout returns 501. Razorpay KYC not started.
 - **Instagram publishing**, AI presenter, email/password signup, onboarding.
 - **Monthly credit grants** — nothing in the code gives subscribers their credits.
 
-**Honest technical limit:** one render worker, on my laptop. A hundred simultaneous renders queue for hours — they don't crash, and a reaper refunds anything stuck over 30 minutes. Scaling is adding workers, a hosting decision, not an architecture change.
+**Honest technical limit:** one render worker, on a ₹799/month VPS since 9 Sept — it was on my laptop until then, which meant renders only worked while that laptop was awake. A hundred simultaneous renders queue for hours; they don't crash, and a reaper refunds anything stuck over 30 minutes. Scaling is adding workers, a hosting decision, not an architecture change.
 
 ## Traction — say it flat
 
@@ -110,7 +119,7 @@ Being holdable is what makes a claim credible.
 1. **The problem** — people quit because it's slow
 2. **The honest limit** — I can't make you famous
 3. **What I do instead** — three doors, idea to posted, fast
-4. **What's next** — interface adapts to what you're making; gaming montages; trend mash-ups
+4. **What's next** — gaming montages with highlight detection; payments; getting the first ten real creators on it
 5. **Traction, flat** — and what I'm fixing
 
 ## Ask them one thing

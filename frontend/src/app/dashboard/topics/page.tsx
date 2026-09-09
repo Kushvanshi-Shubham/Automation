@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import {
-  MdOutlineAutoAwesome, MdOutlineBolt, MdOutlineGridView,
+  MdOutlineAutoAwesome, MdOutlineBolt, MdOutlineGridView, MdOutlineJoinInner,
   MdOutlineMovieFilter, MdOutlineRefresh, MdOutlineViewList,
 } from "react-icons/md"
 import { fetchApi } from "@/lib/api-client"
@@ -33,6 +33,9 @@ export default function DiscoverPage() {
   const [source, setSource] = useState<string>("all")
   const [createAs, setCreateAs] = useState("auto")
   const [creatingId, setCreatingId] = useState<string | null>(null)
+  // Trend mash-up: the FIRST pick leads the script, the second is the twist.
+  // Held here rather than on the cards so the whole grid re-labels at once.
+  const [mashupLead, setMashupLead] = useState<Topic | null>(null)
   const [region, setRegion] = useState("IN")
 
   const { data: topicsData, isLoading } = useQuery<{ items: Topic[] }>({
@@ -58,16 +61,27 @@ export default function DiscoverPage() {
   })
 
   const create = useMutation({
-    mutationFn: (t: Topic) =>
-      fetchApi("/scripts/generate", {
+    mutationFn: (t: Topic) => {
+      // In a mash-up the LEAD is the topic and the clicked card is the
+      // second trend, matching the API: topic_id leads, mashup_topic_id
+      // is the twist. The format still comes from the lead's suggestion.
+      const lead = mashupLead && mashupLead.id !== t.id ? mashupLead : null
+      const primary = lead ?? t
+      return fetchApi("/scripts/generate", {
         method: "POST",
-        body: JSON.stringify(
-          createAs === "script"
-            ? { topic_id: t.id, output_type: "script" }
-            : { topic_id: t.id, format: createAs === "auto" ? (fmt(t.best_format)?.key ?? "viral_story") : createAs }
-        ),
-      }) as Promise<{ video_id: string }>,
-    onSuccess: d => router.push(`/dashboard/studio?video=${d.video_id}`),
+        body: JSON.stringify({
+          topic_id: primary.id,
+          ...(lead ? { mashup_topic_id: t.id } : {}),
+          ...(createAs === "script"
+            ? { output_type: "script" }
+            : { format: createAs === "auto" ? (fmt(primary.best_format)?.key ?? "viral_story") : createAs }),
+        }),
+      }) as Promise<{ video_id: string }>
+    },
+    onSuccess: d => {
+      setMashupLead(null)
+      router.push(`/dashboard/studio?video=${d.video_id}`)
+    },
     onSettled: () => setCreatingId(null),
   })
 
@@ -78,9 +92,13 @@ export default function DiscoverPage() {
   const maxScore = Math.max(1, ...topics.map(t => t.score ?? 0))
   const nicheLabel = (k: string | null) => (k ? niches?.items.find(n => n.key === k)?.label.replace(/^[^\s]+\s/, "") ?? k : null)
   const doCreate = (t: Topic) => { setCreatingId(t.id); create.mutate(t) }
-  const createLabel = (t: Topic) =>
-    createAs === "script" ? "Write the script — free"
+  const isLead = (t: Topic) => mashupLead?.id === t.id
+  const createLabel = (t: Topic) => {
+    if (isLead(t)) return "First trend — now pick the second"
+    if (mashupLead) return "Mash up with this"
+    return createAs === "script" ? "Write the script — free"
       : `Create ${createAs === "auto" ? (fmt(t.best_format)?.label ?? "short") : (fmt(createAs)?.label ?? "short")}`
+  }
 
   const pill = (on: boolean): React.CSSProperties => ({
     background: on ? L.benchRaised : "transparent", border: `1px solid ${on ? L.ink : L.rule}`,
@@ -179,6 +197,22 @@ export default function DiscoverPage() {
       )}
 
       {/* ============ CARDS — the anatomy that works, in the new skin ============ */}
+      {/* Mash-up tray. Two trends, one script — the whole grid re-labels
+          while this is open so it is obvious what the next click does. */}
+      {mashupLead && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16, padding: "12px 16px", background: L.bench, border: `1px solid ${alpha(L.make, 45)}`, borderRadius: 8 }}>
+          <MdOutlineBolt size={17} color={L.make} />
+          <span style={{ fontSize: 13.5, color: L.ink, minWidth: 0 }}>
+            Mashing up <strong style={{ fontWeight: 600 }}>{mashupLead.title}</strong>{" "}
+            <span style={{ color: L.ash }}>— now pick the second trend below.</span>
+          </span>
+          <button onClick={() => setMashupLead(null)}
+            style={{ marginLeft: "auto", background: "transparent", border: "none", color: L.dust, fontFamily: grotesque, fontSize: 12.5, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+            cancel
+          </button>
+        </div>
+      )}
+
       {!isLoading && topics.length > 0 && view === "cards" && (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {topics.slice(0, 24).map(t => {
@@ -235,13 +269,24 @@ export default function DiscoverPage() {
                 )}
 
                 {/* Action */}
-                <button onClick={() => doCreate(t)} disabled={create.isPending}
-                  style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", background: "transparent", border: `1px solid ${alpha(L.make, 45)}`, color: L.make, fontFamily: grotesque, fontSize: 13.5, fontWeight: 600, padding: "10px 14px", borderRadius: 7, cursor: "pointer", transition: "background 120ms, color 120ms" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = L.make; e.currentTarget.style.color = "#fff" }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--k-make)" }}>
-                  <MdOutlineBolt size={17} />
-                  {creatingId === t.id ? "Writing the script…" : createLabel(t)}
-                </button>
+                <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 7 }}>
+                  <button onClick={() => doCreate(t)} disabled={create.isPending || isLead(t)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", background: "transparent", border: `1px solid ${alpha(L.make, 45)}`, color: isLead(t) ? L.dust : L.make, fontFamily: grotesque, fontSize: 13.5, fontWeight: 600, padding: "10px 14px", borderRadius: 7, cursor: isLead(t) ? "default" : "pointer", transition: "background 120ms, color 120ms" }}
+                    onMouseEnter={e => { if (!isLead(t)) { e.currentTarget.style.background = L.make; e.currentTarget.style.color = "#fff" } }}
+                    onMouseLeave={e => { if (!isLead(t)) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--k-make)" } }}>
+                    <MdOutlineBolt size={17} />
+                    {creatingId === t.id ? "Writing the script…" : createLabel(t)}
+                  </button>
+                  {/* Hidden once a lead is chosen: from then on every Create
+                      button IS the mash-up, so a second entry point would
+                      only raise the question of how they differ. */}
+                  {!mashupLead && (
+                    <button onClick={() => setMashupLead(t)} title="Combine this trend with another one"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "transparent", border: "none", color: L.dust, fontFamily: grotesque, fontSize: 12, padding: "2px 0", cursor: "pointer" }}>
+                      <MdOutlineJoinInner size={15} /> Mash up with another trend
+                    </button>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -267,10 +312,18 @@ export default function DiscoverPage() {
                   </span>
                   <span style={{ fontFamily: mono, fontSize: 11, color: L.dust }}>{Math.round(t.score ?? 0)}</span>
                 </span>
-                <button onClick={() => doCreate(t)} disabled={create.isPending}
-                  style={{ background: "transparent", border: `1px solid ${alpha(L.make, 45)}`, color: L.make, fontFamily: grotesque, fontSize: 12.5, fontWeight: 600, padding: "8px 12px", borderRadius: 6, cursor: "pointer" }}>
-                  {creatingId === t.id ? "Writing…" : "Create"}
-                </button>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button onClick={() => doCreate(t)} disabled={create.isPending || isLead(t)}
+                    style={{ background: "transparent", border: `1px solid ${alpha(L.make, 45)}`, color: isLead(t) ? L.dust : L.make, fontFamily: grotesque, fontSize: 12.5, fontWeight: 600, padding: "8px 12px", borderRadius: 6, cursor: isLead(t) ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                    {creatingId === t.id ? "Writing…" : isLead(t) ? "1st trend" : mashupLead ? "Mash up" : "Create"}
+                  </button>
+                  {!mashupLead && (
+                    <button onClick={() => setMashupLead(t)} title="Combine this trend with another one"
+                      style={{ display: "flex", background: "transparent", border: "none", color: L.dust, cursor: "pointer", padding: 4 }}>
+                      <MdOutlineJoinInner size={16} />
+                    </button>
+                  )}
+                </span>
               </div>
             )
           })}

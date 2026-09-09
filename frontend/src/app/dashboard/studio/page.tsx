@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 import { MdOutlineAdd, MdOutlineDelete, MdOutlineArrowDownward, MdOutlineArrowUpward,
   MdOutlineAutoAwesome, MdOutlineContentCopy, MdOutlineEditNote, MdOutlineImage,
+  MdOutlineJoinInner,
   MdOutlineLink, MdOutlinePermMedia, MdOutlinePlayArrow, MdOutlineSave,
   MdOutlineSmartDisplay, MdOutlineTimer, MdOutlineVisibility,
 } from "react-icons/md"
@@ -36,6 +37,8 @@ interface Script {
     voice_id?: string; caption_style?: string; visual_style?: string
     music_mood?: string; words_per_second?: number
   } | null
+  /** Set when the script was written from two trends. */
+  mashup?: { topic_ids: string[]; titles: string[] } | null
 }
 interface Voice { id: string; label: string; language: string; gender: string; vibe: string }
 /** Studio-grade narration (Cartesia / ElevenLabs); cloned = the creator's own voice. */
@@ -794,6 +797,19 @@ function ScriptEditor({ videoId }: { videoId: string }) {
           )}
           {matchFootage.error && (
             <p style={{ margin: 0, fontSize: 12.5, color: L.refused }}>{(matchFootage.error as Error).message}</p>
+          )}
+
+          {/* Names both trends, so an odd pairing reads as a deliberate
+              mash-up rather than the script drifting off topic. */}
+          {data?.mashup?.titles?.length === 2 && (
+            <div style={{ ...card, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <MdOutlineJoinInner size={16} color={L.make} style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: 13, lineHeight: 1.5, color: L.ash }}>
+                Mash-up of two trends: <strong style={{ color: L.ink, fontWeight: 600 }}>{data.mashup.titles[0]}</strong>
+                {" + "}
+                <strong style={{ color: L.ink, fontWeight: 600 }}>{data.mashup.titles[1]}</strong>
+              </span>
+            </div>
           )}
 
           {blankScenes.length > 0 && (

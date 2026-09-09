@@ -5,6 +5,11 @@ from uuid import UUID
 
 class ScriptGenerateRequest(BaseModel):
     topic_id: Optional[UUID] = None
+    # Trend mash-up: a second trend woven into the SAME script. Deliberately
+    # one extra id rather than a list — asked to connect three unrelated
+    # trends the model produces mush, and two is what reads as a take.
+    # topic_id leads; this one is the twist.
+    mashup_topic_id: Optional[UUID] = None
     custom_prompt: Optional[str] = None
     # Bring-your-own-script: wording preserved, only segmented + visual-prompted.
     custom_script: Optional[str] = None
@@ -56,6 +61,10 @@ class ScriptResponse(BaseModel):
     # Render defaults the format contributed (voice_id, caption_style, …) so
     # the studio initializes its pickers to match instead of overriding them.
     defaults: Optional[dict] = None
+    # {"topic_ids": [...], "titles": [...]} when this script was written from
+    # two trends, so the studio can name both instead of the creator having
+    # to remember which pair they picked.
+    mashup: Optional[dict] = None
 
 
 class ScriptUpdateRequest(BaseModel):

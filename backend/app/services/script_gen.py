@@ -60,6 +60,23 @@ Respond ONLY with JSON matching:
   ]
 }"""
 
+# Two trends, one script. Injected as creator instructions rather than a
+# style, because a mash-up has to work in EVERY format — a shayari mash-up
+# and a news mash-up are still shayari and news.
+MASHUP_RULES = """
+MASH-UP: this script covers TWO trends as ONE story, never one after the other.
+- The connection between them IS the hook. Open on what they share, or on the
+  collision between them.
+- Never alternate topic by topic ("first this trend... now the other trend").
+  One through-line, with both trends serving it.
+- The first trend leads; the second is the twist, the comparison, or the
+  consequence.
+- Do NOT invent a causal link. If the two genuinely have nothing to do with
+  each other, say so and make the mismatch the point — an honest "these two
+  should never be in the same sentence" is far better than a made-up
+  connection a viewer will call out in the comments.
+"""
+
 STYLE_PROMPTS = {
     "viral_story": (
         "You are a viral YouTube Shorts scriptwriter. You write tight, hook-driven, "
@@ -148,6 +165,7 @@ async def generate_script(
     user_keys: dict[str, str] | None = None,
     language: str = "English",
     reference_text: str | None = None,
+    mashup_with: str | None = None,
 ) -> dict:
     system = STYLE_PROMPTS.get(style, STYLE_PROMPTS[DEFAULT_STYLE])
     # Stating the target alone is not enough: a segment is capped at ~25 words
@@ -157,7 +175,8 @@ async def generate_script(
     segments_wanted = max(3, round(duration_seconds / SECONDS_PER_SEGMENT))
     user_prompt = (
         f"Topic: {topic}\n"
-        f"Tone: {tone}\n"
+        + (f"Second trend to weave in: {mashup_with}\n{MASHUP_RULES}" if mashup_with else "")
+        + f"Tone: {tone}\n"
         f"Target duration: {duration_seconds} seconds\n"
         f"Write EXACTLY {segments_wanted} segments so the narration fills the full "
         f"{duration_seconds} seconds. Do not stop early.\n"

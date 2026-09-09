@@ -230,6 +230,9 @@ async def generate_script(
 
     hook_hint = None
     reference_text = None
+    mashup_with = None
+    # Display subject can differ from what the model is asked to write about.
+    prompt_subject = None
     if req.custom_script:
         if len(req.custom_script.strip()) < 40:
             raise HTTPException(
@@ -256,6 +259,25 @@ async def generate_script(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
             subject = topic.title
             hook_hint = topic.hook_text
+            if req.mashup_topic_id is not None:
+                if req.mashup_topic_id == req.topic_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail="Pick two different trends to mash up",
+                    )
+                second = await db.get(Topic, req.mashup_topic_id)
+                if second is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND, detail="Second trend not found"
+                    )
+                mashup_with = second.title
+                # Both titles in the subject, so the library row says what this
+                # video actually is rather than naming only the first trend —
+                # but the model is asked about the LEAD trend, with the second
+                # passed separately. Sending the combined string as the topic
+                # as well put the second trend into the prompt twice.
+                prompt_subject = topic.title
+                subject = f"{topic.title} + {second.title}"
         elif req.custom_prompt:
             subject = req.custom_prompt.strip()
             if len(subject) < 10:
@@ -265,8 +287,15 @@ async def generate_script(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Provide topic_id, custom_prompt, or custom_script",
             )
+        if req.mashup_topic_id is not None and mashup_with is None:
+            # Only the trend route can mash up: there is nothing to weave a
+            # second trend INTO when the script came from a link or a prompt.
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="A mash-up needs two trends — pick a first trend too",
+            )
         script = await script_gen.generate_script(
-            topic=subject,
+            topic=prompt_subject or subject,
             hook_hint=hook_hint,
             tone=req.tone,
             duration_seconds=req.duration_seconds,
@@ -276,6 +305,7 @@ async def generate_script(
             user_keys=user_keys,
             language=req.language,
             reference_text=reference_text,
+            mashup_with=mashup_with,
         )
 
     script_data = {
@@ -285,6 +315,13 @@ async def generate_script(
         "segments": script["segments"],
         "total_duration": script["total_duration"],
     }
+    if mashup_with:
+        # Provenance, so the studio can say which two trends this came from
+        # instead of the creator having to remember.
+        script_data["mashup"] = {
+            "topic_ids": [str(req.topic_id), str(req.mashup_topic_id)],
+            "titles": [topic.title, mashup_with],
+        }
     user_defaults = None
     if user_fmt is not None:
         # Mirror render_defaults: only truthy entries reach script_data.
@@ -352,6 +389,7 @@ async def get_script(
         "output_type": video.output_type,
         "format": data.get("format"),
         "defaults": defaults or None,
+        "mashup": data.get("mashup"),
     }
 
 
