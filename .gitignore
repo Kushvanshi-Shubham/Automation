@@ -5,6 +5,11 @@
 # Cloud-mode worker overrides (real Neon/Redis credentials) — the
 # .example file is the one that belongs in git.
 .env.cloud
+# Env exports downloaded from a host's dashboard. The `.env` pattern above
+# only matches a file named exactly `.env`, so these would otherwise be
+# staged by `git add .` — and this repo is public.
+*secrets*.env
+*.env.bak
 *.pem
 client_secrets.json
 

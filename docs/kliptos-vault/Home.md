@@ -14,8 +14,22 @@
 - [[Risks]] — top risks and mitigations
 - [[Roadmap]] — S1 → S4 stages and gates
 - [[Pitch]] — the thesis, the story, the cross-questions, and what must not be overclaimed
+- [[Funding]] — programmes, competitions and accelerators Kliptos can actually enter, with deadlines and the incorporation gate (2026-09-08)
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
+
+## Status — 2026-09-09
+- **The always-on box is bought: Hostinger KVM 2, ₹799/month** (2 vCPU, 8 GB, 100 GB NVMe, 8 TB). Runbook rewritten as [[../DEPLOY-VPS|DEPLOY-VPS.md]]; the GCP one is superseded. Once it is up, renders no longer depend on the dev laptop being awake — which is the last thing blocking a stranger using the product.
+- **Why not GCP:** an e2-medium is ~₹2,300/month, so renting for ₹799 frees the **entire ₹28,694 Google credit for Vertex**, where AI images have no cheap substitute. The credit expires 16 Nov.
+- **Reversed an earlier call: the VPS goes in Malaysia, not Mumbai.** Neon is in Singapore and the app is DB-chatty — co-locating with the database beats co-locating with users, since Vercel and R2 already serve from the edge.
+- **Ruled out on the way:** Cloudways (no root, PHP-only), IONOS/Namecheap/DreamHost/Hetzner (no Asian data centre). Real fallback is Vultr or DigitalOcean.
+
+## Status — 2026-09-08
+- **Funding routes researched globally** — see [[Funding]]. The August "hackathons cannot fund Kliptos" call still holds (they all demand a brand-new build), but startup competitions and accelerators are the inverse: they want a working product. Pre-revenue is fine everywhere found.
+- ⏰ **Open now:** **a16z Speedrun — 25 Sept** (best thematic fit anywhere on the list: they fund games/AI/consumer/**media** tooling, take solo and non-US founders, $500k + $10M in credits, no entity needed) · **YC W2027 — 2 Nov** · **SXSW Pitch — 13 Nov** · **Web Summit ALPHA/PITCH — event 9–12 Nov** · **Startup League — 15 Sept** but needs a registered entity.
+- **The gate is incorporation, not stage.** Indian programmes want Pvt Ltd / LLP / Partnership; global accelerators incorporate you themselves. That splits the list cleanly into "apply this month" and "after registration".
+- **Missed by one day: Slush 100 closed 7 Sept.** €500k equity-free and the eligibility fit exactly (founded 2023+, under €10M raised, seed or earlier). Diarise June 2027.
+- **Free and always open:** OpenVC — 20,000+ investors, deck open/read analytics. Lowest-effort item and the only one that tells you whether the deck works.
 
 ## Status — 2026-09-06
 - **The pitch has a thesis now.** Not "AI makes videos" — *people quit content creation because it takes too long, not because they are bad at it.* The line that carries it: **"I cannot make them famous, but I could pave an easier and faster path."** Everything else follows from that. See [[Pitch]].

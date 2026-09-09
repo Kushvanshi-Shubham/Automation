@@ -1,5 +1,12 @@
 # Moving Kliptos to a Google Cloud VM
 
+> **SUPERSEDED 2026-09-09 — follow [[DEPLOY-VPS]] instead.** The box is now a
+> Hostinger KVM 2 at ₹799/month (2 vCPU, 8 GB, 100 GB NVMe, 8 TB) rather than a
+> ~₹2,300 `e2-medium`, so the whole ₹28,694 Google credit goes to Vertex, where
+> it cannot be substituted. Kept for the reasoning; do not follow the steps.
+> Note also that its Hetzner fallback suggestion was wrong — Hetzner has no
+> Asian data centre.
+
 ## Why
 
 Render's free plan has no background workers, sleeps after 15 minutes, caps at
