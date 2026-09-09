@@ -198,3 +198,59 @@ def test_unknown_mood_is_rejected(client, auth_headers, capture_generate):
                        json={"custom_prompt": "rainy evening", "format": "shayari",
                              "mood": "not-a-real-mood"})
     assert resp.status_code == 422, resp.text
+
+
+def test_vocabularies_match_what_the_pipeline_can_actually_do():
+    """MUSIC_MOODS and NARRATION_PACES are what the API validates overrides
+    against. If they drift from the runner's keywords or from the paces the
+    formats themselves declare, a creator picks something that is then
+    silently ignored — which is exactly how "the music is all the same"
+    happened before."""
+    from app.pipeline.runner import MOOD_KEYWORDS
+    from app.services.formats import FORMATS, MUSIC_MOODS, NARRATION_PACES
+
+    assert set(MUSIC_MOODS) == set(MOOD_KEYWORDS), (
+        "a mood the API accepts but the runner has no keywords for falls back "
+        "to the whole library"
+    )
+    for key, fmt in FORMATS.items():
+        if fmt.get("music_mood"):
+            assert fmt["music_mood"] in MUSIC_MOODS, f"{key}: mood not offerable in the studio"
+        if fmt.get("words_per_second"):
+            assert float(fmt["words_per_second"]) in NARRATION_PACES, (
+                f"{key}: pace {fmt['words_per_second']} is not in the picker, so opening "
+                "this format in the studio would show no matching option"
+            )
+
+
+def test_look_options_offers_mood_and_pace(client, auth_headers):
+    resp = client.get("/api/pipeline/look-options", headers=auth_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert {m["key"] for m in body["music_moods"]} == {
+        "calm", "energetic", "melancholy", "tender", "uplifting",
+    }
+    paces = [p["value"] for p in body["narration_paces"]]
+    assert paces == sorted(paces), "the picker should read slowest to fastest"
+    assert 1.2 in paces and 2.8 in paces
+
+
+@pytest.mark.parametrize("field,value", [
+    ("music_mood", "not-a-mood"),
+    ("words_per_second", 7.5),
+])
+def test_render_rejects_unknown_mood_or_pace(client, auth_headers, field, value):
+    """Validated before any credit maths, so a bad value never charges."""
+    from app.routers.pipeline import validated_look
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as err:
+        validated_look(**{field: value})
+    assert err.value.status_code == 422
+
+
+def test_validated_look_accepts_integer_pace():
+    """2 and 2.0 are the same pace; JSON may send either."""
+    from app.routers.pipeline import validated_look
+
+    assert validated_look(words_per_second=2)["words_per_second"] == 2.0

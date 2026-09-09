@@ -278,6 +278,34 @@ FORMATS: dict[str, dict] = {
 
 DEFAULT_TONE = "engaging and curious"  # matches ScriptGenerateRequest default
 
+# The two knobs formats genuinely differ on, as a vocabulary the API can
+# validate a creator's override against. A format picks one of each; the
+# studio lets it be changed afterwards, because the format's choice is a
+# starting point, not a verdict — a shayari may want a sadder bed than the
+# format assumed.
+#
+# Music: keys must match runner.MOOD_KEYWORDS, which maps them onto track
+# filenames. test_formats pins the two together.
+MUSIC_MOODS: dict[str, str] = {
+    "calm": "Calm — ambient, unobtrusive",
+    "energetic": "Energetic — upbeat and driving",
+    "melancholy": "Melancholy — sad, heavy",
+    "tender": "Tender — bittersweet, warm",
+    "uplifting": "Uplifting — hopeful, inspired",
+}
+
+# Narration pace in words per second. Presets rather than a free number:
+# tts.rate_for clamps the derived rate to [-45%, +25%] anyway, so values
+# outside this range would be silently capped and the creator would think
+# the control was broken.
+NARRATION_PACES: dict[float, str] = {
+    1.2: "Very slow — poetry, one line at a time",
+    1.6: "Slow — lyrical, room to breathe",
+    2.0: "Measured — motivational",
+    2.5: "Natural — storytelling",
+    2.8: "Fast — news and updates",
+}
+
 # Topics harvested before the format pack stored raw engine names in
 # best_format — map them to the closest format key.
 LEGACY_FORMAT_MAP = {"narrated": "viral_story", "visual": "music_visual", "image": "image_carousel"}

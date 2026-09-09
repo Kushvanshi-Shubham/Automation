@@ -49,12 +49,14 @@ async def list_caption_styles():
 
 @router.get("/look-options")
 async def look_options():
-    """Everything a creator can change about how a video LOOKS, in one call:
-    caption packs, animations, fonts, and AI visual styles."""
+    """Everything a creator can change about how a video LOOKS and SOUNDS,
+    in one call: caption packs, animations, fonts, AI visual styles, the
+    music bed and narration pace."""
     from app.pipeline.captions import (
         CAPTION_ANIMATIONS, CAPTION_FONTS, CAPTION_STYLES,
         DEFAULT_CAPTION_ANIMATION, DEFAULT_CAPTION_FONT, DEFAULT_CAPTION_STYLE,
     )
+    from app.services.formats import MUSIC_MOODS, NARRATION_PACES
     from app.services.image_gen import DEFAULT_VISUAL_STYLE, VISUAL_STYLES
 
     return {
@@ -66,6 +68,11 @@ async def look_options():
         ],
         "caption_fonts": [{"key": k, "label": v["label"]} for k, v in CAPTION_FONTS.items()],
         "visual_styles": [{"key": k, "label": k.title()} for k in VISUAL_STYLES],
+        "music_moods": [{"key": k, "label": v} for k, v in MUSIC_MOODS.items()],
+        # Sorted so the studio's picker reads slowest to fastest.
+        "narration_paces": [
+            {"value": v, "label": NARRATION_PACES[v]} for v in sorted(NARRATION_PACES)
+        ],
         "defaults": {
             "caption_style": DEFAULT_CAPTION_STYLE,
             "caption_animation": DEFAULT_CAPTION_ANIMATION,
@@ -126,6 +133,8 @@ async def start_pipeline(
         caption_color=req.caption_color,
         aspect_ratio=req.aspect_ratio,
         visual_style=req.visual_style,
+        music_mood=req.music_mood,
+        words_per_second=req.words_per_second,
     )
 
     engine = req.visual_engine or ("stock_image" if video.output_type == "image" else "pexels")
@@ -319,6 +328,8 @@ def validated_look(
     caption_color: str | None = None,
     aspect_ratio: str | None = None,
     visual_style: str | None = None,
+    music_mood: str | None = None,
+    words_per_second: float | None = None,
 ) -> dict:
     """Check every "how it looks" choice and return the script_data updates.
 
@@ -329,6 +340,7 @@ def validated_look(
     from app.pipeline.captions import (
         CAPTION_ANIMATIONS, CAPTION_FONTS, CAPTION_STYLES, hex_to_ass,
     )
+    from app.services.formats import MUSIC_MOODS, NARRATION_PACES
     from app.services.image_gen import VISUAL_STYLES
 
     catalogues = {
@@ -337,6 +349,12 @@ def validated_look(
         "caption_font": (caption_font, CAPTION_FONTS, "caption font"),
         "aspect_ratio": (aspect_ratio, ASPECT_RATIOS, "aspect ratio"),
         "visual_style": (visual_style, VISUAL_STYLES, "visual style"),
+        "music_mood": (music_mood, MUSIC_MOODS, "music mood"),
+        # Compared as a float, so 2 and 2.0 are the same pace.
+        "words_per_second": (
+            float(words_per_second) if words_per_second is not None else None,
+            NARRATION_PACES, "narration pace",
+        ),
     }
     updates: dict = {}
     for field, (value, catalogue, label) in catalogues.items():
@@ -372,6 +390,9 @@ class ProofRequest(BaseModel):
     aspect_ratio: Optional[str] = None
     visual_style: Optional[str] = None
     visual_engine: Optional[str] = None
+    # So a pace or bed judged in a free preview is what the paid render uses.
+    music_mood: Optional[str] = None
+    words_per_second: Optional[float] = None
 
 
 @router.post("/proof", dependencies=[Depends(rate_limit("pipeline_proof"))])
@@ -407,6 +428,8 @@ async def start_proof(
         caption_color=req.caption_color,
         aspect_ratio=req.aspect_ratio,
         visual_style=req.visual_style,
+        music_mood=req.music_mood,
+        words_per_second=req.words_per_second,
     )
     if req.voice_provider or req.voice_id:
         from app.services import premium_voice

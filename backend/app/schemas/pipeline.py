@@ -17,6 +17,10 @@ class PipelineStartRequest(BaseModel):
     voice_id: Optional[str] = None
     caption_style: Optional[str] = None
     aspect_ratio: Optional[str] = None
+    # The format chose these; the creator can overrule it in the studio.
+    # music_mood picks the bed, words_per_second sets narration pace.
+    music_mood: Optional[str] = None
+    words_per_second: Optional[float] = None
 
 class PipelineStatusResponse(BaseModel):
     job_id: UUID

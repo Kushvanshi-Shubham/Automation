@@ -31,7 +31,11 @@ interface AssetItem { id: string; filename: string; kind: string; status: string
 interface MediaOption { id: number; thumb: string; kind: string; duration?: number; photographer?: string }
 interface Script {
   video_id: string; segments: Segment[]; total_duration: number; output_type: string
-  format?: string | null; defaults?: { voice_id?: string; caption_style?: string; visual_style?: string } | null
+  format?: string | null
+  defaults?: {
+    voice_id?: string; caption_style?: string; visual_style?: string
+    music_mood?: string; words_per_second?: number
+  } | null
 }
 interface Voice { id: string; label: string; language: string; gender: string; vibe: string }
 /** Studio-grade narration (Cartesia / ElevenLabs); cloned = the creator's own voice. */
@@ -41,11 +45,18 @@ interface LookOptions {
   caption_animations: { key: string; label: string; desc: string }[]
   caption_fonts: { key: string; label: string }[]
   visual_styles: { key: string; label: string }[]
+  music_moods: { key: string; label: string }[]
+  narration_paces: { value: number; label: string }[]
   defaults: Record<string, string>
   free_restyles_per_video: number
 }
 interface Proof { url: string; scene: number; duration: number }
-interface Format { key: string; label: string; emoji: string; desc: string; output_type: string; available: boolean; own?: boolean; moods?: { key: string; label: string }[] | null }
+interface Format {
+  key: string; label: string; emoji: string; desc: string; output_type: string
+  available: boolean; own?: boolean; moods?: { key: string; label: string }[] | null
+  /** Which knobs this format actually uses — see formats.py. */
+  controls?: string[] | null
+}
 
 const STYLES = [
   { value: "viral_story", label: "Viral Story", desc: "Hook-driven storytelling (default)" },
@@ -439,6 +450,9 @@ function ScriptEditor({ videoId }: { videoId: string }) {
   const [captionColor, setCaptionColor] = useState(DEFAULT_CAPTION_COLOR)
   const [visualEngine, setVisualEngine] = useState("pexels")
   const [visualStyle, setVisualStyle] = useState("explainer")
+  // Seeded from the format's own choice, then the creator's to change.
+  const [musicMood, setMusicMood] = useState("")
+  const [pace, setPace] = useState<number | null>(null)
   const [proofWaiting, setProofWaiting] = useState(false)
 
   const [footageStart, setFootageStart] = useState("")
@@ -520,7 +534,26 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     // fallback for formats with no opinion. Without this a shayari rendered
     // as corporate flat-vector art.
     if (data.defaults?.visual_style) setVisualStyle(data.defaults.visual_style)
+    // Both were already returned by the API and thrown away here, which is
+    // why a format's mood and pace could not be changed after generation.
+    if (data.defaults?.music_mood) setMusicMood(data.defaults.music_mood)
+    if (data.defaults?.words_per_second) setPace(data.defaults.words_per_second)
   }
+
+  // Which knobs this format actually uses. The backend has declared this all
+  // along (formats.py "controls"); the studio gated on output_type instead,
+  // which is coarser and gets two cases wrong: reddit_story and viral_story
+  // are both "narrated", but the first plays ONE continuous background while
+  // the second picks a clip per line — so per-scene visuals were offered for
+  // a format that discards them. fake_text is worse: its own recipe says
+  // visual_prompt is ignored, yet the editor invited you to write one.
+  const formatControls = editorFormats?.items.find(f => f.key === data?.format)?.controls ?? null
+  // No format on the row (custom builds, legacy videos) means no opinion —
+  // show everything rather than hide a control the creator may need.
+  const shows = (control: string) => !formatControls || formatControls.includes(control)
+  // Formats carrying "background" instead of "scenes" use one looping clip
+  // chosen by the format's background_query, not a visual per line.
+  const oneBackground = !!formatControls && !shows("scenes") && shows("background")
 
   const save = useMutation({
     mutationFn: () => fetchApi(`/scripts/${videoId}`, { method: "PUT", body: JSON.stringify({ segments }) }),
@@ -557,6 +590,9 @@ function ScriptEditor({ videoId }: { videoId: string }) {
     visual_style: visualEngine === "ai_image" ? visualStyle : undefined,
     voice_id: outputType === "narrated" ? voiceId : undefined,
     voice_provider: outputType === "narrated" ? voiceProvider ?? undefined : undefined,
+    // Image posts are silent, and only narration has a pace.
+    music_mood: outputType !== "image" && musicMood ? musicMood : undefined,
+    words_per_second: outputType === "narrated" && pace ? pace : undefined,
   })
 
   const { data: look } = useQuery<LookOptions>({
@@ -806,6 +842,9 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                       </>
                     )
                   })()}
+                  {/* Kept even for background formats: runner.py checks
+                      seg["media_id"] BEFORE falling back to background_query,
+                      so a pinned clip still wins. */}
                   {outputType !== "script" && (
                     <button onClick={() => openSwap(i)}
                       style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", color: segment.media_id || segment.asset_id ? L.live : L.ash, fontFamily: grotesque, fontSize: 12.5, fontWeight: 500, padding: "6px 10px", borderRadius: 6, cursor: "pointer" }}>
@@ -825,11 +864,16 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                   <textarea value={segment.text} onChange={e => updateSegment(i, { text: e.target.value })} rows={2}
                     style={{ ...field, fontSize: 15, lineHeight: 1.5, resize: "none" }} />
                 </div>
-                <div>
-                  <span style={{ ...label, marginBottom: 6, fontSize: 11.5 }}>Visual direction</span>
-                  <input value={segment.visual_prompt} onChange={e => updateSegment(i, { visual_prompt: e.target.value })}
-                    style={{ ...field, fontSize: 13, color: L.ash }} />
-                </div>
+                {/* Hidden only for background formats, where the runner does
+                    `bg_query or seg["visual_prompt"]` — so anything typed here
+                    is silently discarded. Image posts DO use it per slide. */}
+                {!oneBackground && (
+                  <div>
+                    <span style={{ ...label, marginBottom: 6, fontSize: 11.5 }}>Visual direction</span>
+                    <input value={segment.visual_prompt} onChange={e => updateSegment(i, { visual_prompt: e.target.value })}
+                      style={{ ...field, fontSize: 13, color: L.ash }} />
+                  </div>
+                )}
 
                 {regenIndex === i && (
                   <div style={{ display: "flex", gap: 8 }}>
@@ -944,7 +988,7 @@ function ScriptEditor({ videoId }: { videoId: string }) {
         {outputType !== "script" ? (
           <aside style={{ ...card, padding: 20, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 18 }}>
             <p style={{ margin: 0, fontSize: 14.5, fontWeight: 650 }}>Render settings</p>
-            {outputType === "narrated" && (
+            {outputType === "narrated" && shows("voice") && (
               <div>
                 <span style={label}>Voice</span>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -986,7 +1030,8 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                 )}
               </div>
             )}
-            {/* Where the pictures come from */}
+            {/* Kept for background formats too: `ai_visuals` only excludes
+                image posts, so switching to AI illustration works here. */}
             {(outputType === "narrated" || outputType === "visual") && (
               <div>
                 <span style={label}>Visuals</span>
@@ -1019,7 +1064,45 @@ function ScriptEditor({ videoId }: { videoId: string }) {
               </div>
             )}
 
-            {outputType !== "image" && outputType !== "fake_text" && (
+            {/* Pace and music are what formats actually differ on — a shayari
+                at 1.2 words/sec against a news update at 2.8. Both were only
+                set at generation time until now, so a video that came out
+                read-too-fast could not be fixed without regenerating it. */}
+            {outputType === "narrated" && shows("voice") && (
+              <div>
+                <span style={label}>Narration pace</span>
+                <select value={pace ?? ""} onChange={e => setPace(e.target.value ? Number(e.target.value) : null)}
+                  style={field}>
+                  <option value="">Format default</option>
+                  {(look?.narration_paces ?? []).map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {outputType !== "image" && (
+              <div>
+                <span style={label}>Music</span>
+                <select value={musicMood} onChange={e => setMusicMood(e.target.value)} style={field}>
+                  <option value="">Format default</option>
+                  {(look?.music_moods ?? []).map(m => (
+                    <option key={m.key} value={m.key}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Explains the missing per-scene field, so it reads as "not how
+                this format works" rather than as a missing feature. */}
+            {oneBackground && (
+              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: L.dust }}>
+                This format runs on one continuous background, so scenes have no
+                individual visual direction. Pinning a clip to a scene still overrides it.
+              </p>
+            )}
+
+            {outputType !== "image" && outputType !== "fake_text" && shows("captions") && (
               <div>
                 <span style={label}>Captions</span>
                 <select value={captionStyle} onChange={e => setCaptionStyle(e.target.value)} style={field}>
@@ -1054,18 +1137,20 @@ function ScriptEditor({ videoId }: { videoId: string }) {
                 </label>
               </div>
             )}
-            <div>
-              <span style={label}>Aspect ratio</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {(aspectRatios?.items ?? [{ key: "9:16", label: "Vertical", desc: "Shorts · Reels · TikTok" }]).map(a => (
-                  <button key={a.key} onClick={() => setAspectRatio(a.key)} title={a.desc}
-                    style={{ ...optionBtn(aspectRatio === a.key), padding: "9px 12px", display: "flex", alignItems: "baseline", gap: 8 }}>
-                    <span style={{ fontFamily: mono, fontSize: 13, color: L.ink }}>{a.key}</span>
-                    <span style={{ fontSize: 12, color: L.dust }}>{a.label}</span>
-                  </button>
-                ))}
+            {shows("aspect") && (
+              <div>
+                <span style={label}>Aspect ratio</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {(aspectRatios?.items ?? [{ key: "9:16", label: "Vertical", desc: "Shorts · Reels · TikTok" }]).map(a => (
+                    <button key={a.key} onClick={() => setAspectRatio(a.key)} title={a.desc}
+                      style={{ ...optionBtn(aspectRatio === a.key), padding: "9px 12px", display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontFamily: mono, fontSize: 13, color: L.ink }}>{a.key}</span>
+                      <span style={{ fontSize: 12, color: L.dust }}>{a.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             {/* Try one scene before spending anything */}
             {outputType !== "image" && (
               <div style={{ borderTop: `1px solid ${L.ruleFaint}`, paddingTop: 14 }}>
