@@ -7,10 +7,16 @@
  * creates the account and grants the free credits. So this page has to
  * speak to BOTH audiences, or a new visitor reads "sign in" as
  * "members only" and leaves.
+ *
+ * There is still only ONE button, because with Google there is only one
+ * action. What changes is which audience the page addresses, taken from
+ * how you arrived: the header's "Sign in" link sends `?mode=signin`, so a
+ * returning user is greeted rather than invited to register. Two buttons
+ * doing the same thing would just make people ask which one they are.
  */
 import { signIn } from "next-auth/react"
 import Link from "next/link"
-import { useState } from "react"
+import { use, useState } from "react"
 import { MdOutlineArrowBack, MdOutlineCheck } from "react-icons/md"
 import { L, grotesque, mono } from "@/lib/line/tokens"
 
@@ -20,7 +26,14 @@ const INCLUDED = [
   "Trends, your own script, a link, or your own footage",
 ]
 
-export default function SignInPage() {
+// Read as a client-component page prop via `use`, not `useSearchParams` —
+// the hook would force a Suspense boundary around this tree at build time.
+export default function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const returning = use(searchParams).mode === "signin"
   const [isLoading, setIsLoading] = useState(false)
 
   const handleGoogleSignIn = async () => {
@@ -43,10 +56,12 @@ export default function SignInPage() {
           <img src="/brand/kliptos-logo-2k.jpeg" alt="Kliptos"
             style={{ width: 44, height: 44, borderRadius: 11, objectFit: "cover", border: `1px solid ${L.rule}`, margin: "0 auto 14px", display: "block" }} />
           <h1 style={{ margin: "0 0 6px", fontSize: 25, fontWeight: 700, letterSpacing: "-0.02em" }}>
-            Create your account
+            {returning ? "Welcome back" : "Create your account"}
           </h1>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: L.ash }}>
-            Continue with Google — if you&apos;ve been here before, the same button signs you in.
+            {returning
+              ? "Continue with Google — the same account you signed up with. No password to remember."
+              : "Continue with Google — if you’ve been here before, the same button signs you in."}
           </p>
         </div>
 
@@ -71,18 +86,33 @@ export default function SignInPage() {
             {isLoading ? "Opening Google…" : "Continue with Google"}
           </button>
 
-          <p style={{ margin: "12px 0 0", fontSize: 12, color: L.dust, textAlign: "center" }}>
-            No card needed · <span style={{ fontFamily: mono }}>3</span> free credits to start
-          </p>
+          {/* The free-tier pitch is for new visitors only — telling a
+              returning creator about their "first Shorts" reads as if the
+              app has forgotten them. */}
+          {!returning && (
+            <>
+              <p style={{ margin: "12px 0 0", fontSize: 12, color: L.dust, textAlign: "center" }}>
+                No card needed · <span style={{ fontFamily: mono }}>3</span> free credits to start
+              </p>
 
-          <ul style={{ margin: "20px 0 0", padding: "18px 0 0", borderTop: `1px solid ${L.ruleFaint}`, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
-            {INCLUDED.map(item => (
-              <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13.5, lineHeight: 1.5, color: L.ash }}>
-                <MdOutlineCheck size={16} color={L.ready} style={{ flexShrink: 0, marginTop: 2 }} />
-                {item}
-              </li>
-            ))}
-          </ul>
+              <ul style={{ margin: "20px 0 0", padding: "18px 0 0", borderTop: `1px solid ${L.ruleFaint}`, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+                {INCLUDED.map(item => (
+                  <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13.5, lineHeight: 1.5, color: L.ash }}>
+                    <MdOutlineCheck size={16} color={L.ready} style={{ flexShrink: 0, marginTop: 2 }} />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {returning && (
+            <p style={{ margin: "14px 0 0", fontSize: 12, lineHeight: 1.6, color: L.dust, textAlign: "center" }}>
+              New here?{" "}
+              <Link href="/sign-in" style={{ color: L.ash }}>Create an account</Link>
+              {" "}— it is the same button.
+            </p>
+          )}
         </div>
 
         <p style={{ margin: "16px 0 0", fontSize: 12, lineHeight: 1.6, color: L.dust, textAlign: "center" }}>

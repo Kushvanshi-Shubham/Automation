@@ -76,7 +76,9 @@ export default function LandingPage() {
             <a href="#faq" style={{ color: "inherit", textDecoration: "none" }}>Questions</a>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href="/sign-in" style={{ fontSize: 13.5, color: L.ash, textDecoration: "none", padding: "8px 10px" }}>Sign in</Link>
+            {/* Same destination as "Start free" — with Google there is only
+                one action. `mode=signin` only changes who the page greets. */}
+            <Link href="/sign-in?mode=signin" style={{ fontSize: 13.5, color: L.ash, textDecoration: "none", padding: "8px 10px" }}>Sign in</Link>
             <Link href="/sign-in" style={{ ...makeBtn, fontSize: 13.5, padding: "9px 16px" }}>Start free</Link>
           </div>
         </div>
@@ -295,7 +297,7 @@ export default function LandingPage() {
             <Link href="/terms" style={{ color: "inherit", textDecoration: "none" }}>Terms</Link>
             <Link href="/privacy" style={{ color: "inherit", textDecoration: "none" }}>Privacy</Link>
             <Link href="/refunds" style={{ color: "inherit", textDecoration: "none" }}>Refunds</Link>
-            <Link href="/sign-in" style={{ color: "inherit", textDecoration: "none" }}>Sign in</Link>
+            <Link href="/sign-in?mode=signin" style={{ color: "inherit", textDecoration: "none" }}>Sign in</Link>
           </div>
         </div>
       </footer>
