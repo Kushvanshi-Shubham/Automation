@@ -32,6 +32,10 @@ Pillow>=10.0.0
 google-genai>=1.0.0
 aiohttp>=3.9.0
 faster-whisper>=1.0.0
+# Pinned explicitly because services/highlights.py imports it directly now.
+# It was already installed as a faster-whisper dependency, and relying on
+# that would break the moment whisper stopped needing it.
+numpy>=1.26.0
 
 # YouTube
 google-api-python-client>=2.130.0

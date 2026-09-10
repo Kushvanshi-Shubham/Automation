@@ -1,4 +1,8 @@
-"""Celery task: process an uploaded creator asset (probe → transcribe → highlights)."""
+"""Celery task: process an uploaded creator asset (probe → transcribe → highlights).
+
+Highlights come from two signals: what was SAID (whisper + an LLM) and what
+was LOUD (audio energy). Gameplay only has the second.
+"""
 import asyncio
 import logging
 from pathlib import Path
@@ -16,7 +20,7 @@ async def _run(asset_id: str) -> dict:
 
     from app.pipeline import transcribe
     from app.pipeline.assembler import probe_duration
-    from app.services import storage
+    from app.services import highlights as sound_highlights, storage
     from app.services.user_keys import get_user_keys
 
     async with AsyncSessionLocal() as db:
@@ -39,7 +43,25 @@ async def _run(asset_id: str) -> dict:
 
         async with AsyncSessionLocal() as db:
             user_keys = await get_user_keys(db, user_id)
-        highlights = await transcribe.suggest_highlights(transcript, user_keys=user_keys)
+        speech = await transcribe.suggest_highlights(transcript, user_keys=user_keys)
+
+        # Gameplay has almost no transcript, so speech-picked highlights come
+        # back empty and the creator used to be told "no strong clip moments
+        # found" — for the exact footage Kliptos claims to serve. Loudness
+        # tops the list up. Analysis happens here rather than on request
+        # because the file is already local; on the API box it would mean
+        # downloading up to 500MB inside a web request.
+        sound: list[dict] = []
+        try:
+            sound = await asyncio.to_thread(
+                sound_highlights.find_highlights, path, duration, 5, 5.0, 90.0
+            )
+        except sound_highlights.NoAudioError:
+            logger.info("asset %s has no audio track — speech highlights only", asset_id)
+        except Exception:
+            # Suggestions are a convenience; never fail an upload over them.
+            logger.warning("loudness analysis failed for %s", asset_id, exc_info=True)
+        highlights = sound_highlights.merge(speech, sound)
 
         async with AsyncSessionLocal() as db:
             asset = await db.get(Asset, UUID(asset_id))
@@ -49,7 +71,8 @@ async def _run(asset_id: str) -> dict:
             asset.status = "ready"
             asset.error_message = None
             await db.commit()
-        logger.info("asset %s ready: %.0fs, %d highlights", asset_id, duration, len(highlights))
+        logger.info("asset %s ready: %.0fs, %d highlights (%d speech, %d sound)",
+                    asset_id, duration, len(highlights), len(speech), len(sound))
         return {"duration": duration, "highlights": len(highlights)}
     except Exception as exc:
         logger.exception("asset processing failed: %s", asset_id)

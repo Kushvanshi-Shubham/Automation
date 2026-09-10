@@ -59,6 +59,14 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   into ONE script. Earlier notes here promised *four* topics; it ships as
   **two**, because asked to connect three or more unrelated trends the model
   produces mush and two is what reads as a take. Say two.
+- **Highlight detection** — two signals now. Speech: whisper transcribes the
+  upload and an LLM picks the best spoken moments *with a reason*. Sound: peaks
+  in audio energy, which is what finds the kill or the crash in gameplay where
+  there is no transcript to reason about. The speech half already existed; the
+  sound half was added 2026-09-10, and before it gameplay footage returned "no
+  strong clip moments found". **Do not call it AI that understands the footage
+  — loudness cannot tell a clutch play from a loud menu jingle**, which is why
+  the UI labels those suggestions "by sound" and asks the creator to check.
 - **Interface that adapts per video type** — partly. The create screen already
   varied (mood, slides, length, style); what was added is narration pace and
   music mood in the studio, and hiding per-scene visual direction on formats
@@ -66,7 +74,7 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   per format — claim that the controls match the format.
 
 **NOT built — say "next", never "has":**
-- **Gaming montage** — no automatic highlight detection, no beat-syncing. Clip cutting from uploads exists; choosing the best moments and cutting to music does not.
+- **Gaming montage** — **highlight detection is real** (see above); what does not exist is stitching several highlights into ONE montage, or cutting to the beat of the music. One render still produces one clip. Say "it finds the moments; joining them into a montage is next."
 - **Payments** — checkout returns 501. Razorpay KYC not started.
 - **Instagram publishing**, AI presenter, email/password signup, onboarding.
 - **Monthly credit grants** — nothing in the code gives subscribers their credits.

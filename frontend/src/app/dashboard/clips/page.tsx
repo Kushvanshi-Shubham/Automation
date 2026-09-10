@@ -21,6 +21,8 @@ interface Highlight {
   end: number
   title: string
   reason: string
+  /** How this moment was found: what was said, or what was loud. */
+  source?: "speech" | "sound"
 }
 
 interface AssetItem {
@@ -247,14 +249,25 @@ export default function ClipsPage() {
 
             {asset.status === "ready" && (asset.highlights ?? []).length === 0 && (
               <p style={{ margin: 0, padding: "11px 18px", fontSize: 13, color: L.ash }}>
-                No strong clip moments found in this file — you can still use it scene-by-scene in Create.
+                Nothing stood out here — no clear spoken moments, and the sound stays fairly
+                even throughout. You can still use this footage scene-by-scene in Create.
               </p>
             )}
 
             {(asset.highlights ?? []).map((h, i) => (
               <div key={i} style={{ padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderTop: i > 0 ? `1px solid ${L.ruleFaint}` : "none" }}>
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</p>
+                  <p style={{ margin: 0, display: "flex", alignItems: "center", gap: 7, fontSize: 13.5, fontWeight: 600, minWidth: 0 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</span>
+                    {/* Loudness finds the action but cannot tell a clutch play
+                        from a menu jingle, so say which signal picked it. */}
+                    {h.source === "sound" && (
+                      <span title="Found from the audio, not from speech — worth checking before you render"
+                        style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: L.working, border: `1px solid ${alpha(L.working, 40)}`, padding: "1px 6px", borderRadius: 4 }}>
+                        by sound
+                      </span>
+                    )}
+                  </p>
                   <p style={{ margin: "3px 0 0", display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: L.dust }}>
                     <MdOutlineSchedule size={13} />
                     <span style={{ fontFamily: mono }}>{fmtTime(h.start)}–{fmtTime(h.end)}</span>
