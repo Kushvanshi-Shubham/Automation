@@ -352,7 +352,12 @@ export default function ClipsPage() {
                 <div style={{ padding: "12px 18px", borderTop: `1px solid ${alpha(L.make, 40)}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: alpha(L.make, 8) }}>
                   <span style={{ fontSize: 13, color: L.ink }}>
                     <strong style={{ fontWeight: 600 }}>{chosen.length} moments</strong>
-                    <span style={{ color: L.ash }}> · about {seconds}s, cut in the order they happen</span>
+                    <span style={{ color: L.ash }}>
+                      {" "}· about {seconds}s, cut in the order they happen
+                      {/* Only true when there is a bed: with no music there is
+                          no grid to snap to, so do not imply one. */}
+                      {musicMood && " · cuts land on the beat"}
+                    </span>
                   </span>
                   <select value={musicMood} onChange={e => setMusicMood(e.target.value)}
                     title="Music sits under the original audio, it does not replace it"

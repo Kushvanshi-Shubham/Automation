@@ -59,6 +59,11 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   into ONE script. Earlier notes here promised *four* topics; it ships as
   **two**, because asked to connect three or more unrelated trends the model
   produces mush and two is what reads as a take. Say two.
+- **Beat-synced cuts** — when a montage has a music bed, the track's tempo is
+  detected and each clip's length is nudged so every cut lands on a beat. Added
+  2026-09-10. **The honest limit: the CUT lands on the beat, the action does
+  not move.** A kill that happened off-beat still happens off-beat. Claim
+  "the cuts are on the beat", never "it edits to the music".
 - **Montage** — tick two to six detected moments from one upload and they are
   cut back to back into one reel, in the order they happen in the recording,
   with an optional music bed ducked *under* the original audio (in gameplay
@@ -79,7 +84,6 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   per format — claim that the controls match the format.
 
 **NOT built — say "next", never "has":**
-- **Beat-syncing** — cuts do not land on the beat of the music. Montages join at whatever length the creator picked. This is the last piece of the gaming claim: say "it finds the moments and joins them; cutting to the beat is next."
 - **Payments** — checkout returns 501. Razorpay KYC not started.
 - **Instagram publishing**, AI presenter, email/password signup, onboarding.
 - **Monthly credit grants** — nothing in the code gives subscribers their credits.

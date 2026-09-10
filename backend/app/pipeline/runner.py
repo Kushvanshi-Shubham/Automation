@@ -239,6 +239,7 @@ async def _run_montage(job_key: str, job_uuid, video, out_dir: Path, workdir: Pa
         path_ref = asset.path
         transcript = asset.transcript or {}
         filename = asset.filename
+        asset_duration = float(asset.duration or 0.0)
     source = await _resolve_asset_source(path_ref, workdir)
 
     data = video.script_data or {}
@@ -247,6 +248,44 @@ async def _run_montage(job_key: str, job_uuid, video, out_dir: Path, workdir: Pa
     if tier.get("height"):
         aspect = {**aspect, **dict(zip(("w", "h"), plans.tier_dimensions(aspect["w"], aspect["h"], int(tier["height"]))))}
     caption_style = data.get("caption_style") or captions.DEFAULT_CAPTION_STYLE
+
+    # Music is chosen before the clips are cut, because if there IS a bed the
+    # clip lengths get snapped to its beat grid — mix_music loops the track
+    # from its own start, so music t=0 is montage t=0 and the grid lines up.
+    music = _pick_music(data.get("music_mood")) if data.get("music_mood") else None
+    beat_info = None
+    if music is not None:
+        from app.services import beats
+
+        try:
+            beat_info = await asyncio.to_thread(beats.detect, music)
+        except beats.NoBeatError as exc:
+            # An ambient bed with no pulse is a fine soundtrack; there is
+            # just nothing to snap to. Cuts keep the creator's lengths.
+            logger.info("no beat grid in %s (%s) — cuts stay as chosen", music.name, exc)
+        except Exception:
+            logger.warning("beat detection failed for %s", music.name, exc_info=True)
+
+    if beat_info:
+        from app.services import beats
+
+        wanted = [float(r["end"]) - float(r["start"]) for r in ranges]
+        snapped = beats.snap_durations(
+            wanted, beat_info["period"], beat_info["phase"], min_seconds=5.0
+        )
+        adjusted = []
+        for rng, length in zip(ranges, snapped):
+            start = float(rng["start"])
+            end = start + length
+            # A snap that runs off the end of the source loses the alignment
+            # for that one clip rather than reading past the file.
+            if asset_duration and end > asset_duration:
+                end = asset_duration
+            adjusted.append({"start": start, "end": round(end, 3)})
+        ranges = adjusted
+        logger.info("montage snapped to %.1f bpm (phase %.2fs): %s -> %s",
+                    beat_info["bpm"], beat_info["phase"],
+                    [round(w, 2) for w in wanted], [round(s, 2) for s in snapped])
 
     pieces: list[Path] = []
     for i, rng in enumerate(ranges):
@@ -274,7 +313,6 @@ async def _run_montage(job_key: str, job_uuid, video, out_dir: Path, workdir: Pa
     assembler.concat_segments(pieces, joined, workdir)
 
     final_path = (out_dir / "final.mp4").resolve()
-    music = _pick_music(data.get("music_mood")) if data.get("music_mood") else None
     if music is not None:
         _publish(job_key, "running", "music", 85)
         # Ducked under the gameplay audio, not over it.
