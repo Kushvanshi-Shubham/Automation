@@ -59,6 +59,11 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   into ONE script. Earlier notes here promised *four* topics; it ships as
   **two**, because asked to connect three or more unrelated trends the model
   produces mush and two is what reads as a take. Say two.
+- **Montage** — tick two to six detected moments from one upload and they are
+  cut back to back into one reel, in the order they happen in the recording,
+  with an optional music bed ducked *under* the original audio (in gameplay
+  the original audio is the content). Priced per clip, because the render cost
+  is per clip. Added 2026-09-10.
 - **Highlight detection** — two signals now. Speech: whisper transcribes the
   upload and an LLM picks the best spoken moments *with a reason*. Sound: peaks
   in audio energy, which is what finds the kill or the crash in gameplay where
@@ -74,7 +79,7 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   per format — claim that the controls match the format.
 
 **NOT built — say "next", never "has":**
-- **Gaming montage** — **highlight detection is real** (see above); what does not exist is stitching several highlights into ONE montage, or cutting to the beat of the music. One render still produces one clip. Say "it finds the moments; joining them into a montage is next."
+- **Beat-syncing** — cuts do not land on the beat of the music. Montages join at whatever length the creator picked. This is the last piece of the gaming claim: say "it finds the moments and joins them; cutting to the beat is next."
 - **Payments** — checkout returns 501. Razorpay KYC not started.
 - **Instagram publishing**, AI presenter, email/password signup, onboarding.
 - **Monthly credit grants** — nothing in the code gives subscribers their credits.

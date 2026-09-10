@@ -30,6 +30,10 @@ MAX_ASSETS_PER_USER = 10  # until object storage exists
 CLIP_CREDIT_COST = 1
 MIN_CLIP_SECONDS = 5
 MAX_CLIP_SECONDS = 90
+# Two moments is the smallest thing that is a reel rather than a clip; past
+# six a montage of 5-second cuts already exceeds the 90s ceiling.
+MIN_MONTAGE_CLIPS = 2
+MAX_MONTAGE_CLIPS = 6
 
 
 def _looks_like_media(head: bytes, ext: str) -> bool:
@@ -262,6 +266,144 @@ async def create_clip(
     await db.commit()
 
     return {"video_id": video_id, "job_id": job_id, "status": "queued"}
+
+
+class MontageRange(BaseModel):
+    start: float
+    end: float
+
+
+class MontageCreateRequest(BaseModel):
+    ranges: list[MontageRange]
+    title: Optional[str] = None
+    caption_style: Optional[str] = None
+    aspect_ratio: Optional[str] = None
+    # Ducked under the original audio rather than replacing it — in gameplay
+    # the original audio IS the content. Omit for no music.
+    music_mood: Optional[str] = None
+
+
+@router.post("/{asset_id}/montage", dependencies=[Depends(rate_limit("clip_create"))])
+async def create_montage(
+    asset_id: UUID,
+    req: MontageCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Join several highlights from one upload into a single reel.
+
+    Priced per clip, because the render cost is per clip: joining six
+    moments is six trims and six caption passes, not one.
+    """
+    asset = await db.get(Asset, asset_id)
+    if asset is None or asset.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+    if asset.status != "ready":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Asset is still being analyzed" if asset.status in ("uploaded", "processing")
+            else "Asset processing failed — re-upload it",
+        )
+    if asset.kind != "video":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Audio-only uploads can't be clipped into video yet",
+        )
+    if not (MIN_MONTAGE_CLIPS <= len(req.ranges) <= MAX_MONTAGE_CLIPS):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"A montage takes {MIN_MONTAGE_CLIPS}–{MAX_MONTAGE_CLIPS} moments"
+            f" — {'pick another one' if len(req.ranges) < MIN_MONTAGE_CLIPS else 'drop a few'}",
+        )
+
+    # Ordered by position in the source, so the reel follows the recording
+    # rather than the order the creator happened to tick the boxes.
+    ranges = sorted(
+        ({"start": round(float(r.start), 2), "end": round(float(r.end), 2)} for r in req.ranges),
+        key=lambda r: r["start"],
+    )
+    total = 0.0
+    previous_end = -1.0
+    for r in ranges:
+        if r["start"] < 0 or r["end"] <= r["start"]:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid clip range")
+        if r["end"] - r["start"] < MIN_CLIP_SECONDS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Every moment must be at least {MIN_CLIP_SECONDS} seconds",
+            )
+        if asset.duration and r["start"] >= asset.duration:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="A moment starts past the end of the video")
+        if asset.duration:
+            r["end"] = min(r["end"], round(asset.duration, 2))
+        # Overlapping ranges would show the same footage twice in a row.
+        if r["start"] < previous_end:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Two moments overlap — the same footage would play twice",
+            )
+        previous_end = r["end"]
+        total += r["end"] - r["start"]
+    if total > MAX_CLIP_SECONDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"The montage is {round(total)}s — keep it under {MAX_CLIP_SECONDS}s",
+        )
+
+    if req.caption_style:
+        from app.pipeline.captions import CAPTION_STYLES
+
+        if req.caption_style not in CAPTION_STYLES:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown caption style")
+    if req.aspect_ratio:
+        from app.pipeline.assembler import ASPECT_RATIOS
+
+        if req.aspect_ratio not in ASPECT_RATIOS:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown aspect ratio")
+    if req.music_mood:
+        from app.services.formats import MUSIC_MOODS
+
+        if req.music_mood not in MUSIC_MOODS:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown music mood")
+
+    cost = CLIP_CREDIT_COST * len(ranges)
+    if current_user.credit_balance < cost:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Not enough credits")
+
+    script_data: dict = {"montage": {"asset_id": str(asset.id), "ranges": ranges}}
+    for key, value in (("caption_style", req.caption_style), ("aspect_ratio", req.aspect_ratio),
+                       ("music_mood", req.music_mood)):
+        if value:
+            script_data[key] = value
+
+    video = Video(
+        user_id=current_user.id,
+        title=(req.title or f"Montage from {asset.filename}")[:100],
+        status="rendering",
+        output_type="montage",
+        visual_engine="source",
+        credits_used=cost,
+        script_data=script_data,
+    )
+    current_user.credit_balance -= cost
+    db.add(video)
+    await db.flush()
+    db.add(CreditLedger(user_id=current_user.id, amount=-cost, type="video_debit",
+                        description=f"Montage render ({len(ranges)} clips)", video_id=video.id))
+    job = PipelineJob(video_id=video.id, user_id=current_user.id, status="queued",
+                      progress={"stage": "queued", "percent": 0})
+    db.add(job)
+    await db.flush()
+    video_id, job_id = video.id, job.id
+    await db.commit()
+
+    # Enqueue only after commit — the job must be durable before the worker sees it.
+    from app.pipeline.tasks import run_pipeline
+    task = run_pipeline.delay(str(job_id))
+    job.celery_task_id = task.id
+    await db.commit()
+
+    return {"video_id": video_id, "job_id": job_id, "status": "queued", "credits_used": cost}
 
 
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)

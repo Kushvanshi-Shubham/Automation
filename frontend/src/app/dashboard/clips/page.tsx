@@ -59,6 +59,20 @@ export default function ClipsPage() {
   const [creatingKey, setCreatingKey] = useState<string | null>(null)
   const [captionStyle, setCaptionStyle] = useState("classic")
   const [aspectRatio, setAspectRatio] = useState("9:16")
+  // Keyed by asset id: a montage is cut from ONE upload, so a selection can
+  // never span two files. Value is the set of highlight start times.
+  const [picked, setPicked] = useState<Record<string, number[]>>({})
+  const [musicMood, setMusicMood] = useState("")
+
+  const pickedIn = (assetId: string) => picked[assetId] ?? []
+  const togglePick = (assetId: string, start: number) =>
+    setPicked(prev => {
+      const current = prev[assetId] ?? []
+      return {
+        ...prev,
+        [assetId]: current.includes(start) ? current.filter(s => s !== start) : [...current, start],
+      }
+    })
 
   const { data: captionStyles } = useQuery<{ items: { key: string; label: string; desc: string }[] }>({
     queryKey: ["caption-styles"],
@@ -69,6 +83,9 @@ export default function ClipsPage() {
     queryKey: ["aspect-ratios"],
     queryFn: () => fetchApi("/pipeline/aspect-ratios"),
     staleTime: Infinity,
+  })
+  const { data: look } = useQuery<{ music_moods: { key: string; label: string }[] }>({
+    queryKey: ["look-options"], queryFn: () => fetchApi("/pipeline/look-options"), staleTime: Infinity,
   })
 
   const createClip = useMutation({
@@ -86,6 +103,29 @@ export default function ClipsPage() {
     onMutate: (p) => {
       setClipError(null)
       setCreatingKey(`${p.assetId}:${p.h.start}`)
+    },
+    onSuccess: (data) => router.push(`/dashboard/preview/${data.video_id}?job=${data.job_id}`),
+    onError: (e) => {
+      setClipError((e as Error).message)
+      setCreatingKey(null)
+    },
+  })
+
+  const createMontage = useMutation({
+    mutationFn: (p: { assetId: string; ranges: { start: number; end: number }[] }) =>
+      fetchApi(`/media-assets/${p.assetId}/montage`, {
+        method: "POST",
+        body: JSON.stringify({
+          ranges: p.ranges,
+          caption_style: captionStyle,
+          aspect_ratio: aspectRatio,
+          // Ducked under the original audio, not replacing it.
+          music_mood: musicMood || undefined,
+        }),
+      }) as Promise<{ video_id: string; job_id: string }>,
+    onMutate: (p) => {
+      setClipError(null)
+      setCreatingKey(`montage:${p.assetId}`)
     },
     onSuccess: (data) => router.push(`/dashboard/preview/${data.video_id}?job=${data.job_id}`),
     onError: (e) => {
@@ -256,7 +296,14 @@ export default function ClipsPage() {
 
             {(asset.highlights ?? []).map((h, i) => (
               <div key={i} style={{ padding: "11px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderTop: i > 0 ? `1px solid ${L.ruleFaint}` : "none" }}>
-                <div style={{ minWidth: 0 }}>
+                {/* Tick two or more to join them into one reel instead of
+                    rendering each moment as its own short. */}
+                <input type="checkbox" checked={pickedIn(asset.id).includes(h.start)}
+                  onChange={() => togglePick(asset.id, h.start)}
+                  disabled={asset.kind !== "video"}
+                  title="Include this moment in a montage"
+                  style={{ flexShrink: 0, width: 15, height: 15, accentColor: L.make, cursor: asset.kind === "video" ? "pointer" : "default" }} />
+                <div style={{ minWidth: 0, marginRight: "auto" }}>
                   <p style={{ margin: 0, display: "flex", alignItems: "center", gap: 7, fontSize: 13.5, fontWeight: 600, minWidth: 0 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</span>
                     {/* Loudness finds the action but cannot tell a clutch play
@@ -293,6 +340,42 @@ export default function ClipsPage() {
                 </button>
               </div>
             ))}
+
+            {/* Appears only once a reel is actually possible. */}
+            {pickedIn(asset.id).length >= 2 && (() => {
+              const chosen = (asset.highlights ?? [])
+                .filter(h => pickedIn(asset.id).includes(h.start))
+                .map(h => ({ start: h.start, end: h.end }))
+              const seconds = Math.round(chosen.reduce((t, r) => t + (r.end - r.start), 0))
+              const busy = creatingKey === `montage:${asset.id}`
+              return (
+                <div style={{ padding: "12px 18px", borderTop: `1px solid ${alpha(L.make, 40)}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: alpha(L.make, 8) }}>
+                  <span style={{ fontSize: 13, color: L.ink }}>
+                    <strong style={{ fontWeight: 600 }}>{chosen.length} moments</strong>
+                    <span style={{ color: L.ash }}> · about {seconds}s, cut in the order they happen</span>
+                  </span>
+                  <select value={musicMood} onChange={e => setMusicMood(e.target.value)}
+                    title="Music sits under the original audio, it does not replace it"
+                    style={{ ...field, width: "auto", padding: "7px 10px", fontSize: 12.5 }}>
+                    <option value="">No music bed</option>
+                    {(look?.music_moods ?? []).map(m => (
+                      <option key={m.key} value={m.key}>{m.label}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => createMontage.mutate({ assetId: asset.id, ranges: chosen })}
+                    disabled={busy || chosen.length > 6}
+                    title={chosen.length > 6 ? "A montage takes at most 6 moments" : "Join these into one reel"}
+                    style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, background: L.make, border: "none", color: "#fff", fontFamily: grotesque, fontSize: 12.5, fontWeight: 600, padding: "8px 13px", borderRadius: 7, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+                    <MdOutlineContentCut size={15} />
+                    {busy ? "Starting…" : `Make a montage · ${chosen.length} credits`}
+                  </button>
+                  <button onClick={() => setPicked(prev => ({ ...prev, [asset.id]: [] }))}
+                    style={{ background: "transparent", border: "none", color: L.dust, fontFamily: grotesque, fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+                    clear
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         ))}
       </div>

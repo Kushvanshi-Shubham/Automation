@@ -212,6 +212,93 @@ async def _run_clip(job_key: str, job_uuid, video, out_dir: Path, workdir: Path)
     return {"video_url": f"/media/{video.id}/final.mp4", "duration": duration}
 
 
+async def _run_montage(job_key: str, job_uuid, video, out_dir: Path, workdir: Path) -> dict:
+    """Montage branch: several highlights from one upload, cut back to back.
+
+    A clip render is one moment; this is the reel. The original audio is
+    kept — in gameplay that IS the content — with an optional music bed
+    ducked underneath, which is why it uses mix_music rather than replacing
+    the soundtrack.
+
+    Cuts are not beat-synced yet: each piece keeps the length the creator
+    chose. Snapping them to the music's beat grid is the next step, and
+    saying so here is cheaper than someone inferring it already happens.
+    """
+    from app.models.asset import Asset
+    from app.pipeline import transcribe
+
+    cfg = (video.script_data or {}).get("montage") or {}
+    ranges = cfg.get("ranges") or []
+    if len(ranges) < 2:
+        raise RuntimeError("a montage needs at least 2 clips")
+
+    async with AsyncSessionLocal() as db:
+        asset = await db.get(Asset, UUID(str(cfg["asset_id"])))
+        if asset is None:
+            raise RuntimeError("source upload no longer exists")
+        path_ref = asset.path
+        transcript = asset.transcript or {}
+        filename = asset.filename
+    source = await _resolve_asset_source(path_ref, workdir)
+
+    data = video.script_data or {}
+    aspect = ASPECT_RATIOS.get(data.get("aspect_ratio") or "", ASPECT_RATIOS[assembler.DEFAULT_ASPECT])
+    tier = data.get("tier") or {}
+    if tier.get("height"):
+        aspect = {**aspect, **dict(zip(("w", "h"), plans.tier_dimensions(aspect["w"], aspect["h"], int(tier["height"]))))}
+    caption_style = data.get("caption_style") or captions.DEFAULT_CAPTION_STYLE
+
+    pieces: list[Path] = []
+    for i, rng in enumerate(ranges):
+        start, end = float(rng["start"]), float(rng["end"])
+        # Captions per piece, with word times rebased to that piece's own
+        # zero — a montage's third clip starts at 0 in the output even
+        # though it started minutes into the source.
+        words = transcribe.words_in_range(transcript, start, end)
+        ass_path = None
+        if words:
+            ass_path = captions.write_ass(
+                captions.group_words(words), workdir / f"montage_{i:02d}.ass",
+                style=caption_style, play_res=(aspect["w"], aspect["h"]),
+            )
+        piece = workdir / f"piece_{i:02d}.mp4"
+        assembler.render_clip(source, start, end, piece, ass_path=ass_path,
+                              width=aspect["w"], height=aspect["h"])
+        pieces.append(piece)
+        _publish(job_key, "running", "clips", 15 + (i + 1) / len(ranges) * 45)
+
+    _publish(job_key, "running", "assembly", 70)
+    joined = workdir / "joined.mp4"
+    # Every piece went through render_clip with the same size and codec
+    # settings, so this is a stream copy rather than a re-encode.
+    assembler.concat_segments(pieces, joined, workdir)
+
+    final_path = (out_dir / "final.mp4").resolve()
+    music = _pick_music(data.get("music_mood")) if data.get("music_mood") else None
+    if music is not None:
+        _publish(job_key, "running", "music", 85)
+        # Ducked under the gameplay audio, not over it.
+        assembler.mix_music(joined, music, final_path)
+    else:
+        shutil.copyfile(joined, final_path)
+    duration = assembler.probe_duration(final_path)
+
+    async with AsyncSessionLocal() as db:
+        job = await db.get(PipelineJob, job_uuid)
+        video_row = await db.get(Video, job.video_id)
+        video_row.status = "ready"
+        video_row.video_url = f"/media/{video_row.id}/final.mp4"
+        job.status = "completed"
+        job.completed_at = datetime.now(timezone.utc)
+        job.progress = {"stage": "completed", "percent": 100, "duration": duration}
+        await db.commit()
+
+    _publish(job_key, "completed", "completed", 100)
+    logger.info("montage complete: %s (%d clips, %.1fs from %s)",
+                final_path, len(pieces), duration, filename)
+    return {"video_url": f"/media/{video.id}/final.mp4", "duration": duration}
+
+
 async def _run_fake_text(job_key: str, job_uuid, video, segments: list[dict], out_dir: Path, workdir: Path, aspect: dict) -> dict:
     """Fake-text-conversation branch: chat bubbles with typing beats over one
     looped background clip; music is the only audio."""
@@ -279,8 +366,9 @@ async def run(job_id: str) -> dict:
 
         video = await db.get(Video, job.video_id)
         segments = (video.script_data or {}).get("segments") or []
-        # Clip renders cut from an uploaded asset — they have no script segments.
-        if not segments and (video.output_type or "narrated") != "clip":
+        # Clips and montages are cut from an uploaded asset, so they have no
+        # script segments — their ranges live in script_data instead.
+        if not segments and (video.output_type or "narrated") not in ("clip", "montage"):
             raise RuntimeError("video has no script segments")
 
         job.status = "running"
@@ -302,6 +390,8 @@ async def run(job_id: str) -> dict:
     workdir = Path(tempfile.mkdtemp(prefix="kliptos_"))
 
     try:
+        if output_type == "montage":
+            return await _run_montage(job_key, job_uuid, video, out_dir, workdir)
         if output_type == "clip":
             return await _run_clip(job_key, job_uuid, video, out_dir, workdir)
         if output_type == "fake_text":
