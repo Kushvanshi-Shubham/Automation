@@ -196,12 +196,17 @@ async def _run_clip(job_key: str, job_uuid, video, out_dir: Path, workdir: Path)
     assembler.render_clip(source, start, end, final_path, ass_path=ass_path,
                           width=aspect["w"], height=aspect["h"])
     duration = assembler.probe_duration(final_path)
+    # MUST go through _store_media. In the cloud the API and the worker are
+    # separate containers with no shared volume, so a bare /media/ path is a
+    # file only the worker can see — this branch 404'd in production while
+    # passing every test, because the tests never assert the URL is reachable.
+    media_url = await _store_media(final_path, video.id, "final.mp4")
 
     async with AsyncSessionLocal() as db:
         job = await db.get(PipelineJob, job_uuid)
         video_row = await db.get(Video, job.video_id)
         video_row.status = "ready"
-        video_row.video_url = f"/media/{video_row.id}/final.mp4"
+        video_row.video_url = media_url
         job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)
         job.progress = {"stage": "completed", "percent": 100, "duration": duration}
@@ -320,12 +325,17 @@ async def _run_montage(job_key: str, job_uuid, video, out_dir: Path, workdir: Pa
     else:
         shutil.copyfile(joined, final_path)
     duration = assembler.probe_duration(final_path)
+    # MUST go through _store_media. In the cloud the API and the worker are
+    # separate containers with no shared volume, so a bare /media/ path is a
+    # file only the worker can see — this branch 404'd in production while
+    # passing every test, because the tests never assert the URL is reachable.
+    media_url = await _store_media(final_path, video.id, "final.mp4")
 
     async with AsyncSessionLocal() as db:
         job = await db.get(PipelineJob, job_uuid)
         video_row = await db.get(Video, job.video_id)
         video_row.status = "ready"
-        video_row.video_url = f"/media/{video_row.id}/final.mp4"
+        video_row.video_url = media_url
         job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)
         job.progress = {"stage": "completed", "percent": 100, "duration": duration}

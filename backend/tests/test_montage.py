@@ -226,8 +226,41 @@ def test_another_users_asset_is_not_found(client, auth_headers, no_render_dispat
     assert resp.status_code == 404
 
 
-def test_runner_rejects_a_montage_with_one_range():
+def test_every_completion_path_publishes_through_storage():
+    """A rendered file must reach the browser, not just the worker's disk.
+
+    This replaces a test that asserted a STRING was present in runner.py — it
+    passed happily while the montage and clip branches wrote a bare
+    "/media/<id>/final.mp4" into video_url. In the cloud the API and the worker
+    are separate containers with no shared volume, so that URL 404s: the
+    feature was broken in production and fully green in CI.
+
+    _store_media is the only function that uploads to object storage, so the
+    invariant is that no completion path may set video_url without it.
+    """
+    import re
+
+    source = open("app/pipeline/runner.py", encoding="utf-8").read()
+    assigns = re.findall(r"video(?:_row)?\.video_url\s*=\s*(.+)", source)
+    assert assigns, "video_url is never assigned — did the runner move?"
+    for expr in assigns:
+        assert "/media/" not in expr, (
+            f"video_url assigned a bare local path ({expr.strip()}) — it must be "
+            "the return value of _store_media, or the render 404s in the cloud"
+        )
+
+
+def test_runner_guards_a_one_clip_montage():
     """The render branch defends itself; the endpoint is not the only gate."""
-    assert "at least 2 clips" in open(
-        "app/pipeline/runner.py", encoding="utf-8"
-    ).read(), "the guard in _run_montage should stay"
+    import asyncio
+    import inspect
+    from pathlib import Path
+
+    from app.pipeline import runner
+
+    # Reaches the guard before touching the database or ffmpeg.
+    video = type("V", (), {"script_data": {"montage": {"asset_id": "x", "ranges": [{"start": 0, "end": 9}]}}, "id": None})()
+    with pytest.raises(RuntimeError, match="at least 2 clips"):
+        asyncio.run(runner._run_montage("k", None, video, Path("."), Path(".")))
+    # And the guard is genuinely in the branch, not inherited from a caller.
+    assert "at least 2 clips" in inspect.getsource(runner._run_montage)
