@@ -37,7 +37,9 @@ const TYPE_LABELS: Record<string, string> = {
 const card: React.CSSProperties = { background: L.bench, border: `1px solid ${L.rule}`, borderRadius: 10 }
 
 export default function BillingPage() {
-  const { data: credits } = useQuery<{ balance: number; plan: string }>({
+  const { data: credits } = useQuery<{
+    balance: number; plan: string; monthly_credits: number; renews_at: string | null
+  }>({
     queryKey: ["credits-page"],
     queryFn: () => fetchApi("/billing/credits"),
   })
@@ -61,6 +63,20 @@ export default function BillingPage() {
         <p style={{ margin: 0, fontSize: 14, color: L.ash }}>
           <span style={{ fontFamily: mono, color: L.ink }}>{credits?.balance ?? "…"}</span> credits left
           {" · "}<span style={{ textTransform: "capitalize" }}>{credits?.plan ?? "free"}</span> plan
+          {/* Running out is a wait, not a dead end — but only if we say
+              until when. Before monthly renewal existed there was no
+              answer to give. */}
+          {credits?.renews_at && (() => {
+            const days = Math.max(0, Math.ceil(
+              (new Date(credits.renews_at).getTime() - Date.now()) / 86400000
+            ))
+            return (
+              <span style={{ color: L.dust }}>
+                {" · "}back to <span style={{ fontFamily: mono }}>{credits.monthly_credits}</span>
+                {days === 0 ? " today" : days === 1 ? " tomorrow" : ` in ${days} days`}
+              </span>
+            )
+          })()}
           {" · "}<span style={{ fontFamily: mono, color: L.ink }}>{renders}</span> renders on the recent ledger
           {" · "}credit packs arrive with payments
         </p>

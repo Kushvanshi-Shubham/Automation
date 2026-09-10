@@ -59,6 +59,14 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   into ONE script. Earlier notes here promised *four* topics; it ships as
   **two**, because asked to connect three or more unrelated trends the model
   produces mush and two is what reads as a take. Say two.
+- **Monthly credit renewal** — credits used to be granted once at signup and
+  never again, so every user hit a permanent wall after three renders with
+  checkout returning 501. A nightly task now tops each user back up to their
+  plan's allowance (Free 3, Pro 50, Studio 150) on a per-user monthly clock,
+  and the billing page says when. Added 2026-09-10. Note for diligence: the
+  grant is keyed on the plan someone *pays for*, not the Pro-level features
+  the beta *serves* them — otherwise every signup would cost 50 credits of
+  real spend per month.
 - **Beat-synced cuts** — when a montage has a music bed, the track's tempo is
   detected and each clip's length is nudged so every cut lands on a beat. Added
   2026-09-10. **The honest limit: the CUT lands on the beat, the action does
@@ -86,7 +94,6 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
 **NOT built — say "next", never "has":**
 - **Payments** — checkout returns 501. Razorpay KYC not started.
 - **Instagram publishing**, AI presenter, email/password signup, onboarding.
-- **Monthly credit grants** — nothing in the code gives subscribers their credits.
 
 **Honest technical limit:** one render worker, on a ₹799/month VPS since 9 Sept — it was on my laptop until then, which meant renders only worked while that laptop was awake. A hundred simultaneous renders queue for hours; they don't crash, and a reaper refunds anything stuck over 30 minutes. Scaling is adding workers, a hosting decision, not an architecture change.
 

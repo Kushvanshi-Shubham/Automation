@@ -31,6 +31,7 @@ PLANS: dict[str, dict] = {
         "premium_voice": False,      # edge-tts only
         "brand_kit": False,
         "priority": 0,
+        "monthly_credits": 3,
     },
     PRO: {
         "label": "Pro",
@@ -45,6 +46,7 @@ PLANS: dict[str, dict] = {
         "premium_voice": True,       # Cartesia / ElevenLabs narration
         "brand_kit": True,
         "priority": 1,
+        "monthly_credits": 50,
     },
     STUDIO: {
         "label": "Studio",
@@ -59,6 +61,7 @@ PLANS: dict[str, dict] = {
         "premium_voice": True,
         "brand_kit": True,
         "priority": 2,
+        "monthly_credits": 150,
     },
 }
 
@@ -72,6 +75,25 @@ UPSELL: dict[str, str] = {
     "premium_voice": "Studio-grade voices are a Pro feature — Free shorts use the standard voice.",
     "brand_kit": "Your logo and brand colours are a Pro feature.",
 }
+
+
+def monthly_credits(user) -> int:
+    """The credit allowance this user's plan renews each month.
+
+    Deliberately keyed on user.plan, NOT effective_plan. While enforcement
+    is off, effective_plan serves Pro to everyone so the beta is not
+    crippled — but granting on that basis would hand every signed-up
+    stranger 50 credits a month of real Vertex and Pexels spend. What
+    someone is *served* and what they *pay for* are different questions,
+    and only the second should cost us money.
+
+    Admins are the exception, and on purpose: the owner has to be able to
+    exercise every lane to test it.
+    """
+    admins = {e.lower() for e in (settings.ADMIN_EMAILS or [])}
+    if (user.email or "").lower() in admins:
+        return PLANS[STUDIO]["monthly_credits"]
+    return PLANS.get(user.plan or FREE, PLANS[FREE])["monthly_credits"]
 
 
 def effective_plan(user) -> str:

@@ -13,6 +13,10 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     google_id = Column(String, unique=True, index=True, nullable=True)
     credit_balance = Column(Integer, default=0, nullable=False)
+    # When the monthly allowance was last topped up. Per-user rather than a
+    # calendar month, so signing up on the 30th does not earn a second
+    # month's credits the next day.
+    credits_granted_at = Column(DateTime(timezone=True), nullable=True)
     plan = Column(String, default="free", nullable=False)
     # creator | brand | admin
     role = Column(String, default="creator", nullable=False)

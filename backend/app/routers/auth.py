@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +41,9 @@ async def auth_google(request: GoogleAuthRequest, db: AsyncSession = Depends(get
             name=claims.get("name"),
             avatar_url=claims.get("picture"),
             credit_balance=FREE_TIER_SIGNUP_CREDITS,
+            # Starts the renewal clock, so the first top-up is a month away
+            # rather than on the next nightly tick.
+            credits_granted_at=datetime.now(timezone.utc),
         )
         db.add(user)
         await db.flush()

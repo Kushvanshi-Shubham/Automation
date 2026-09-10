@@ -49,7 +49,12 @@ def test_protected_routers_require_auth(client):
 def test_credits_endpoint(client, auth_headers):
     resp = client.get("/api/billing/credits", headers=auth_headers)
     assert resp.status_code == 200
-    assert resp.json() == {"balance": 3, "plan": "free"}
+    body = resp.json()
+    assert body["balance"] == 3
+    assert body["plan"] == "free"
+    # Added with monthly renewal: what the plan renews to, and when.
+    assert body["monthly_credits"] == 3
+    assert body["renews_at"]
 
 
 def test_ledger_shows_signup_grant(client, auth_headers):

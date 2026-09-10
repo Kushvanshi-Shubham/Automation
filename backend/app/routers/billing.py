@@ -14,7 +14,18 @@ router = APIRouter(prefix="/billing", tags=["Billing"], dependencies=[Depends(ge
 
 @router.get("/credits", response_model=CreditBalanceResponse)
 async def get_credits(current_user: User = Depends(get_current_user)):
-    return CreditBalanceResponse(balance=current_user.credit_balance, plan=current_user.plan)
+    from datetime import timedelta
+
+    from app.pipeline.credit_grants import GRANT_INTERVAL_DAYS
+    from app.services import plans
+
+    last = current_user.credits_granted_at
+    return CreditBalanceResponse(
+        balance=current_user.credit_balance,
+        plan=current_user.plan,
+        monthly_credits=plans.monthly_credits(current_user),
+        renews_at=(last + timedelta(days=GRANT_INTERVAL_DAYS)) if last else None,
+    )
 
 
 @router.get("/plan")
