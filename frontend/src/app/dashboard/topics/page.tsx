@@ -29,7 +29,11 @@ export default function DiscoverPage() {
   const qc = useQueryClient()
   const router = useRouter()
   const [view, setView] = useState<"cards" | "list">("cards")
+  // null here means "not chosen yet", which is why the creator's saved niche
+  // is applied as a separate state rather than as the initial value: the
+  // profile arrives after the first render.
   const [niche, setNiche] = useState<string | null>(null)
+  const [nicheApplied, setNicheApplied] = useState(false)
   const [source, setSource] = useState<string>("all")
   const [createAs, setCreateAs] = useState("auto")
   const [creatingId, setCreatingId] = useState<string | null>(null)
@@ -46,6 +50,16 @@ export default function DiscoverPage() {
   const { data: niches } = useQuery<{ items: { key: string; label: string }[] }>({
     queryKey: ["niches"], queryFn: () => fetchApi("/topics/niches"), staleTime: Infinity,
   })
+  // The niche answered at first run is the whole point of asking: without
+  // this, Discover still showed every category at once and the answer only
+  // sat in the database.
+  const { data: me } = useQuery<{ niche: string | null }>({
+    queryKey: ["me"], queryFn: () => fetchApi("/auth/me"), staleTime: 60_000,
+  })
+  if (me && !nicheApplied) {
+    setNicheApplied(true)
+    if (me.niche) setNiche(me.niche)
+  }
   const { data: formats } = useQuery<{ items: Format[] }>({
     queryKey: ["formats"], queryFn: () => fetchApi("/scripts/formats"), staleTime: Infinity,
   })

@@ -21,6 +21,12 @@ class User(Base):
     # creator | brand | admin
     role = Column(String, default="creator", nullable=False)
     country = Column(String, nullable=True)
+    # First-run answers. niche defaults the trend filter, language defaults
+    # the script language; onboarded_at decides whether to ask at all, and
+    # is set even when the questions are skipped so nobody is asked twice.
+    niche = Column(String, nullable=True)
+    language = Column(String, nullable=True)
+    onboarded_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

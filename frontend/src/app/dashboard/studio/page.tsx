@@ -158,10 +158,21 @@ function EmptyStudio() {
   const [mood, setMood] = useState("")
   const [instructions, setInstructions] = useState("")
   const [language, setLanguage] = useState("English")
+  const [languageApplied, setLanguageApplied] = useState(false)
 
   const { data: models } = useQuery<{ items: { key: string; label: string }[] }>({
     queryKey: ["llm-models"], queryFn: () => fetchApi("/scripts/models"), staleTime: Infinity,
   })
+  // Answered at first run. Applied after mount rather than as the initial
+  // value because the profile arrives from the API, and only ONCE — a
+  // creator switching to English for one video must not be overridden.
+  const { data: me } = useQuery<{ language: string | null }>({
+    queryKey: ["me"], queryFn: () => fetchApi("/auth/me"), staleTime: 60_000,
+  })
+  if (me && !languageApplied) {
+    setLanguageApplied(true)
+    if (me.language) setLanguage(me.language)
+  }
   const { data: voiceData } = useQuery<{ voices: Voice[]; languages: string[] }>({
     queryKey: ["voices"], queryFn: () => fetchApi("/scripts/voices"), staleTime: Infinity,
   })

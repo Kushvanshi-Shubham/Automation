@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,4 +71,45 @@ async def auth_google(request: GoogleAuthRequest, db: AsyncSession = Depends(get
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+class OnboardingRequest(BaseModel):
+    # Both optional: skipping is a valid answer, and the point of the flow
+    # is a better default, not a gate in front of the product.
+    niche: Optional[str] = None
+    language: Optional[str] = None
+
+
+@router.post("/onboarding", response_model=UserResponse)
+async def save_onboarding(
+    req: OnboardingRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record a creator's niche and language after the first-run questions.
+
+    `onboarded_at` is stamped whether or not anything was answered, so a
+    creator who skips is never asked again — being re-prompted every visit
+    is worse than having no preference.
+    """
+    from app.services.niches import NICHES
+    from app.services.voices import LANGUAGES
+
+    if req.niche is not None:
+        if req.niche not in NICHES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown niche"
+            )
+        current_user.niche = req.niche
+    if req.language is not None:
+        if req.language not in LANGUAGES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown language"
+            )
+        current_user.language = req.language
+
+    current_user.onboarded_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(current_user)
     return current_user

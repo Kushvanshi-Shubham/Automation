@@ -59,6 +59,12 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
   into ONE script. Earlier notes here promised *four* topics; it ships as
   **two**, because asked to connect three or more unrelated trends the model
   produces mush and two is what reads as a take. Say two.
+- **Onboarding** — a new account is asked two questions once (niche, language)
+  and the answers change what it sees: Discover filters to that niche and new
+  scripts default to that language, both changeable in Settings. Added
+  2026-09-10; before it, a new account landed on an empty dashboard with
+  trends for every category at once. Skipping is remembered, so nobody is
+  asked twice.
 - **Monthly credit renewal** — credits used to be granted once at signup and
   never again, so every user hit a permanent wall after three renders with
   checkout returning 501. A nightly task now tops each user back up to their
@@ -93,13 +99,13 @@ Overclaiming here is the fastest way to lose the room. If they probe one item an
 
 **NOT built — say "next", never "has":**
 - **Payments** — checkout returns 501. Razorpay KYC not started.
-- **Instagram publishing**, AI presenter, email/password signup, onboarding.
+- **Instagram publishing**, AI presenter, email/password signup.
 
 **Honest technical limit:** one render worker, on a ₹799/month VPS since 9 Sept — it was on my laptop until then, which meant renders only worked while that laptop was awake. A hundred simultaneous renders queue for hours; they don't crash, and a reaper refunds anything stuck over 30 minutes. Scaling is adding workers, a hosting decision, not an architecture change.
 
 ## Traction — say it flat
 
-2 accounts (mine and a friend's). 6 videos created, 1 rendered. 0 paying customers, and zero revenue is structural rather than a sales failure — there is no code path that takes money yet.
+3 accounts: mine, a friend's, and one stranger who found kliptos.app and signed up on 10 Sept. 6 videos created, 1 rendered. 0 paying customers, and zero revenue is structural rather than a sales failure — there is no code path that takes money yet.
 
 > *"I built more than I sold. That's what I'm fixing now."*
 

@@ -23,6 +23,11 @@ class UserResponse(BaseModel):
     plan: str
     role: str
     country: Optional[str] = None
+    niche: Optional[str] = None
+    language: Optional[str] = None
+    # Null means this account has never been through the first-run flow, so
+    # the dashboard should send them there.
+    onboarded_at: Optional[datetime] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     model_config = ConfigDict(from_attributes=True)

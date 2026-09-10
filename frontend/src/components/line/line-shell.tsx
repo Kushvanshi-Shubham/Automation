@@ -8,6 +8,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { L, grotesque } from "@/lib/line/tokens"
+import FirstRun from "@/components/line/first-run"
 import TransportBar from "@/components/line/transport-bar"
 
 const BAYS: { match: (p: string) => boolean; tabs: { href: string; label: string }[] }[] = [
@@ -67,6 +68,9 @@ export default function LineShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <TransportBar />
+      {/* Mounted in the shell, not on one page: a new account can land on
+          any dashboard route, and the questions should not depend on which. */}
+      <FirstRun />
     </div>
   )
 }

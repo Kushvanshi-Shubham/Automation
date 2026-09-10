@@ -9,7 +9,7 @@ import { useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 import {
   MdOutlineCheckCircle, MdOutlineDeleteOutline, MdOutlineErrorOutline,
-  MdOutlineKey, MdOutlineLiveTv, MdOutlinePhotoCamera,
+  MdOutlineKey, MdOutlineLiveTv, MdOutlinePhotoCamera, MdOutlineTune,
 } from "react-icons/md"
 import { fetchApi } from "@/lib/api-client"
 import { L, mono, grotesque, alpha } from "@/lib/line/tokens"
@@ -137,6 +137,7 @@ function SettingsContent() {
         ))}
       </section>
 
+      <CreatorProfileSection />
       <InstagramSection />
 
       <ApiKeysSection />
@@ -150,6 +151,110 @@ interface IgAccount {
   username: string | null
   is_active: boolean | null
 }
+
+function CreatorProfileSection() {
+  /**
+   * Niche and language, changeable after the first-run questions.
+   *
+   * The first-run overlay tells the creator "you can change both later in
+   * Settings", so this has to exist or that sentence is a lie.
+   */
+  const queryClient = useQueryClient()
+  const [niche, setNiche] = useState<string | null>(null)
+  const [language, setLanguage] = useState("English")
+  const [loaded, setLoaded] = useState(false)
+
+  const { data: me } = useQuery<{ niche: string | null; language: string | null }>({
+    queryKey: ["me"], queryFn: () => fetchApi("/auth/me"), staleTime: 60_000,
+  })
+  const { data: niches } = useQuery<{ items: { key: string; label: string }[] }>({
+    queryKey: ["niches"], queryFn: () => fetchApi("/topics/niches"), staleTime: Infinity,
+  })
+  const { data: voices } = useQuery<{ languages: string[] }>({
+    queryKey: ["voices"], queryFn: () => fetchApi("/scripts/voices"), staleTime: Infinity,
+  })
+  if (me && !loaded) {
+    setLoaded(true)
+    setNiche(me.niche)
+    if (me.language) setLanguage(me.language)
+  }
+
+  const save = useMutation({
+    mutationFn: () => fetchApi("/auth/onboarding", {
+      method: "POST",
+      body: JSON.stringify({ ...(niche ? { niche } : {}), language }),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["me"] })
+      // Discover filters on the niche, so it has to refetch.
+      queryClient.invalidateQueries({ queryKey: ["topics"] })
+    },
+  })
+
+  const dirty = loaded && (niche !== me?.niche || language !== (me?.language ?? "English"))
+
+  return (
+    <div style={{ ...card, padding: 20 }}>
+      <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 650 }}>
+        <MdOutlineTune size={17} color={L.ash} /> What you make
+      </h2>
+      <p style={{ margin: "6px 0 16px", fontSize: 13, lineHeight: 1.55, color: L.ash }}>
+        Your niche decides which trends Discover shows first, and your language sets the
+        default for new scripts. Neither locks anything — you can pick differently per video.
+      </p>
+
+      <div className="grid gap-2 sm:grid-cols-3" style={{ marginBottom: 16 }}>
+        {(niches?.items ?? []).map(n => {
+          const on = niche === n.key
+          return (
+            <button key={n.key} onClick={() => setNiche(on ? null : n.key)} aria-pressed={on}
+              style={{
+                background: on ? L.benchRaised : "transparent",
+                border: `1px solid ${on ? L.make : L.rule}`,
+                color: on ? L.ink : L.ash, fontFamily: grotesque, fontSize: 13,
+                fontWeight: on ? 600 : 400, padding: "9px 11px", borderRadius: 7,
+                cursor: "pointer", textAlign: "left",
+              }}>
+              {n.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", marginBottom: 6, fontSize: 12.5, fontWeight: 600, color: L.ash }}>
+            Script language
+          </span>
+          <select value={language} onChange={e => setLanguage(e.target.value)}
+            style={{
+              boxSizing: "border-box", width: 220, background: L.floor,
+              border: `1px solid ${L.rule}`, borderRadius: 8, color: L.ink,
+              fontFamily: grotesque, fontSize: 13.5, padding: "9px 12px", outline: "none",
+            }}>
+            {(voices?.languages ?? ["English"]).map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </label>
+        <button onClick={() => save.mutate()} disabled={!dirty || save.isPending}
+          style={{
+            background: dirty ? L.make : "transparent",
+            border: dirty ? "none" : `1px solid ${L.rule}`,
+            color: dirty ? "#fff" : L.dust, fontFamily: grotesque, fontSize: 13.5,
+            fontWeight: 600, padding: "10px 16px", borderRadius: 8,
+            cursor: dirty && !save.isPending ? "pointer" : "default",
+          }}>
+          {save.isPending ? "Saving…" : dirty ? "Save" : "Saved"}
+        </button>
+      </div>
+      {save.error && (
+        <p style={{ margin: "10px 0 0", fontSize: 12.5, color: L.refused }}>
+          {(save.error as Error).message}
+        </p>
+      )}
+    </div>
+  )
+}
+
 
 function InstagramSection() {
   const queryClient = useQueryClient()
