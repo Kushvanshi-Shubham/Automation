@@ -25,7 +25,19 @@ from app.pipeline.celery_app import celery_app
 
 logger = logging.getLogger("kliptos.series")
 
-SERIES_RENDER_COST = 1
+# A flat price was wrong and lost money silently. ai_image bills per SCENE, so a
+# 7-scene episode costs several times a stock-footage one — and autopilot runs
+# unattended, daily, which is exactly where an unnoticed negative margin compounds.
+# Priced through the same engine_credit_cost the studio uses, so there is one
+# pricing rule in the codebase rather than two that drift.
+SERIES_RENDER_COST = 1  # floor, and the price of the stock lanes
+
+
+def _series_render_cost(engine: str | None, scenes: int) -> int:
+    from app.services.credits import engine_credit_cost
+
+    cost = engine_credit_cost(engine or "pexels", scenes=max(1, scenes))
+    return max(SERIES_RENDER_COST, cost or SERIES_RENDER_COST)
 
 
 
@@ -78,6 +90,8 @@ async def _run_one(series_id: str) -> dict:
             return {"skipped": "inactive"}
         user = await db.get(User, series.user_id)
 
+        # Cheapest possible episode — the real price is charged after the script
+        # exists and the scene count is known.
         if user.credit_balance < SERIES_RENDER_COST:
             series.last_error = "Paused run: not enough credits"
             await db.commit()
@@ -167,6 +181,16 @@ async def _run_one(series_id: str) -> dict:
         series = await db.get(Series, UUID(series_id))
         user = await db.get(User, series.user_id)
 
+        # Now the scene count is known, so the episode can be priced the way the
+        # studio prices the same work. A creator who cannot afford this episode
+        # is skipped rather than rendered at a loss.
+        render_cost = _series_render_cost(series.visual_engine, len(script["segments"]))
+        if user.credit_balance < render_cost:
+            series.last_error = f"Paused run: this episode costs {render_cost} credits"
+            await db.commit()
+            logger.info("series %s skipped: needs %d credits", series.name, render_cost)
+            return {"skipped": "no_credits"}
+
         script_data = {
             "subject": subject,
             "style": style,
@@ -194,14 +218,14 @@ async def _run_one(series_id: str) -> dict:
             description=script.get("description"),
             tags=script.get("tags"),
             visual_engine=series.visual_engine or "pexels",
-            credits_used=SERIES_RENDER_COST,
+            credits_used=render_cost,
             script_data=script_data,
         )
         db.add(video)
         await db.flush()
 
-        user.credit_balance -= SERIES_RENDER_COST
-        db.add(CreditLedger(user_id=user.id, amount=-SERIES_RENDER_COST, type="video_debit",
+        user.credit_balance -= render_cost
+        db.add(CreditLedger(user_id=user.id, amount=-render_cost, type="video_debit",
                             description=f"Series render: {series.name}", video_id=video.id))
 
         # An autopilot episode is rendered and possibly published without any

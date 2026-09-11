@@ -259,6 +259,17 @@ async def generate_script(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
             subject = topic.title
             hook_hint = topic.hook_text
+            # The harvester stores keywords and nothing has ever read them.
+            # They are the only concrete anchors a trend carries, so they go in
+            # rather than letting the model reach for details it does not have.
+            anchors = [str(k).strip() for k in (topic.keywords or []) if str(k).strip()][:8]
+            if anchors:
+                instructions = "\n".join(filter(None, [
+                    instructions,
+                    f"What people are actually saying about this: {', '.join(anchors)}.",
+                ]))
+            # No source document exists on this route, so bar invented specifics.
+            instructions = "\n".join(filter(None, [instructions, script_gen.UNSOURCED_RULES]))
             if req.mashup_topic_id is not None:
                 if req.mashup_topic_id == req.topic_id:
                     raise HTTPException(

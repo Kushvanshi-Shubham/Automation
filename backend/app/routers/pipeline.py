@@ -1,9 +1,9 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -29,6 +29,14 @@ ENGINE_CREDIT_COST = {"pexels": 1, "stock": 1, "stock_image": 1, "ai_image": 2}
 # Re-rendering the SAME content with a different caption look / voice /
 # aspect is free this many times per video (real cost ≈ $0.002).
 FREE_RESTYLES_PER_VIDEO = 3
+# Proof renders are free and uncapped by credits — that is the point of them.
+# But the ai_image lane spends real money PER SCENE at generation time, and with
+# plan enforcement off every signed-in stranger can reach it. At the Redis rate
+# limit alone (20 per 5 minutes) that is a few hundred rupees an hour of Vertex
+# against a credit that expires. Stock-footage proofs stay unlimited; only the
+# lane that costs money per press is counted, and it is counted in the database
+# so a Redis restart does not reset it.
+FREE_AI_PROOFS_PER_DAY = 8
 # Which engines fit which output type. ai_image on a video type means every
 # scene is a generated illustration with pan/zoom instead of stock footage.
 TYPE_ENGINES: dict[str, set[str]] = {
@@ -415,6 +423,29 @@ async def start_proof(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
     if not (video.script_data or {}).get("segments"):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Generate a script first")
+
+    # Counted before anything is generated, and only for the paid-per-press lane.
+    requested_engine = req.visual_engine or video.visual_engine or "pexels"
+    if requested_engine == "ai_image" and video.output_type != "image":
+        since = datetime.now(timezone.utc) - timedelta(days=1)
+        used = await db.scalar(
+            select(func.count(CreditLedger.id)).where(
+                CreditLedger.user_id == current_user.id,
+                CreditLedger.type == "proof_ai_image",
+                CreditLedger.created_at >= since,
+            )
+        )
+        if (used or 0) >= FREE_AI_PROOFS_PER_DAY:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"That's {FREE_AI_PROOFS_PER_DAY} AI-image previews today — the daily "
+                       "limit. Stock-footage previews are still unlimited, or render the "
+                       "video to see every scene.",
+            )
+        # A zero-amount row: an audit record of free spend, not a charge.
+        db.add(CreditLedger(user_id=current_user.id, amount=0, type="proof_ai_image",
+                            description="Free AI-image scene preview", video_id=video.id))
+        await db.commit()
     if video.output_type == "script":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

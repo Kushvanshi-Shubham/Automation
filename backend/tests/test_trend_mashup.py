@@ -144,3 +144,64 @@ def test_mashup_needs_a_first_trend(client, auth_headers, capture_generate, two_
                              "mashup_topic_id": onion["id"], "output_type": "narrated"})
     assert resp.status_code == 422
     assert "pick a first trend" in resp.json()["detail"]
+
+
+# ---- grounding: the trend route has no source document -----------------------
+
+def test_a_trend_script_is_told_it_has_no_source(client, auth_headers, capture_generate, two_trends):
+    """The rejected GTA render invented a vehicle nerf, a missile cooldown and a
+    named heist from a stream title, and shipped them in a news format under a
+    real streamer's handle. The route passes no reference_text, so the only
+    defence is telling the model it has nothing to be faithful to."""
+    from app.services.script_gen import UNSOURCED_RULES
+
+    jersey, _ = two_trends
+    client.post("/api/scripts/generate", headers=auth_headers,
+                json={"topic_id": jersey["id"], "output_type": "narrated"})
+
+    instructions = capture_generate["custom_instructions"]
+    assert UNSOURCED_RULES.strip() in instructions
+    assert "must NOT state specific checkable facts" in instructions
+
+
+def test_trend_keywords_reach_the_model(client, auth_headers, capture_generate, monkeypatch, two_trends):
+    """Topic.keywords was harvested, stored, exposed by the API and read
+    nowhere — the only concrete anchors a trend carries, going unused while
+    the model invented its own."""
+    import asyncio
+    from uuid import UUID
+
+    from app.database import AsyncSessionLocal
+    from app.models.topic import Topic
+
+    jersey, _ = two_trends
+
+    async def add_keywords():
+        async with AsyncSessionLocal() as db:
+            t = await db.get(Topic, UUID(jersey["id"]))
+            t.keywords = ["jersey leak", "kit sponsor", "fan backlash"]
+            await db.commit()
+
+    asyncio.run(add_keywords())
+
+    client.post("/api/scripts/generate", headers=auth_headers,
+                json={"topic_id": jersey["id"], "output_type": "narrated"})
+    instructions = capture_generate["custom_instructions"]
+    assert "jersey leak" in instructions and "fan backlash" in instructions
+
+
+def test_a_link_script_is_not_told_it_is_unsourced(client, auth_headers, capture_generate, monkeypatch):
+    """The link route DOES have a source and already says 'do not invent
+    numbers or claims beyond it' — telling it both things would be confusing."""
+    from app.services.script_gen import UNSOURCED_RULES
+
+    async def fake_extract(url):
+        return {"text": "The council approved the new bridge on Tuesday.", "title": "Bridge approved",
+                "source_url": url}
+
+    monkeypatch.setattr("app.services.link_ingest.extract_from_url", fake_extract)
+    client.post("/api/scripts/generate", headers=auth_headers,
+                json={"source_url": "https://example.com/news", "output_type": "narrated"})
+
+    assert UNSOURCED_RULES.strip() not in (capture_generate["custom_instructions"] or "")
+    assert capture_generate["reference_text"], "the link route must pass its source"

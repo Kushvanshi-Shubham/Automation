@@ -60,6 +60,25 @@ Respond ONLY with JSON matching:
   ]
 }"""
 
+# Injected when the script has NO source document — the trend route passes only
+# a title and a hook, so the model has nothing to be faithful TO. Left alone it
+# fills the gap: a rejected render invented an unannounced vehicle patch, a
+# named nerf, a missile-cooldown change and a "Diamond Depot" heist from a
+# stream title, and delivered them in a breaking-news format under a real
+# streamer's handle. Unattended standing orders publish that on a schedule.
+UNSOURCED_RULES = """
+GROUNDING: you have a headline and nothing else — no article, no patch notes, no
+source. So you must NOT state specific checkable facts as if reported. Banned:
+invented statistics, dates, prices, version numbers, patch-note details, named
+features or updates that you cannot know exist, and anything attributed as a
+quote to a real person.
+Write about what the topic IS and why people care, which needs no source. Where a
+specific detail would be required, either leave it out or frame it as an open
+question ("everyone is asking whether...") rather than as fact. A vaguer script
+that is true beats a specific one that is invented — a viewer who checks and
+finds it false is gone for good, and so is the channel's credibility.
+"""
+
 # Two trends, one script. Injected as creator instructions rather than a
 # style, because a mash-up has to work in EVERY format — a shayari mash-up
 # and a news mash-up are still shayari and news.
