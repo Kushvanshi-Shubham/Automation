@@ -102,6 +102,100 @@ async def _resolve_asset_source(path_or_key: str, workdir: Path) -> Path:
     return await asyncio.to_thread(storage.resolve_source, path_or_key, workdir)
 
 
+async def _visual_for_scene(
+    client, i: int, seg: dict, clip_path: Path, narration_seconds: float,
+    *, video, aspect: dict, asset_paths: dict, ai_visuals: bool,
+    gen_keys: dict, used_ids: set,
+) -> None:
+    """Produce one scene's visual, in priority order.
+
+    The creator's own choices come first — their uploaded footage, then a clip
+    they pinned in the studio — because a pin that is silently ignored is worse
+    than no pin at all. That ordering was wrong until now: `media_id` sat BELOW
+    the AI branch, so on the ai_image engine a creator could hand-pick a clip
+    for every scene, see seven green "Visual pinned" confirmations, pay, and
+    receive byte-identical generated stills.
+    """
+    from app.services import image_gen
+
+    if seg.get("asset_id"):  # the creator's own footage beats everything
+        assembler.cut_source(
+            asset_paths[str(seg["asset_id"])],
+            float(seg.get("asset_start") or 0.0),
+            narration_seconds + 0.5,
+            clip_path,
+        )
+        return
+
+    if seg.get("media_id"):  # a clip they pinned in the studio
+        await pexels.fetch_clip_by_id(client, int(seg["media_id"]), clip_path,
+                                      orientation=aspect["orientation"],
+                                      target_w=aspect["w"], target_h=aspect["h"])
+        used_ids.add(int(seg["media_id"]))
+        return
+
+    data = video.script_data or {}
+    if ai_visuals:
+        still = clip_path.parent / f"scene_{i:02d}.jpg"
+        aspect_ratio = data.get("aspect_ratio") or assembler.DEFAULT_ASPECT
+        prompt = image_gen.scene_prompt(
+            seg.get("visual_prompt") or seg["text"],
+            aspect=aspect_ratio,
+            style=data.get("visual_style") or image_gen.DEFAULT_VISUAL_STYLE,
+            # The narration is the ground truth for what this scene is about.
+            # Passing it means a thin or generic visual_prompt still carries the
+            # line's subject into the image.
+            says=seg.get("text"),
+        )
+        await image_gen.generate_image(prompt, still, user_keys=gen_keys, aspect=aspect_ratio)
+        assembler.image_to_clip(
+            still, narration_seconds + 0.4, clip_path,
+            width=aspect["w"], height=aspect["h"], zoom_in=(i % 2 == 0),
+        )
+        return
+
+    # Formats like Reddit Story use ONE background theme for the whole video
+    # (used_ids still varies the actual clips).
+    query = data.get("background_query") or seg.get("visual_prompt") or seg["text"]
+    await pexels.fetch_clip(client, query, clip_path, used_ids,
+                            orientation=aspect["orientation"],
+                            target_w=aspect["w"], target_h=aspect["h"])
+
+
+async def _fallback_visual(
+    client, i: int, seg: dict, clip_path: Path, narration_seconds: float,
+    *, video, aspect: dict, used_ids: set,
+) -> None:
+    """Last resort when a scene's preferred visual could not be produced.
+
+    Tried in widening order, because the usual cause is a query too specific
+    for a stock library to answer — so each step gives up some specificity
+    rather than some quality. Raises only if even the house query fails, which
+    means the render genuinely cannot continue.
+    """
+    data = video.script_data or {}
+    attempts = [
+        # The format's own background theme, if it has one.
+        data.get("background_query"),
+        # The first few words of the line: a noun phrase stock can answer.
+        " ".join(str(seg.get("text") or "").split()[:4]) or None,
+        # A neutral house query that always returns something.
+        "abstract soft gradient background motion",
+    ]
+    last: Exception | None = None
+    for query in [a for a in attempts if a]:
+        try:
+            await pexels.fetch_clip(client, query, clip_path, used_ids,
+                                    orientation=aspect["orientation"],
+                                    target_w=aspect["w"], target_h=aspect["h"])
+            logger.info("scene %d fell back to %r", i, query)
+            return
+        except Exception as exc:
+            last = exc
+            continue
+    raise RuntimeError(f"scene {i + 1}: no visual could be sourced") from last
+
+
 async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], out_dir: Path) -> dict:
     """Image-post branch: one image per slide (stock photos or AI images)."""
     from app.services import image_gen
@@ -133,7 +227,15 @@ async def _run_image_post(job_key: str, job_uuid, video, segments: list[dict], o
             prompt = seg.get("visual_prompt") or seg["text"]
             _publish(job_key, "running", "images", 10 + i / len(slides) * 80)
             if engine == "ai_image":
-                await image_gen.generate_image(prompt, out_path, user_keys=user_keys, aspect=aspect)
+                # Through scene_prompt like the video path, so slides get the
+                # format's look and the same no-text ban. This path used to
+                # send a raw prompt and rely on STYLE_SUFFIX for both.
+                styled = image_gen.scene_prompt(
+                    prompt, aspect=aspect,
+                    style=(video.script_data or {}).get("visual_style") or image_gen.DEFAULT_VISUAL_STYLE,
+                    says=seg.get("text"),
+                )
+                await image_gen.generate_image(styled, out_path, user_keys=user_keys, aspect=aspect)
             elif seg.get("media_id"):  # user pinned a specific photo
                 await pexels.fetch_photo_by_id(client, int(seg["media_id"]), out_path)
                 used_ids.add(int(seg["media_id"]))
@@ -506,46 +608,36 @@ async def run(job_id: str) -> dict:
 
         used_ids: set[int] = set()
         clips = []
+        degraded: list[int] = []
         async with httpx.AsyncClient(timeout=60) as client:
             for i, seg in enumerate(segments):
                 clip_path = workdir / f"clip_{i:02d}.mp4"
-                if seg.get("asset_id"):  # the creator's own footage beats stock
-                    assembler.cut_source(
-                        asset_paths[str(seg["asset_id"])],
-                        float(seg.get("asset_start") or 0.0),
-                        voiced[i]["duration"] + 0.5,
-                        clip_path,
+                try:
+                    await _visual_for_scene(
+                        client, i, seg, clip_path, voiced[i]["duration"],
+                        video=video, aspect=aspect, asset_paths=asset_paths,
+                        ai_visuals=ai_visuals, gen_keys=gen_keys, used_ids=used_ids,
                     )
-                elif ai_visuals:
-                    from app.services import image_gen
-
-                    still = workdir / f"scene_{i:02d}.jpg"
-                    aspect_ratio = (video.script_data or {}).get("aspect_ratio") or assembler.DEFAULT_ASPECT
-                    prompt = image_gen.scene_prompt(
-                        seg.get("visual_prompt") or seg["text"],
-                        aspect=aspect_ratio,
-                        style=(video.script_data or {}).get("visual_style") or image_gen.DEFAULT_VISUAL_STYLE,
-                    )
-                    await image_gen.generate_image(prompt, still, user_keys=gen_keys, aspect=aspect_ratio)
-                    assembler.image_to_clip(
-                        still, voiced[i]["duration"] + 0.4, clip_path,
-                        width=aspect["w"], height=aspect["h"], zoom_in=(i % 2 == 0),
-                    )
-                elif seg.get("media_id"):  # user pinned a specific clip in the studio
-                    await pexels.fetch_clip_by_id(client, int(seg["media_id"]), clip_path,
-                                                  orientation=aspect["orientation"],
-                                                  target_w=aspect["w"], target_h=aspect["h"])
-                    used_ids.add(int(seg["media_id"]))
-                else:
-                    # Formats like Reddit Story use ONE background theme for the
-                    # whole video (used_ids still varies the actual clips).
-                    bg_query = (video.script_data or {}).get("background_query")
-                    query = bg_query or seg.get("visual_prompt") or seg["text"]
-                    await pexels.fetch_clip(client, query, clip_path, used_ids,
-                                            orientation=aspect["orientation"],
-                                            target_w=aspect["w"], target_h=aspect["h"])
+                except Exception as exc:
+                    # One scene failing must not cost a whole render. Pexels
+                    # raises on zero results and the image model raises on a
+                    # policy refusal — both are likelier the MORE specific a
+                    # visual prompt is, which is exactly the direction we want
+                    # prompts to move. So a scene degrades and says so, rather
+                    # than failing the video and refunding.
+                    logger.warning("scene %d visual failed (%s: %s) — falling back",
+                                   i, type(exc).__name__, exc)
+                    await _fallback_visual(client, i, seg, clip_path, voiced[i]["duration"],
+                                           video=video, aspect=aspect, used_ids=used_ids)
+                    degraded.append(i + 1)
                 clips.append(clip_path)
                 _publish(job_key, "running", "visuals", 35 + (i + 1) / len(segments) * 25)
+        if degraded:
+            # Named, not silent: a creator who can see which scene degraded can
+            # pin a clip there and re-render. A silent fallback is how a
+            # recoverable render becomes lost trust.
+            logger.warning("video %s: %d scene(s) used a fallback visual: %s",
+                           video.id, len(degraded), degraded)
 
         # Stage 3: assembly (with burned-in captions)
         _publish(job_key, "running", "assembly", 65)
@@ -625,10 +717,16 @@ async def run(job_id: str) -> dict:
             job.completed_at = datetime.now(timezone.utc)
             video.status = "failed"
             # Refund the render credit — failed renders must not cost the user.
-            refund = video.credits_used or 1
-            user.credit_balance += refund
-            db.add(CreditLedger(user_id=user.id, amount=refund, type="refund",
-                                description="Render failed — automatic refund", video_id=video.id))
+            # `or 1` here MINTED credits: a free restyle is charged 0, so a
+            # failing restyle handed back a credit that was never taken. Refund
+            # exactly what was charged, and zero it so a retry cannot refund
+            # the same credit twice.
+            refund = video.credits_used or 0
+            if refund:
+                user.credit_balance += refund
+                db.add(CreditLedger(user_id=user.id, amount=refund, type="refund",
+                                    description="Render failed — automatic refund", video_id=video.id))
+                video.credits_used = 0
             await db.commit()
         _publish(job_key, "failed", "failed", 0, error=str(exc)[:300])
         raise

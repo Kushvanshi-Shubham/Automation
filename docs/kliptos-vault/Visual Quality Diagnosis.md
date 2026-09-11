@@ -348,3 +348,31 @@ weaker as a moat than the audit assumed — at least on the script side, we
 simply had not tried. The genuinely hard half is the render side: getting an
 engine to produce the described thing. Any positioning built on the refusal
 should be built on that half, not this one.
+
+### Shipped result, and the trade the experiment did not show
+
+The experiment measured the prompt fix ALONE: 6/7 scene-specific. The shipped
+code also carries the grounding rule (`UNSOURCED_RULES`), which forbids the
+model from inventing patch notes it has no source for. Measured together:
+
+| | Scene-specific | Generic peripherals |
+|---|---|---|
+| As shipped 10 Sept | 0 / 7 | 6 / 7 |
+| Prompt fix alone (experiment) | 6 / 7 | 1 / 7 |
+| **Prompt fix + grounding (shipped)** | **3 / 7** | **1 / 7** |
+
+**The two fixes pull against each other, and that is correct.** The experiment's
+6/7 was partly measuring the model's freedom to invent: a fabricated "Oppressor
+MK2 missile cooldown" is a wonderfully depictable noun. Once the model is
+forbidden from inventing specifics it has no source for, the narration itself
+becomes broader ("the high-speed meta got hit hard") and there is genuinely less
+to depict.
+
+The important number is the second column. Generic gaming peripherals went from
+**6/7 to 1/7**: the visuals are now about cars, cargo ships and cash rather than
+keyboards and LAN parties. That is the actual defect the owner reported.
+
+**Consequence for the roadmap:** the remaining specificity gap is not a prompt
+problem any more — it is the missing source. A trend route that fetched the
+actual patch notes would let the script be both specific AND true, and the visual
+would follow. That is the real fix, and it is a fetch, not a prompt.

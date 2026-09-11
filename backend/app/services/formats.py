@@ -130,7 +130,9 @@ FORMATS: dict[str, dict] = {
             "FORMAT: motivational short. 5-8 segments, each ONE powerful line of on-screen text "
             "(under 10 words), all serving a single theme. Speak directly to the viewer ('you'). "
             "Build: challenge -> reframe -> push -> final line that hits hardest. No cliches like "
-            "'rise and grind'. visual_prompt = cinematic, moody, aspirational footage."
+            "'rise and grind'. visual_prompt = the concrete thing THIS line points at — the "
+            "alarm clock, the empty gym at 5am, the unopened message — shot cinematically. "
+            "Only when a line is pure abstraction, fall back to moody aspirational footage."
         ),
         "background_query": None,
         "caption_style": "minimal",
@@ -189,7 +191,9 @@ FORMATS: dict[str, dict] = {
             "(sher). Each segment = one couplet, written in Devanagari. Theme from the topic: love, "
             "loss, ambition, or life. Pacing is SLOW and deliberate — set duration_estimate at ~1.2 "
             "words/second so the narration breathes. End with the strongest couplet. "
-            "visual_prompt = slow aesthetic footage (rain on window, sunset, chai, empty roads)."
+            "visual_prompt = the image the couplet itself carries, shot slow and still. A sher "
+            "almost always names one — the rain, the cup, the road, the empty chair — so use "
+            "that one rather than a generic mood shot."
         ),
         "background_query": None,
         "caption_style": "minimal",
@@ -242,8 +246,9 @@ FORMATS: dict[str, dict] = {
             "FORMAT: gaming update. You're the friend who read the patch notes so the viewer doesn't "
             "have to. Hook = the single biggest change gamers care about. Then the buffs/nerfs/new "
             "content that actually change how people play, with hype but zero filler. Gamer-native "
-            "vocabulary (meta, nerfed, buffed) without cringe. visual_prompt = gaming setups, esports "
-            "crowds, RGB keyboards, controller close-ups (no copyrighted game footage)."
+            "vocabulary (meta, nerfed, buffed) without cringe. visual_prompt = the specific thing THIS line names, shown physically and "
+            "without naming the game or any trademark. Only when a line names nothing "
+            "depictable, fall back to a gaming setup or an esports crowd."
         ),
         "background_query": None,
         "caption_style": "neon",

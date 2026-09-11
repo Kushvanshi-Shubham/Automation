@@ -150,7 +150,18 @@ async def start_pipeline(
     # can never be sold below what it costs us (services/credits.py).
     from app.services.credits import engine_credit_cost
 
-    scene_count = len((video.script_data or {}).get("segments") or [])
+    segments_for_cost = (video.script_data or {}).get("segments") or []
+    # Only scenes we actually GENERATE are billable. A creator who pins their
+    # own footage or a stock clip to a scene costs us nothing there, and now
+    # that pins are honoured ahead of the AI branch, charging for them would
+    # mean paying for images that are never made.
+    if engine == "ai_image":
+        scene_count = sum(
+            1 for seg in segments_for_cost
+            if not seg.get("asset_id") and not seg.get("media_id")
+        )
+    else:
+        scene_count = len(segments_for_cost)
     cost = engine_credit_cost(engine, scenes=scene_count) if engine in ENGINE_CREDIT_COST else None
     if cost is None:
         raise HTTPException(

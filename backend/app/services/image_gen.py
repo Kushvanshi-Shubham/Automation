@@ -19,10 +19,13 @@ MODEL_PREFERENCE = [
     "gemini-3-pro-image",
 ]
 
-STYLE_SUFFIX = (
-    " Vertical portrait composition (4:5), vivid, high detail, social-media ready, "
-    "no text, no watermarks, no borders."
-)
+# Retired. It appended "Vertical portrait composition (4:5)" to every prompt —
+# AFTER scene_prompt had already specified the real aspect, so a 9:16 scene
+# carried two contradictory composition instructions, and 4:5 is not even in
+# _ASPECT_FRAMING. It survived because it was the ONLY styling the carousel
+# path got: that path passed a raw prompt straight to generate_image and never
+# called scene_prompt. Both paths go through scene_prompt now, so the suffix
+# has no job left.
 
 # Per-aspect framing so a generated scene fills the frame without letterboxing.
 _ASPECT_FRAMING = {
@@ -54,16 +57,33 @@ VISUAL_STYLES = {
 DEFAULT_VISUAL_STYLE = "explainer"
 
 
-def scene_prompt(subject: str, aspect: str = "9:16", style: str = DEFAULT_VISUAL_STYLE) -> str:
+def scene_prompt(
+    subject: str,
+    aspect: str = "9:16",
+    style: str = DEFAULT_VISUAL_STYLE,
+    says: str | None = None,
+) -> str:
     """Prompt for one scene's illustration — framed for the target aspect.
+
+    `says` is the narration this scene accompanies. It is passed as context
+    rather than as the subject, because a visual_prompt written for a stock
+    library ("gaming setups, RGB keyboards") can be entirely disconnected
+    from what the line is about — which is exactly how a video about a
+    vehicle patch ended up illustrated with a photo of a keyboard. Giving
+    the model the line as well means a thin prompt still lands near the
+    subject instead of far from it.
 
     Text is banned on purpose: captions and headlines are burned in later,
     and generated lettering is almost always misspelled.
     """
     framing = _ASPECT_FRAMING.get(aspect, _ASPECT_FRAMING["9:16"])
     look = VISUAL_STYLES.get(style, VISUAL_STYLES[DEFAULT_VISUAL_STYLE])
+    context = ""
+    if says and says.strip() and says.strip() != subject.strip():
+        # Trimmed: the point is the subject matter, not the full sentence.
+        context = f" It illustrates this line: \"{' '.join(says.split())[:160]}\"."
     return (
-        f"{subject.strip()}. {look}. {framing}. "
+        f"{subject.strip()}.{context} {look}. {framing}. "
         "Absolutely no text, no words, no letters, no numbers, no logos, no watermarks, no borders."
     )
 
@@ -97,7 +117,7 @@ async def generate_image(
         try:
             resp = await client.aio.models.generate_content(
                 model=model,
-                contents=prompt + STYLE_SUFFIX,
+                contents=prompt,
                 config=config,
             )
             if not resp.candidates:

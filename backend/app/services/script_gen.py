@@ -19,8 +19,13 @@ _BASE_RULES = """
 Rules:
 - The first segment is the HOOK: it must grab attention in under 3 seconds of speech.
 - Each segment is 1-2 spoken sentences (max ~25 words) with ONE clear idea.
-- Every segment includes a visual_prompt: a concrete, filmable description for stock-footage
-  search or AI video generation (no text overlays, no brand names, no celebrity likenesses).
+- Every segment includes a visual_prompt: a concrete, filmable description of WHAT THIS
+  SEGMENT'S OWN LINE IS ABOUT. If the line names a thing, a place or an event, the visual
+  must show that thing, described physically. Never a generic scene from the topic's wider
+  category — a line about a vehicle patch must not be illustrated with a keyboard.
+  Do not name trademarks, brands or real people; describe them instead (write "a matte-black
+  armoured hover-bike with a roof-mounted missile pod", not the product's name). No text
+  overlays.
 - Total spoken duration must fit the requested length at ~2.5 words/second.
 
 Respond ONLY with JSON matching:
@@ -44,9 +49,10 @@ Rules:
   show the thing that carries it.
 - Pacing is slow and deliberate: duration_estimate at ~1.2 words/second, so
   each line is given room to land.
-- Every segment includes a visual_prompt: a still, atmospheric, filmable image
-  (rain on glass, a cooling cup of chai, an empty road at dusk). No text
-  overlays, no brand names, no celebrity likenesses.
+- Every segment includes a visual_prompt: a still, atmospheric, filmable image that
+  carries THIS line's own image (rain on glass, a cooling cup of chai, an empty road
+  at dusk). Take it from the line itself rather than from a fixed palette of moody
+  stock. No text overlays, no brand names, no celebrity likenesses.
 - The last line is the strongest. End on it.
 
 Respond ONLY with JSON matching:

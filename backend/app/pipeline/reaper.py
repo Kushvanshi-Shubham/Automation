@@ -55,6 +55,17 @@ async def _run() -> dict:
             user = await db.get(User, job.user_id)
             refund = (video.credits_used or 0) if video else 0
 
+            # Cancel the task BEFORE refunding. Without this the worker — which
+            # on one box at concurrency 1 is usually just still queued rather
+            # than stuck — goes on to finish the render and deliver it, after
+            # the creator has been told it timed out and been given the credit
+            # back. Free video, refunded credit, and no way to notice.
+            if job.celery_task_id:
+                try:
+                    celery_app.control.revoke(job.celery_task_id, terminate=True)
+                except Exception as exc:
+                    logger.warning("could not revoke stale task %s: %s", job.celery_task_id, exc)
+
             job.status = "failed"
             job.error_message = (
                 f"No worker finished this render within {STALE_AFTER_MINUTES} minutes — "
