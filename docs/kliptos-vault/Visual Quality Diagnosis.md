@@ -296,3 +296,55 @@ Nothing else in the plan overpromises. The "no AI-video lane exists" claim, the 
 ---
 
 Links: [[Pitch]] · [[Home]] · [[Competitors]] · [[Pricing]]
+
+---
+
+## EXPERIMENT RESULT — 2026-09-11, run against the live model
+
+The diagnosis above was reasoning from code. This is measurement.
+`backend/scripts/visual_relevance_experiment.py` runs the SAME subject
+(the rejected GTA render's topic) through three prompt variants and counts how
+many visual prompts name something from their own line.
+
+| Variant | Scene-specific | Generic peripherals |
+|---|---|---|
+| **1. As shipped** | **0 / 7** | 6 / 7 |
+| 2. Palette assignment removed only | 3 / 7 | 0 / 7 |
+| **3. Palette removed + coupling clause** | **6 / 7** | 1 / 7 |
+
+Variant 1 reproduced the original failure exactly — multi-monitor setups,
+mechanical keyboards, gaming mice, an esports crowd — for a script about a
+Terrorbyte buff and a Heavy Railgun.
+
+Variant 3 produced, unprompted and naming no trademark:
+- *"A player on a futuristic black hover-bike firing a missile that harmlessly
+  veers off course from its target"* — the Oppressor MK2 nerf, described
+  physically.
+- *"A tropical island mansion vault door dramatically opening to reveal piles
+  of gold bars and cash"* — the Cayo Perico payout.
+- *"Extreme low-angle shot of a massive, chrome-plated, armored semi-truck"*.
+
+That is precisely the "describe it, don't name it" output the synthesis
+predicted was available under the existing brand ban.
+
+**Conclusion: the script half of visual relevance was never an industry-hard
+problem for us. It was four words in `formats.py` plus a missing clause.**
+Removing the palette alone recovers half of it; adding the coupling clause
+recovers nearly all of it. The model was never the limitation.
+
+**What this does NOT prove, and must not be claimed:**
+1. That the image model renders "futuristic black hover-bike" *well* — the
+   `bold` visual_style wrapper ("strong silhouettes, striking and simple")
+   still abstracts the subject, and `STYLE_SUFFIX` still contradicts the
+   aspect ratio.
+2. That Pexels can find these. It cannot; stock has no armoured hover-bikes.
+   **Specific prompts on the default `pexels` engine will produce MORE zero-result
+   failures, and `runner.py` has no try/except around that loop.** The fix must
+   ship with the per-scene fallback or it converts bad renders into dead ones.
+3. That competitors' failures share this cause. Unknown.
+
+**Strategic consequence:** "nobody has solved visual relevance" is materially
+weaker as a moat than the audit assumed — at least on the script side, we
+simply had not tried. The genuinely hard half is the render side: getting an
+engine to produce the described thing. Any positioning built on the refusal
+should be built on that half, not this one.
