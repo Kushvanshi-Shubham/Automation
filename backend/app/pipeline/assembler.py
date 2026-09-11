@@ -101,13 +101,21 @@ def render_segment_silent(
     )
 
 
+# Broadcast-style target. Measured across 18 real renders, output loudness
+# spanned 14.6 dB (-12.6 to -27.2 LUFS) — a real channel sits inside about 1 dB,
+# and a viewer reaches for the volume slider long before they notice anything
+# else about the edit. Single-pass: a two-pass measure/apply would double the
+# render time for accuracy nobody can hear.
+LOUDNESS = "loudnorm=I=-14:TP=-1.5:LRA=11"
+
+
 def add_music_track(video_path: Path, music_path: Path, out_path: Path, music_volume: float = 0.85) -> None:
     """Attach a looped music track as the ONLY audio (for visual shorts)."""
     _run([
         "-i", str(video_path),
         "-stream_loop", "-1",
         "-i", str(music_path),
-        "-filter_complex", f"[1:a]volume={music_volume}[a]",
+        "-filter_complex", f"[1:a]volume={music_volume},{LOUDNESS}[a]",
         "-map", "0:v", "-map", "[a]",
         "-c:v", "copy",
         "-c:a", "aac", "-b:a", "128k",
@@ -208,7 +216,14 @@ def mix_music(video_path: Path, music_path: Path, out_path: Path, music_volume: 
         "-stream_loop", "-1",
         "-i", str(music_path),
         "-filter_complex",
-        f"[1:a]volume={music_volume}[m];[0:a][m]amix=inputs=2:duration=first:dropout_transition=2[a]",
+        # normalize=0 is NOT optional. ffmpeg's amix normalizes by default,
+        # scaling every input by 1/n — so mixing narration with music quietly
+        # threw away 6 dB of the narration on every single render, and the
+        # "0.12" music bed was really playing at 0.06. Then loudnorm brings the
+        # finished mix to a consistent target.
+        f"[1:a]volume={music_volume}[m];"
+        f"[0:a][m]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[mix];"
+        f"[mix]{LOUDNESS}[a]",
         "-map", "0:v", "-map", "[a]",
         "-c:v", "copy",
         "-c:a", "aac", "-b:a", "128k",

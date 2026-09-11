@@ -10,8 +10,9 @@ import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import {
-  MdOutlineClose, MdOutlineEdit, MdOutlineErrorOutline, MdOutlineLiveTv,
-  MdOutlinePhotoCamera, MdOutlineRateReview, MdOutlineSchedule,
+  MdOutlineClose, MdOutlineDownload, MdOutlineEdit, MdOutlineErrorOutline,
+  MdOutlineIosShare, MdOutlineLiveTv, MdOutlinePhotoCamera, MdOutlineRateReview,
+  MdOutlineSchedule,
 } from "react-icons/md"
 import { fetchApi, mediaUrl } from "@/lib/api-client"
 import { usePipeline } from "@/hooks/use-pipeline"
@@ -156,6 +157,23 @@ function PreviewContent() {
             )}
           </div>
         )}
+
+        {/* Getting the file OUT. The Free tier's entire promise is "videos you
+            can download and post", and until now there was no way to do either
+            — on a phone, where these creators actually are, the browser's own
+            video menu is unreliable to absent. */}
+        {video.status !== "rendering" && video.status !== "script_ready" && video.video_url && (
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <a href={mediaUrl(video.video_url)} download={`${(video.title || "kliptos-short").replace(/[^\w\s-]/g, "").slice(0, 60).trim() || "kliptos-short"}.mp4`}
+              style={{ display: "flex", alignItems: "center", gap: 7, background: L.make, border: "none", borderRadius: 8, color: "#fff", fontFamily: grotesque, fontSize: 13.5, fontWeight: 600, padding: "10px 16px", textDecoration: "none" }}>
+              <MdOutlineDownload size={17} /> Download
+            </a>
+            {/* Native share is how a video gets from a phone into an app. It
+                only exists over HTTPS and on a real device, so the button
+                appears only where it will work rather than failing silently. */}
+            <ShareButton url={mediaUrl(video.video_url)} title={video.title ?? "My Short"} />
+          </div>
+        )}
       </div>
 
       {/* Meta column */}
@@ -219,6 +237,45 @@ function PreviewContent() {
 }
 
 /* ==================== STUCK RENDER ESCAPE HATCH ==================== */
+function ShareButton({ url, title }: { url: string; title: string }) {
+  const [busy, setBusy] = useState(false)
+  const [ok, setOk] = useState(false)
+  // navigator.share needs a secure context and a device that supports it, so
+  // render nothing rather than a button that does nothing. Checked after mount
+  // because the server has no navigator.
+  const [can, setCan] = useState(false)
+  useEffect(() => { setCan(typeof navigator !== "undefined" && !!navigator.share) }, [])
+  if (!can) return null
+
+  const share = async () => {
+    setBusy(true)
+    try {
+      // Share the FILE where possible — sharing a URL just hands someone a
+      // link they have to download themselves, which is the problem again.
+      const blob = await (await fetch(url)).blob()
+      const file = new File([blob], `${title.replace(/[^\w\s-]/g, "").slice(0, 60).trim() || "short"}.mp4`, { type: blob.type || "video/mp4" })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title })
+      } else {
+        await navigator.share({ title, url })
+      }
+      setOk(true)
+    } catch {
+      // A cancelled share is the normal case, not an error worth showing.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <button onClick={share} disabled={busy}
+      style={{ display: "flex", alignItems: "center", gap: 7, background: "transparent", border: `1px solid ${L.rule}`, borderRadius: 8, color: L.ink, fontFamily: grotesque, fontSize: 13.5, fontWeight: 600, padding: "10px 16px", cursor: busy ? "default" : "pointer" }}>
+      <MdOutlineIosShare size={17} /> {busy ? "Preparing…" : ok ? "Shared" : "Share"}
+    </button>
+  )
+}
+
+
 function CancelRender({ jobId, videoId }: { jobId: string; videoId: string }) {
   const queryClient = useQueryClient()
   const [asked, setAsked] = useState(false)

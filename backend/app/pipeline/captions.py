@@ -12,8 +12,11 @@ On top of the style packs, the "caption craft" layer adds:
 
 ASS colors are &HAABBGGRR (alpha, blue, green, red).
 """
+import logging
 import shutil
 from pathlib import Path
+
+logger = logging.getLogger("kliptos.captions")
 
 MAX_WORDS_PER_CUE = 3
 
