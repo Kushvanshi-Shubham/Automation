@@ -21,6 +21,14 @@ UNIT_COSTS_USD: dict[str, float] = {
     "pexels_photo": 0.0,
     "tts_segment": 0.0,       # edge-tts, free
     "whisper_job": 0.0,       # local CPU
+    # These two were TRACKED but missing from this dict, and SERVICES is built
+    # from its keys — so the economics panel counted them and then priced them
+    # at nothing. It was structurally unable to report a loss on the only two
+    # lanes that cost real money. Prices mirror ENGINE_REAL_COST_USD in
+    # credits.py; keep them in step.
+    "premium_voice": 0.15,    # ElevenLabs / Cartesia, ~60s
+    "ai_image": 0.035,        # one generated scene. ASSUMED, not measured —
+                              # the Cloud Billing API returns 403 for our SA.
 }
 
 SERVICES = list(UNIT_COSTS_USD)

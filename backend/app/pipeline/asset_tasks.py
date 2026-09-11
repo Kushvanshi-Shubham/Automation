@@ -10,6 +10,7 @@ from uuid import UUID
 
 from app.database import AsyncSessionLocal
 from app.models.asset import Asset
+from app.models.user import User
 from app.pipeline.celery_app import celery_app
 
 logger = logging.getLogger("kliptos.asset")
@@ -31,6 +32,10 @@ async def _run(asset_id: str) -> dict:
         await db.commit()
         path_ref = asset.path
         user_id = asset.user_id
+        # Answered during onboarding. Auto-detect is the wrong default for a
+        # Hindi or Hinglish upload, and this is the only place we know better.
+        owner = await db.get(User, user_id)
+        owner_language = getattr(owner, "language", None)
 
     workdir = Path(tempfile.mkdtemp(prefix="kliptos_asset_"))
     try:
@@ -39,7 +44,7 @@ async def _run(asset_id: str) -> dict:
         path = await asyncio.to_thread(storage.resolve_source, path_ref, workdir)
         duration = probe_duration(path)
         # Whisper is CPU-bound sync work — keep it off the event loop.
-        transcript = await asyncio.to_thread(transcribe.transcribe, path)
+        transcript = await asyncio.to_thread(transcribe.transcribe, path, owner_language)
 
         async with AsyncSessionLocal() as db:
             user_keys = await get_user_keys(db, user_id)

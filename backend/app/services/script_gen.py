@@ -221,9 +221,36 @@ async def generate_script(
     return _finalize(await generate_json(system, user_prompt, temperature=0.8, model=model, user_keys=user_keys))
 
 
-async def format_custom_script(script_text: str, model: str = "auto", user_keys: dict[str, str] | None = None) -> dict:
-    """Structure a user-written script without changing its wording."""
-    user_prompt = f"User's script:\n---\n{script_text.strip()}\n---\nStructure it now."
+async def format_custom_script(
+    script_text: str,
+    model: str = "auto",
+    user_keys: dict[str, str] | None = None,
+    custom_instructions: str | None = None,
+) -> dict:
+    """Structure a user-written script without changing its wording.
+
+    `custom_instructions` carries everything the creator has already taught
+    Kliptos — the format recipe, their sub-mood, their Teach-a-style profile
+    and their standing feedback notes. Until now this function did not take
+    them, so a creator who brought their own script silently lost all four.
+    They had configured the product and the product ignored it.
+
+    They apply to the VISUALS, captions and music only. The one promise this
+    path makes is that the wording is untouched, so an instruction like
+    "always end with follow for part 2" must not be allowed to add a line the
+    creator did not write.
+    """
+    guarded = ""
+    if custom_instructions and custom_instructions.strip():
+        guarded = (
+            "\n\nThe creator's standing preferences are below. Apply them ONLY to "
+            "visual_prompt, title, description and tags. They must NOT change, add to, "
+            "reorder or remove a single word of the script text — if a preference asks "
+            "for different wording, an extra line or a call to action, ignore that part "
+            "of it silently.\n---\n"
+            f"{custom_instructions.strip()}\n---\n"
+        )
+    user_prompt = f"User's script:\n---\n{script_text.strip()}\n---{guarded}\nStructure it now."
     data = _finalize(
         await generate_json(CUSTOM_SCRIPT_PROMPT, user_prompt, temperature=0.2, model=model, user_keys=user_keys)
     )

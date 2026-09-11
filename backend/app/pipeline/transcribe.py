@@ -31,12 +31,33 @@ def extract_audio(source: Path, out_wav: Path) -> None:
         raise RuntimeError(f"audio extraction failed: {proc.stderr[-300:]}")
 
 
-def transcribe(source: Path) -> dict:
-    """Whisper transcript with segment + word timestamps."""
+# Whisper language codes for the script languages we offer. Auto-detect is
+# fine for English and actively bad for the rest: it decides from the opening
+# seconds, and Hinglish — Hindi grammar with English nouns, which is how most
+# Indian creators actually speak — flips between "hi" and "en" mid-file and
+# takes the word timings with it. An India-first product cannot guess here.
+LANGUAGE_CODES = {
+    "english": "en",
+    "hindi": "hi",
+    "spanish": "es",
+    "portuguese": "pt",
+}
+
+
+def transcribe(source: Path, language: str | None = None) -> dict:
+    """Whisper transcript with segment + word timestamps.
+
+    `language` is the creator's script language (see services/voices.LANGUAGES).
+    Passing it is a hint, not a constraint — Whisper still transcribes English
+    words inside a Hindi sentence, which is the point.
+    """
+    code = LANGUAGE_CODES.get((language or "").strip().lower())
     with tempfile.TemporaryDirectory(prefix="kliptos_asr_") as tmp:
         wav = Path(tmp) / "audio.wav"
         extract_audio(source, wav)
-        segments_iter, info = _get_model().transcribe(str(wav), word_timestamps=True)
+        segments_iter, info = _get_model().transcribe(
+            str(wav), word_timestamps=True, language=code,
+        )
         segments = []
         for seg in segments_iter:
             segments.append({

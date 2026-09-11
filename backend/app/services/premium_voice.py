@@ -188,7 +188,10 @@ async def synth_with_timings(
     duration = probe_duration(out_path)
     try:
         # Whisper is CPU-bound sync work — keep it off the event loop.
-        result = await asyncio.to_thread(transcribe.transcribe, out_path)
+        # We know exactly what language we just spoke — never make Whisper
+        # guess it back. Hinglish in particular flips mid-file on auto-detect
+        # and drags the word timings, and those timings ARE the captions.
+        result = await asyncio.to_thread(transcribe.transcribe, out_path, language)
         # Whisper hands back numpy floats — cast so these stay plain JSON.
         words = [
             {"word": w["word"], "start": float(w["start"]), "end": float(w["end"])}

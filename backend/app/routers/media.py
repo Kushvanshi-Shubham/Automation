@@ -406,6 +406,16 @@ async def create_montage(
     return {"video_id": video_id, "job_id": job_id, "status": "queued", "credits_used": cost}
 
 
+def _video_uses_asset(video, asset_id: str) -> bool:
+    """True if any scene, clip or montage in this video points at the asset."""
+    data = video.script_data or {}
+    if str((data.get("clip") or {}).get("asset_id") or "") == asset_id:
+        return True
+    if str((data.get("montage") or {}).get("asset_id") or "") == asset_id:
+        return True
+    return any(str(seg.get("asset_id") or "") == asset_id for seg in (data.get("segments") or []))
+
+
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_asset(
     asset_id: UUID,
@@ -415,6 +425,25 @@ async def delete_asset(
     asset = await db.get(Asset, asset_id)
     if asset is None or asset.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+
+    # A video keeps only the asset ID, not a copy of the footage, so deleting
+    # the upload silently breaks every video that points at it — and the
+    # creator finds out on a re-render, long after the file is gone. Name the
+    # videos instead of refusing blankly, so they can go and unpin.
+    key = str(asset.id)
+    clashes = [
+        v for v in (await db.execute(select(Video).where(Video.user_id == current_user.id))).scalars().all()
+        if _video_uses_asset(v, key)
+    ]
+    if clashes:
+        names = ", ".join(f'"{(v.title or "Untitled")[:40]}"' for v in clashes[:3])
+        more = f" and {len(clashes) - 3} more" if len(clashes) > 3 else ""
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{len(clashes)} video(s) still use this footage — {names}{more}. "
+                   "Unpin it from those scenes first, or delete the videos.",
+        )
+
     from app.services import storage
 
     local = Path(asset.path)

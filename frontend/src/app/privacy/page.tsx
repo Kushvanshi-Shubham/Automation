@@ -46,7 +46,8 @@ export default function PrivacyPage() {
         <p>
           To generate and render content, the relevant parts of your input are processed by: Google (Gemini,
           YouTube API), OpenAI, Hugging Face (only if selected or as fallback), Pexels (stock media search),
-          and Microsoft (neural text-to-speech). Hosting and infrastructure providers store data on our behalf.
+          Microsoft (neural text-to-speech), and ElevenLabs or Cartesia (studio-grade text-to-speech, only when
+          you choose a studio voice). Hosting and infrastructure providers store data on our behalf.
           Each processor receives only what it needs for its task.
         </p>
       </section>

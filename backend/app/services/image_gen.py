@@ -127,6 +127,16 @@ async def generate_image(
                 if inline and inline.data:
                     with open(out_path, "wb") as f:
                         f.write(inline.data)
+                    # Counted here, on success only — a filtered or failed
+                    # call bills nothing. Without this the economics panel
+                    # reported 100% margin no matter what this lane burned,
+                    # because it was never counted at all.
+                    try:
+                        from app.services.costs import track
+
+                        track("ai_image")
+                    except Exception:  # accounting must never fail a render
+                        pass
                     return model
             raise RuntimeError("model returned no image data")
         except Exception as exc:

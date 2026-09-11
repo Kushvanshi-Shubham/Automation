@@ -240,7 +240,13 @@ async def generate_script(
                 detail="Your script is too short — write at least a few sentences",
             )
         subject = "user-written script"
-        script = await script_gen.format_custom_script(req.custom_script, model=req.model, user_keys=user_keys)
+        # `instructions` is assembled above from the format recipe, the mood,
+        # the creator's own typed instructions, their learned style and their
+        # standing feedback notes. It was built and then dropped on this path.
+        script = await script_gen.format_custom_script(
+            req.custom_script, model=req.model, user_keys=user_keys,
+            custom_instructions=instructions,
+        )
     else:
         if req.source_url:
             # Create from a link: text/metadata only — media is never downloaded.
