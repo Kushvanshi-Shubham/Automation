@@ -217,10 +217,10 @@ def _cue_from(ws: list[dict]) -> dict:
     }
 
 
-def fallback_cues(text: str, duration: float) -> list[dict]:
+def fallback_cues(text: str, duration: float, max_words: int = MAX_WORDS_PER_CUE) -> list[dict]:
     """No word events: spread the text across the duration in 3-word chunks."""
     tokens = text.split()
-    chunks = [tokens[i:i + MAX_WORDS_PER_CUE] for i in range(0, len(tokens), MAX_WORDS_PER_CUE)]
+    chunks = [tokens[i:i + max_words] for i in range(0, len(tokens), max_words)]
     if not chunks:
         return []
     per = duration / len(chunks)
@@ -424,8 +424,12 @@ def build_segment_captions(
     font: str | None = None,
     color: str | None = None,
     headline: str | None = None,
+    words_per_cue: int = MAX_WORDS_PER_CUE,
 ) -> Path:
-    cues = group_words(words) if words else fallback_cues(text, duration)
+    # Three words at a time is right for a punchy short and wrong for a
+    # couplet — the format decides how much of a line is held on screen.
+    cues = (group_words(words, max_words=words_per_cue) if words
+            else fallback_cues(text, duration, max_words=words_per_cue))
     return write_ass(
         cues, out_path, style=style, play_res=play_res,
         # +0.2s so the mark never flickers out between segments

@@ -23,6 +23,27 @@ ASPECT_RATIOS: dict[str, dict] = {
 DEFAULT_ASPECT = "9:16"
 
 
+# Ken Burns speeds, as (zoom-per-frame, ceiling). formats.MOTIONS holds the
+# human labels for the same keys; test_editing_grammar keeps the two in step. A shot that moves at news
+# speed under a couplet feels restless; one that barely moves under a news
+# update feels dead. Same filter, four intents.
+MOTION_CURVES: dict[str, tuple[float, float]] = {
+    "kenburns": (0.0009, 1.18),   # the original default - do not change
+    "drift":    (0.00025, 1.06),  # ~6% over a 7s shot: felt, not seen
+    "punch":    (0.0025, 1.25),
+    "still":    (0.0, 1.0),
+}
+
+
+def _fade_filter(duration: float, fade: float) -> str:
+    """Fade the composed frame in and out. Applied last, so captions fade
+    with the picture instead of popping onto a black frame."""
+    if fade <= 0 or duration <= fade * 2:
+        return ""
+    out_start = max(0.0, duration - fade)
+    return f",fade=t=in:st=0:d={fade:.2f},fade=t=out:st={out_start:.2f}:d={fade:.2f}"
+
+
 def _vf(width: int, height: int) -> str:
     return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},fps=30,format=yuv420p"
 
@@ -51,14 +72,22 @@ def render_segment(
     ass_path: Path | None = None,
     width: int = 1080,
     height: int = 1920,
+    fade: float = 0.0,
 ) -> None:
     """Video looped/trimmed to narration duration, cropped to the target
-    aspect, with segment audio and optional burned-in captions."""
+    aspect, with segment audio and optional burned-in captions.
+
+    `fade` softens both edges of the shot. It is a per-segment effect rather
+    than a true cross-dissolve on purpose: an xfade chain shortens the video
+    by (n-1)*d while the narration keeps its full length, and nothing in this
+    pipeline would re-sync them. This costs no duration and cannot desync.
+    """
     vf = _vf(width, height)
     if ass_path is not None:
         # Run with cwd = the ASS file's directory and reference it by bare
         # filename — sidesteps Windows drive-letter escaping in filter args.
         vf = f"{vf},ass={ass_path.name}:fontsdir=."
+    vf += _fade_filter(duration + 0.15, fade)
     _run(
         [
             "-stream_loop", "-1",
@@ -82,11 +111,13 @@ def render_segment_silent(
     ass_path: Path | None = None,
     width: int = 1080,
     height: int = 1920,
+    fade: float = 0.0,
 ) -> None:
     """Visual-only segment: no narration track (music is added after concat)."""
     vf = _vf(width, height)
     if ass_path is not None:
         vf = f"{vf},ass={ass_path.name}:fontsdir=."
+    vf += _fade_filter(duration, fade)
     _run(
         [
             "-stream_loop", "-1",
@@ -159,6 +190,7 @@ def image_to_clip(
     width: int = 1080,
     height: int = 1920,
     zoom_in: bool = True,
+    motion: str = "kenburns",
 ) -> None:
     """Turn a still into a moving shot (Ken Burns) so AI-generated scenes
     don't look like a slideshow.
@@ -170,10 +202,13 @@ def image_to_clip(
     # Oversample first: zoompan crops from the source, so a larger canvas
     # keeps the pan sharp instead of soft-scaling a 1080-wide image.
     big_w, big_h = width * 2, height * 2
-    if zoom_in:
-        z = "min(1+0.0009*on,1.18)"
+    rate, ceiling = MOTION_CURVES.get(motion, MOTION_CURVES["kenburns"])
+    if rate <= 0:
+        z = "1"
+    elif zoom_in:
+        z = f"min(1+{rate}*on,{ceiling})"
     else:
-        z = "max(1.18-0.0009*on,1)"
+        z = f"max({ceiling}-{rate}*on,1)"
     vf = (
         f"scale={big_w}:{big_h}:force_original_aspect_ratio=increase,"
         f"crop={big_w}:{big_h},"

@@ -151,6 +151,7 @@ async def _visual_for_scene(
         assembler.image_to_clip(
             still, narration_seconds + 0.4, clip_path,
             width=aspect["w"], height=aspect["h"], zoom_in=(i % 2 == 0),
+            motion=_editing(data)["motion"],
         )
         return
 
@@ -160,6 +161,61 @@ async def _visual_for_scene(
     await pexels.fetch_clip(client, query, clip_path, used_ids,
                             orientation=aspect["orientation"],
                             target_w=aspect["w"], target_h=aspect["h"])
+
+
+def _editing(data: dict | None) -> dict:
+    """The format's editing grammar, as stored on the video at generation time.
+
+    Older videos predate the field and simply get the defaults, which are
+    byte-for-byte the behaviour they were rendered with.
+    """
+    from app.services.formats import EDITING_DEFAULT
+
+    out = dict(EDITING_DEFAULT)
+    out.update((data or {}).get("editing") or {})
+    return out
+
+
+def _assemble_segment(
+    *, index: int, seg: dict, seg_audio: dict, clip: Path, out_path: Path,
+    workdir: Path, data: dict, aspect: dict, watermark: bool, silent: bool,
+) -> Path:
+    """Burn one segment's captions and render it to a file.
+
+    Extracted from run() so the wiring is testable. Every previous version of
+    this code assembled the caption and render arguments inline, which is how
+    a format's settings could be computed correctly and then never reach the
+    call — the bug this whole editing layer would otherwise repeat.
+    """
+    edit = _editing(data)
+    ass_path = captions.build_segment_captions(
+        words=seg_audio.get("words") or [],
+        text=seg["text"],
+        duration=seg_audio["duration"],
+        out_path=workdir / f"cap_{index:02d}.ass",
+        style=data.get("caption_style") or captions.DEFAULT_CAPTION_STYLE,
+        play_res=(aspect["w"], aspect["h"]),
+        watermark=watermark,
+        animation=data.get("caption_animation") or "none",
+        font=data.get("caption_font"),
+        color=data.get("caption_color"),
+        headline=seg.get("headline"),
+        words_per_cue=edit["words_per_cue"],
+    )
+    # A hard cut is fade=0, which _fade_filter turns into no filter at all —
+    # so "cut" formats render through the identical filtergraph as before.
+    fade = edit["fade"] if edit["transition"] == "soft" else 0.0
+    if silent:
+        assembler.render_segment_silent(
+            clip, seg_audio["duration"], out_path, ass_path=ass_path,
+            width=aspect["w"], height=aspect["h"], fade=fade,
+        )
+    else:
+        assembler.render_segment(
+            clip, Path(seg_audio["audio_path"]), seg_audio["duration"], out_path,
+            ass_path=ass_path, width=aspect["w"], height=aspect["h"], fade=fade,
+        )
+    return out_path
 
 
 async def _fallback_visual(
@@ -641,31 +697,14 @@ async def run(job_id: str) -> dict:
 
         # Stage 3: assembly (with burned-in captions)
         _publish(job_key, "running", "assembly", 65)
-        caption_style = (video.script_data or {}).get("caption_style") or captions.DEFAULT_CAPTION_STYLE
         rendered = []
         for i, (seg_audio, clip) in enumerate(zip(voiced, clips)):
             seg_out = workdir / f"final_{i:02d}.mp4"
-            ass_path = captions.build_segment_captions(
-                words=seg_audio.get("words") or [],
-                text=segments[i]["text"],
-                duration=seg_audio["duration"],
-                out_path=workdir / f"cap_{i:02d}.ass",
-                style=caption_style,
-                play_res=(aspect["w"], aspect["h"]),
-                watermark=watermark,
-                animation=(video.script_data or {}).get("caption_animation") or "none",
-                font=(video.script_data or {}).get("caption_font"),
-                color=(video.script_data or {}).get("caption_color"),
-                headline=segments[i].get("headline"),
+            _assemble_segment(
+                index=i, seg=segments[i], seg_audio=seg_audio, clip=clip, out_path=seg_out,
+                workdir=workdir, data=video.script_data or {}, aspect=aspect,
+                watermark=watermark, silent=(output_type == "visual"),
             )
-            if output_type == "visual":
-                assembler.render_segment_silent(clip, seg_audio["duration"], seg_out, ass_path=ass_path,
-                                                width=aspect["w"], height=aspect["h"])
-            else:
-                assembler.render_segment(
-                    clip, Path(seg_audio["audio_path"]), seg_audio["duration"], seg_out, ass_path=ass_path,
-                    width=aspect["w"], height=aspect["h"],
-                )
             rendered.append(seg_out)
             _publish(job_key, "running", "assembly", 65 + (i + 1) / len(segments) * 20)
 

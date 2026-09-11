@@ -108,6 +108,12 @@ FORMATS: dict[str, dict] = {
         ),
         "background_query": None,
         "caption_style": "impact",
+        "editing": {
+            # News pushes in. Stillness reads as "nothing is happening".
+            "motion": "punch",
+            "transition": "cut",
+            "words_per_cue": 3,
+        },
         "voice_id": None,
         "language": None,
         "music_mood": "energetic",
@@ -136,6 +142,13 @@ FORMATS: dict[str, dict] = {
         ),
         "background_query": None,
         "caption_style": "minimal",
+        "editing": {
+            # Slower than the default but not as still as poetry.
+            "motion": "drift",
+            "transition": "soft",
+            "fade": 0.2,
+            "words_per_cue": 4,
+        },
         "voice_id": None,
         "language": None,
         "music_mood": "calm",
@@ -201,6 +214,17 @@ FORMATS: dict[str, dict] = {
         "language": "Hindi",
         "music_mood": "calm",
         "tone": "soulful and poetic",
+        "editing": {
+            # A sher is meant to land in silence, not be chased by a moving
+            # camera. Drift is slow enough that you notice the line, not the shot.
+            "motion": "drift",
+            # A breath between couplets. A hard cut here reads as a scroll.
+            "transition": "soft",
+            "fade": 0.3,
+            # Shayari is read a LINE at a time. Three-word chunks cut a couplet
+            # into pieces and destroy the shape the whole form depends on.
+            "words_per_cue": 7,
+        },
         "moods": {
             "sad": {
                 "label": "Sad / Dard",
@@ -252,6 +276,11 @@ FORMATS: dict[str, dict] = {
         ),
         "background_query": None,
         "caption_style": "neon",
+        "editing": {
+            "motion": "punch",
+            "transition": "cut",
+            "words_per_cue": 3,
+        },
         "voice_id": None,
         "language": None,
         "music_mood": "energetic",
@@ -311,6 +340,45 @@ NARRATION_PACES: dict[float, str] = {
     2.8: "Fast — news and updates",
 }
 
+# --- Editing grammar -------------------------------------------------------
+#
+# Until now every format rendered identically: hard cuts, one Ken Burns speed,
+# three-word captions. But a shayari and a news update are not the same video
+# in different colours. They differ in how long a shot is held, whether shots
+# cut or dissolve, how fast the frame moves, and whether a caption pops word
+# by word or holds a whole line. That is the part a viewer reads as "this was
+# edited by someone who watches this kind of video", and it lives here.
+#
+# A format names only what differs from EDITING_DEFAULT, and the default IS
+# today's behaviour — so a format that says nothing renders exactly as before.
+
+MOTIONS: dict[str, str] = {
+    "kenburns": "Steady push, alternating direction - the default shorts look",
+    "drift": "Almost imperceptible creep - the frame breathes rather than moves",
+    "punch": "Fast push in - urgency, news and gaming",
+    "still": "No movement at all",
+}
+
+TRANSITIONS: dict[str, str] = {
+    "cut": "Hard cut straight from one shot to the next",
+    "soft": "A short fade at each shot's edges - reads as a breath, not a blackout",
+}
+
+EDITING_DEFAULT: dict = {
+    "motion": "kenburns",
+    "transition": "cut",
+    "fade": 0.0,          # seconds, per edge; only used when transition="soft"
+    "words_per_cue": 3,   # captions.MAX_WORDS_PER_CUE
+}
+
+
+def editing_for(fmt: dict | None) -> dict:
+    """A format's editing grammar, with anything unspecified filled in."""
+    out = dict(EDITING_DEFAULT)
+    out.update((fmt or {}).get("editing") or {})
+    return out
+
+
 # Topics harvested before the format pack stored raw engine names in
 # best_format — map them to the closest format key.
 LEGACY_FORMAT_MAP = {"narrated": "viral_story", "visual": "music_visual", "image": "image_carousel"}
@@ -334,4 +402,7 @@ def render_defaults(fmt: dict) -> dict:
         out["visual_style"] = fmt["visual_style"]
     if fmt.get("words_per_second"):
         out["words_per_second"] = fmt["words_per_second"]
+    # How this format is CUT, not just how it looks. Always emitted (filled
+    # from defaults) so the renderer never has to guess what a format wanted.
+    out["editing"] = editing_for(fmt)
     return out
