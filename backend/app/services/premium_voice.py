@@ -26,7 +26,12 @@ PROVIDERS = (CARTESIA, ELEVENLABS)
 
 CARTESIA_BASE = "https://api.cartesia.ai"
 CARTESIA_VERSION = "2024-06-10"
-CARTESIA_MODEL = "sonic-2"
+# sonic-2 was sunsetted and every paid Hindi narration had been failing with
+# "Model sunsetted" — 400, after the credits were charged. Verified against the
+# live API 2026-09-13: sonic-3 returns audio, sonic-3-5 is 404 (documented but
+# not yet served on this account), sonic-2 and sonic are both sunsetted.
+# test_premium_voice_lane checks this against Cartesia rather than trusting it.
+CARTESIA_MODEL = "sonic-3"
 ELEVEN_BASE = "https://api.elevenlabs.io/v1"
 ELEVEN_MODEL = "eleven_multilingual_v2"
 
