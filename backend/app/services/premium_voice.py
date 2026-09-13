@@ -68,6 +68,18 @@ def _key_for(provider: str, user_keys: dict[str, str] | None) -> tuple[str, bool
     return platform, False
 
 
+def _is_callable(voice: dict) -> bool:
+    """Whether this account can actually synthesize with this voice.
+
+    Only ElevenLabs distinguishes: its "professional" and library voices are
+    paid-plan only and return 402. Cartesia has no such split, and a voice the
+    creator cloned on their own account is always theirs to use.
+    """
+    if voice.get("provider") != ELEVENLABS:
+        return True
+    return voice.get("cloned", False) or voice.get("category", "premade") == "premade"
+
+
 async def list_voices(provider: str, user_keys: dict[str, str] | None = None) -> list[dict]:
     """[{id, name, language, provider, cloned}] — cloned voices first."""
     api_key, is_own = _key_for(provider, user_keys)
@@ -104,12 +116,19 @@ async def list_voices(provider: str, user_keys: dict[str, str] | None = None) ->
                     "language": (v.get("labels") or {}).get("language", "en"),
                     "provider": ELEVENLABS,
                     "cloned": (v.get("category") or "") == "cloned",
+                    # "premade" works on every plan; "professional" and
+                    # "cloned" are library voices a free plan cannot call.
+                    "category": v.get("category") or "premade",
                 }
                 for v in resp.json().get("voices", [])
                 if v.get("voice_id")
             ]
 
-    voices.sort(key=lambda v: (not v["cloned"], v["name"].lower()))
+    # Cloned voices first — they are the creator's own and the reason they
+    # added a key. But a voice the account's plan cannot call must never come
+    # first, or the default selection fails with a payment error on a lane the
+    # studio said was available.
+    voices.sort(key=lambda v: (not _is_callable(v), not v["cloned"], v["name"].lower()))
     return voices[:MAX_VOICES]
 
 
@@ -161,6 +180,15 @@ async def synthesize(
             raise VoiceError(f"That {provider.title()} key was rejected — check it in Settings.")
         if resp.status_code == 429:
             raise VoiceError(f"{provider.title()} is rate-limiting or out of quota right now.")
+        if resp.status_code == 402:
+            # ElevenLabs returns this for a free plan reaching for a voice the
+            # plan does not include. The old generic message threw away the one
+            # sentence that explained it, leaving a creator (and us) with an
+            # error nobody could act on.
+            raise VoiceError(
+                f"That {provider.title()} voice needs a paid plan on the account "
+                "the key belongs to. Pick one of the standard voices, or upgrade."
+            )
         raise VoiceError(f"{provider.title()} couldn't produce that narration.")
     if not resp.content:
         raise VoiceError(f"{provider.title()} returned empty audio.")

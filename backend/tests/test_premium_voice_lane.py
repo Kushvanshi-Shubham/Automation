@@ -47,3 +47,49 @@ async def test_cartesia_really_speaks_hindi(tmp_path):
     await pv.synthesize("बारिश आज भी छत को भीगोती है।", out, hindi[0]["id"],
                         "cartesia", language="hi")
     assert out.exists() and out.stat().st_size > 5000
+
+
+# ---- a free plan must not be offered voices it cannot call -------------------
+
+def _el(name, category, cloned=False):
+    return {"id": name, "name": name, "provider": "elevenlabs",
+            "category": category, "cloned": cloned, "language": "en"}
+
+
+def test_a_paid_only_voice_is_never_the_default_pick():
+    """ElevenLabs "professional" voices return 402 on a free plan. We sorted
+    them to the top, so the default selection failed on a lane the studio had
+    just advertised as available."""
+    rows = [_el("Priyanka", "professional"), _el("Roger", "premade")]
+    rows.sort(key=lambda v: (not pv._is_callable(v), not v["cloned"], v["name"].lower()))
+    assert rows[0]["name"] == "Roger"
+
+
+def test_a_creators_own_cloned_voice_still_wins():
+    """Cloning is the whole reason someone adds their own key. A usable
+    cloned voice must still outrank a stock one."""
+    rows = [_el("Roger", "premade"), _el("Mine", "cloned", cloned=True)]
+    rows.sort(key=lambda v: (not pv._is_callable(v), not v["cloned"], v["name"].lower()))
+    assert rows[0]["name"] == "Mine"
+
+
+def test_cartesia_voices_are_never_filtered():
+    """Only ElevenLabs has the paid-voice split. Treating a Cartesia voice as
+    blocked would hide all four Hindi voices — the ones shayari needs."""
+    assert pv._is_callable({"provider": "cartesia", "name": "Aadhya"})
+
+
+def test_a_voice_with_no_category_is_assumed_usable():
+    """Older stored voices predate the field; assuming blocked would empty
+    the list for everyone who already picked one."""
+    assert pv._is_callable({"provider": "elevenlabs", "name": "x", "cloned": False})
+
+
+def test_the_payment_error_says_what_to_do():
+    """402 carried the one sentence that explained the failure and we replaced
+    it with 'couldn't produce that narration', which nobody can act on."""
+    import inspect
+
+    src = inspect.getsource(pv.synthesize)
+    assert "resp.status_code == 402" in src
+    assert "paid plan" in src
