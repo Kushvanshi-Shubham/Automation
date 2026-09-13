@@ -71,22 +71,21 @@ async def _run(video_id: str, scene_index: int = 0) -> dict:
             duration = min(MAX_PROOF_SECONDS, max(2.2, float(seg.get("duration_estimate") or 4.0)))
             audio_path, words = None, []
         else:
-            audio_path = workdir / "proof.mp3"
-            provider = data.get("voice_provider")
-            voice = data.get("voice_id") or tts.DEFAULT_VOICE
-            if provider:
-                from app.services import premium_voice
-
-                duration, words = await premium_voice.synth_with_timings(
-                    seg["text"], audio_path, voice, provider,
-                    user_keys=user_keys, language=data.get("language") or "en",
-                )
-            else:
-                duration, words = await tts.synth_segment(
-                    seg["text"], audio_path, voice,
-                    rate=tts.rate_for(data.get("words_per_second")),
-                )
-            duration = min(duration, MAX_PROOF_SECONDS)
+            # Through synth_script, not synth_segment, so the proof hears the
+            # format's rhythm — the pause between the misras of a sher is the
+            # single thing a creator most needs to check before paying, and
+            # this path had no pauses at all.
+            voiced = await tts.synth_script(
+                [seg], workdir,
+                voice=data.get("voice_id") or tts.DEFAULT_VOICE,
+                provider=data.get("voice_provider"),
+                user_keys=user_keys,
+                language=data.get("language") or "en",
+                **runner._voice_rhythm(data),
+            )
+            audio_path = Path(voiced[0]["audio_path"])
+            words = voiced[0]["words"]
+            duration = min(voiced[0]["duration"], MAX_PROOF_SECONDS)
 
         # Visual for this one scene
         clip_path = workdir / "proof_clip.mp4"

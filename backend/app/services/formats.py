@@ -353,10 +353,17 @@ MUSIC_MOODS: dict[str, str] = {
 # tts.rate_for clamps the derived rate to [-45%, +25%] anyway, so values
 # outside this range would be silently capped and the creator would think
 # the control was broken.
+# These set how fast the VOICE speaks, and nothing else. They used to double
+# as "how unhurried does this feel", which is why poetry pointed at the
+# slowest one — and 1.2 asks edge-tts for -52%, clamped to its -45% floor,
+# which sounds like a recording played slowly rather than someone reciting.
+# Unhurried now comes from silence between the lines (services/rhythm.py), so
+# these labels describe delivery only.
 NARRATION_PACES: dict[float, str] = {
-    1.2: "Very slow — poetry, one line at a time",
+    1.2: "Very slow — deliberate, every word weighed",
     1.6: "Slow — lyrical, room to breathe",
     2.0: "Measured — motivational",
+    2.2: "Relaxed — poetry and shayari, with pauses between lines",
     2.5: "Natural — storytelling",
     2.8: "Fast — news and updates",
 }
@@ -431,7 +438,12 @@ def render_defaults(fmt: dict) -> dict:
     if fmt.get("visual_style"):
         out["visual_style"] = fmt["visual_style"]
     if fmt.get("words_per_second"):
-        out["words_per_second"] = fmt["words_per_second"]
+        # script_data's words_per_second drives ONE thing: how fast the voice
+        # speaks. The writing budget lives in the format's script_recipe text,
+        # not here. So a format that separates the two (shayari writes at 1.2
+        # w/s but is SPOKEN at 2.2, with silence filling the rest) must seed
+        # the creator's pace control with the speaking rate.
+        out["words_per_second"] = editing_for(fmt).get("speech_wps") or fmt["words_per_second"]
     # How this format is CUT, not just how it looks. Always emitted (filled
     # from defaults) so the renderer never has to guess what a format wanted.
     out["editing"] = editing_for(fmt)

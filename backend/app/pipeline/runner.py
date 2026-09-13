@@ -185,9 +185,13 @@ def _voice_rhythm(data: dict | None) -> dict:
     """
     edit = _editing(data)
     return {
-        # Delivery speed is the format's if it names one; otherwise the script
-        # budget doubles as the rate, exactly as it always did.
-        "words_per_second": edit.get("speech_wps") or (data or {}).get("words_per_second"),
+        # The creator's "Narration pace" dropdown writes this, and it is the
+        # only thing that sets delivery speed. A format's speech_wps is the
+        # SEED for that dropdown (applied in render_defaults at generation
+        # time) and must never override it here: doing so made a visible
+        # control silently do nothing, which is the exact bug this file has
+        # already been fixed for twice.
+        "words_per_second": (data or {}).get("words_per_second"),
         "line_pause": edit["line_pause"],
         "pause_after": edit["pause_after"],
         # Dard is held longer than hausla. The mood the creator picked is
