@@ -262,3 +262,38 @@ def test_the_silent_lane_gets_the_same_treatment(monkeypatch, tmp_path):
     caps, rend = _assemble({"editing": SHAYARI}, silent=True,
                            monkeypatch=monkeypatch, tmp_path=tmp_path)
     assert rend.get("fade") == 0.3 and caps.get("words_per_cue") == 7
+
+
+# ---- the proof render must not lie ------------------------------------------
+
+def test_the_proof_render_uses_the_same_assembly_as_the_real_one():
+    """The proof exists so a creator can check captions and timing BEFORE
+    paying. It called the assembler directly, so after formats gained editing
+    recipes it drew hard cuts and 3-word captions while the paid render drew
+    the format's own. A proof that renders differently is worse than none."""
+    import inspect
+
+    from app.pipeline import proof
+
+    src = inspect.getsource(proof)
+    assert "runner._assemble_segment(" in src, "proof drew its own captions again"
+    assert "motion=runner._editing(data)" in src, "proof ignored the format's motion"
+
+
+def test_the_proof_passes_a_real_format_recipe_through(monkeypatch, tmp_path):
+    """Drive the shared helper the way proof calls it — silent lane, words
+    supplied directly — and check the recipe survives the trip."""
+    caps, rend = {}, {}
+    monkeypatch.setattr(runner.captions, "build_segment_captions",
+                        lambda **k: (caps.update(k), tmp_path / "p.ass")[1])
+    monkeypatch.setattr(runner.assembler, "render_segment_silent", lambda *a, **k: rend.update(k))
+
+    runner._assemble_segment(
+        index=0, seg={"text": "ek sher"},
+        seg_audio={"duration": 6.0, "words": [], "audio_path": ""},
+        clip=tmp_path / "v.mp4", out_path=tmp_path / "o.mp4", workdir=tmp_path,
+        data={"editing": SHAYARI}, aspect={"w": 1080, "h": 1920},
+        watermark=True, silent=True,
+    )
+    assert caps["words_per_cue"] == 7 and caps["watermark"] is True
+    assert rend["fade"] == 0.3

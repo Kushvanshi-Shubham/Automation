@@ -23,7 +23,7 @@ import httpx
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.video import Video
-from app.pipeline import assembler, captions, tts
+from app.pipeline import assembler, captions, runner, tts
 from app.pipeline.assembler import ASPECT_RATIOS
 from app.pipeline.celery_app import celery_app
 from app.pipeline.visuals import pexels
@@ -104,7 +104,8 @@ async def _run(video_id: str, scene_index: int = 0) -> dict:
                 still, user_keys=user_keys, aspect=aspect_ratio,
             )
             assembler.image_to_clip(still, duration + 0.4, clip_path,
-                                    width=aspect["w"], height=aspect["h"])
+                                    width=aspect["w"], height=aspect["h"],
+                                    motion=runner._editing(data)["motion"])
         elif seg.get("asset_id"):
             from app.models.asset import Asset
             from app.services import storage
@@ -128,27 +129,27 @@ async def _run(video_id: str, scene_index: int = 0) -> dict:
                                             orientation=aspect["orientation"],
                                             target_w=aspect["w"], target_h=aspect["h"])
 
-        # Captions exactly as the full render would draw them
-        ass_path = captions.build_segment_captions(
-            words=words,
-            text=seg["text"],
-            duration=duration,
-            out_path=workdir / "proof.ass",
-            style=data.get("caption_style") or captions.DEFAULT_CAPTION_STYLE,
-            play_res=(aspect["w"], aspect["h"]),
+        # Captions and cutting exactly as the full render would do them. This
+        # goes through the SAME function run() uses rather than repeating its
+        # arguments: a proof that renders differently from the real thing is
+        # worse than no proof, and this file already drifted once — it drew
+        # hard cuts and 3-word captions after formats gained editing recipes.
+        runner._assemble_segment(
+            index=0,
+            seg=seg,
+            seg_audio={
+                "duration": duration,
+                "words": words,
+                "audio_path": str(audio_path) if audio_path is not None else "",
+            },
+            clip=clip_path,
+            out_path=final_path,
+            workdir=workdir,
+            data=data,
+            aspect=aspect,
             watermark=bool(tier.get("watermark")),
-            animation=data.get("caption_animation") or "none",
-            font=data.get("caption_font"),
-            color=data.get("caption_color"),
-            headline=seg.get("headline"),
+            silent=(audio_path is None),
         )
-
-        if audio_path is None:
-            assembler.render_segment_silent(clip_path, duration, final_path, ass_path=ass_path,
-                                            width=aspect["w"], height=aspect["h"])
-        else:
-            assembler.render_segment(clip_path, audio_path, duration, final_path, ass_path=ass_path,
-                                     width=aspect["w"], height=aspect["h"])
 
         from app.services import storage
 
