@@ -283,7 +283,11 @@ function EmptyStudio() {
               if (!options?.length) return null
               return (
                 <div style={{ marginTop: 18 }}>
-                  <span style={label}>Mood — steers the writing, the music and the look</span>
+                  {/* Mood now drives the narration's breathing too (dard is
+                      held longer than hausla — services/rhythm.py), and it is
+                      optional, so a creator who skips it gets neutral pacing
+                      without being told. Say what it does and that it matters. */}
+                  <span style={label}>Mood — steers the writing, the music, the look and how the narration breathes</span>
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     {options.map(m => (
                       <button key={m.key} onClick={() => setMood(mood === m.key ? "" : m.key)}
