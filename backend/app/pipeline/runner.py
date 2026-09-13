@@ -176,6 +176,23 @@ def _editing(data: dict | None) -> dict:
     return out
 
 
+def _voice_rhythm(data: dict | None) -> dict:
+    """How this format is SPOKEN: delivery speed and where the silences go.
+
+    Its own function because the settings were already computed correctly
+    once and then not passed — twice, in two different files, in one night.
+    A helper can be driven by a test; an inline argument list cannot.
+    """
+    edit = _editing(data)
+    return {
+        # Delivery speed is the format's if it names one; otherwise the script
+        # budget doubles as the rate, exactly as it always did.
+        "words_per_second": edit.get("speech_wps") or (data or {}).get("words_per_second"),
+        "line_pause": edit["line_pause"],
+        "pause_after": edit["pause_after"],
+    }
+
+
 def _assemble_segment(
     *, index: int, seg: dict, seg_audio: dict, clip: Path, out_path: Path,
     workdir: Path, data: dict, aspect: dict, watermark: bool, silent: bool,
@@ -631,7 +648,7 @@ async def run(job_id: str) -> dict:
             voiced = await tts.synth_script(
                 segments, workdir, voice=voice, provider=provider,
                 user_keys=user_keys, language=(data.get("language") or "en"),
-                words_per_second=data.get("words_per_second"),
+                **_voice_rhythm(data),
             )
 
         # Stage 2: visuals

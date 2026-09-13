@@ -145,8 +145,12 @@ FORMATS: dict[str, dict] = {
         "editing": {
             # Slower than the default but not as still as poetry.
             "motion": "drift",
-            "transition": "soft",
-            "fade": 0.2,
+            # Was "soft" 0.2s. Pulled after the owner rejected the same dip in
+            # shayari — the machinery stays and is tested, but no format ships
+            # it until someone has watched one and liked it.
+            "transition": "cut",
+            "fade": 0.0,
+            "pause_after": 0.4,
             "words_per_cue": 4,
         },
         "voice_id": None,
@@ -218,9 +222,21 @@ FORMATS: dict[str, dict] = {
             # A sher is meant to land in silence, not be chased by a moving
             # camera. Drift is slow enough that you notice the line, not the shot.
             "motion": "drift",
-            # A breath between couplets. A hard cut here reads as a scroll.
-            "transition": "soft",
-            "fade": 0.3,
+            # Owner, on the first slow render: "too slow, the gap is weird —
+            # if you download audio of shayari you will understand it."
+            #
+            # Both halves of that were the same mistake. The pause in shayari
+            # is in the VOICE, not the picture: the reciter stops between the
+            # misras and between shers while the scene simply holds. We had it
+            # backwards — a dragged -45% voice that never stopped, over a
+            # picture that dipped to black, which reads as a glitch.
+            "transition": "cut",
+            "fade": 0.0,
+            "line_pause": 0.55,   # between the two misras of one sher
+            "pause_after": 0.9,   # between one sher and the next
+            # Spoken at a measured pace, NOT slowed. words_per_second stays
+            # 1.2 so the couplets stay short; the silence fills the rest.
+            "speech_wps": 2.2,
             # Shayari is read a LINE at a time. Three-word chunks cut a couplet
             # into pieces and destroy the shape the whole form depends on.
             "words_per_cue": 7,
@@ -369,6 +385,15 @@ EDITING_DEFAULT: dict = {
     "transition": "cut",
     "fade": 0.0,          # seconds, per edge; only used when transition="soft"
     "words_per_cue": 3,   # captions.MAX_WORDS_PER_CUE
+    # Silence, in seconds. line_pause sits between the lines of one segment
+    # (the two misras of a sher); pause_after sits between segments. This is
+    # where a poetic rhythm actually comes from — see tts.py.
+    "line_pause": 0.0,
+    "pause_after": 0.0,
+    # Delivery speed for the VOICE only, separate from words_per_second,
+    # which budgets how many words a segment may contain. Keeping them apart
+    # is what lets a format write short lines AND speak them naturally.
+    "speech_wps": None,
 }
 
 

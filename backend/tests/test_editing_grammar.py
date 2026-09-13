@@ -21,6 +21,7 @@ def test_a_format_that_says_nothing_renders_as_before():
     """Every format except the four given a recipe must be untouched."""
     assert editing_for(FORMATS["reddit_story"]) == {
         "motion": "kenburns", "transition": "cut", "fade": 0.0, "words_per_cue": 3,
+        "line_pause": 0.0, "pause_after": 0.0, "speech_wps": None,
     }
 
 
@@ -56,9 +57,12 @@ def test_the_recipe_is_written_onto_the_video_at_generation_time():
 
 
 def test_shayari_holds_the_line_and_breathes():
+    """The breath moved. It was a fade in the picture, which the owner read
+    as a glitch; it is now silence in the voice. See test_shayari_rhythm."""
     e = editing_for(FORMATS["shayari"])
     assert e["motion"] == "drift", "a couplet should not be chased by the camera"
-    assert e["transition"] == "soft" and e["fade"] > 0
+    assert e["transition"] == "cut" and e["fade"] == 0.0
+    assert e["line_pause"] > 0 and e["pause_after"] > 0, "the breath has to live somewhere"
     assert e["words_per_cue"] >= 6, "3-word chunks destroy a couplet's shape"
 
 

@@ -43,12 +43,18 @@ _POETIC_RULES = """
 Rules:
 - Each segment is ONE line/couplet, complete in itself. Never split a couplet
   across segments and never merge two into one.
+- Write the two lines of a sher on SEPARATE LINES, with a single newline
+  between them. This is not cosmetic: the reciter pauses between the misras,
+  and the renderer can only place that silence if it can see where the break
+  is. A couplet delivered as one unbroken line is read as prose.
 - No hook, no open loop, no call to action, no subscribe nudge. Poetry earns
   attention by being good, not by withholding.
 - Imagery over explanation. Never state the emotion outright ("she was sad");
   show the thing that carries it.
 - Pacing is slow and deliberate: duration_estimate at ~1.2 words/second, so
-  each line is given room to land.
+  each line is given room to land. That budget is SILENCE as much as speech —
+  the lines themselves stay short and are spoken at a normal pace, with the
+  pauses doing the work. Do not pad a line to fill the time.
 - Every segment includes a visual_prompt: a still, atmospheric, filmable image that
   carries THIS line's own image (rain on glass, a cooling cup of chai, an empty road
   at dusk). Take it from the line itself rather than from a fixed palette of moody
