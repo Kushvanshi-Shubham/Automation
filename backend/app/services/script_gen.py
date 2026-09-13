@@ -41,20 +41,16 @@ Respond ONLY with JSON matching:
 
 _POETIC_RULES = """
 Rules:
-- Each segment is ONE line/couplet, complete in itself. Never split a couplet
-  across segments and never merge two into one.
-- Write the two lines of a sher on SEPARATE LINES, with a single newline
-  between them. This is not cosmetic: the reciter pauses between the misras,
-  and the renderer can only place that silence if it can see where the break
-  is. A couplet delivered as one unbroken line is read as prose.
+- Each segment is ONE complete unit of verse, never split across segments and
+  never merged with another.
 - No hook, no open loop, no call to action, no subscribe nudge. Poetry earns
   attention by being good, not by withholding.
 - Imagery over explanation. Never state the emotion outright ("she was sad");
   show the thing that carries it.
-- Pacing is slow and deliberate: duration_estimate at ~1.2 words/second, so
-  each line is given room to land. That budget is SILENCE as much as speech —
-  the lines themselves stay short and are spoken at a normal pace, with the
-  pauses doing the work. Do not pad a line to fill the time.
+- duration_estimate covers the spoken words PLUS the silence the reciter
+  leaves afterwards — roughly (words / 2.2) + 1.4 seconds. The lines are
+  spoken at a normal pace and the pauses do the unhurried work, so NEVER pad
+  a line with extra words to fill the time.
 - Every segment includes a visual_prompt: a still, atmospheric, filmable image that
   carries THIS line's own image (rain on glass, a cooling cup of chai, an empty road
   at dusk). Take it from the line itself rather than from a fixed palette of moody
@@ -131,6 +127,11 @@ STYLE_PROMPTS = {
     "poetry": (
         "You are a shayar writing original Urdu-flavoured Hindi poetry in Devanagari. "
         "You write sher: couplets where the second line turns, deepens or subverts the first. "
+        "EVERY segment is one complete sher and therefore has EXACTLY TWO lines, written on "
+        "two separate lines with a newline between them — 6 to 10 words each. Never a single "
+        "line, never three. This is not formatting: the reciter stops between the misras, and "
+        "that silence can only be placed where the line break is. A sher delivered as one "
+        "unbroken line is read as prose and the form is gone. "
         "Your register is intimate and restrained — chai, rain, roads, waiting, distance, debt, "
         "small domestic objects carrying large feeling. Never explain the poem and never moralise. "
         "Do not write in English."

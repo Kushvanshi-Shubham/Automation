@@ -204,10 +204,12 @@ FORMATS: dict[str, dict] = {
         "words_per_second": 1.2,
         "available": True,
         "script_recipe": (
-            "FORMAT: shayari (Urdu-flavored Hindi poetry). Write an ORIGINAL shayari of 2-4 couplets "
-            "(sher). Each segment = one couplet, written in Devanagari. Theme from the topic: love, "
-            "loss, ambition, or life. Pacing is SLOW and deliberate — set duration_estimate at ~1.2 "
-            "words/second so the narration breathes. End with the strongest couplet. "
+            "FORMAT: shayari (Urdu-flavored Hindi poetry). Write an ORIGINAL shayari in Devanagari. "
+            "Each segment is ONE complete sher: TWO lines, on two separate lines, 6-10 words each — "
+            "about 12-20 words per segment. A one-line segment is wrong. Theme from the topic: love, "
+            "loss, ambition, or life. The narration breathes through SILENCE between the lines, not "
+            "through slow speech, so keep each line tight and never pad it. End with the strongest "
+            "couplet. "
             "visual_prompt = the image the couplet itself carries, shot slow and still. A sher "
             "almost always names one — the rain, the cup, the road, the empty chair — so use "
             "that one rather than a generic mood shot."
