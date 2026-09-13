@@ -225,6 +225,7 @@ def _assemble_segment(
         color=data.get("caption_color"),
         headline=seg.get("headline"),
         words_per_cue=edit["words_per_cue"],
+        hold=edit["caption_hold"],
     )
     # A hard cut is fade=0, which _fade_filter turns into no filter at all —
     # so "cut" formats render through the identical filtergraph as before.
@@ -631,13 +632,31 @@ async def run(job_id: str) -> dict:
 
         # Stage 1: voice (narrated only) — visual shorts have no narration
         if output_type == "visual":
+            # A format with no narration still has a rhythm — it is just held
+            # on screen instead of spoken. The same plan that varies the
+            # silences in a recitation varies the hold here, so a text-led
+            # shayari does not sit for an identical beat on every couplet
+            # (measured: real recitation has a 3.3x spread) and the closing
+            # sher still gets the longest pause before it.
+            from app.services import rhythm
+
+            edit = _editing(video.script_data)
+            holds = rhythm.plan(segments, line_pause=0.0,
+                                pause_after=edit["pause_after"],
+                                mood=(video.script_data or {}).get("mood"))
             voiced = [
                 {
                     "index": i,
                     "audio_path": None,
                     "words": [],
-                    # on-screen text needs reading time: clamp the LLM estimate
-                    "duration": min(10.0, max(2.2, float(seg.get("duration_estimate") or len(seg["text"].split()) / 2.0))),
+                    # on-screen text needs reading time: clamp the LLM estimate,
+                    # then add this segment's own beat.
+                    "duration": min(
+                        12.0,
+                        max(2.2, float(seg.get("duration_estimate")
+                                       or len(seg["text"].split()) / 2.0))
+                        + holds[i]["after"],
+                    ),
                 }
                 for i, seg in enumerate(segments)
             ]

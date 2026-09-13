@@ -196,7 +196,16 @@ FORMATS: dict[str, dict] = {
         "emoji": "🌙",
         "desc": "Original Hindi shayari, slow narration over aesthetic footage",
         "when": "poetry, romance, melancholy, Hindi-audience emotional topics",
-        "output_type": "narrated",
+        # Text-led, NOT narrated. Owner: "narration is not good for shayari."
+        # He is right and the research agrees: the dominant shayari reel is the
+        # couplet set as typography over a still, carried by music, with no
+        # voice at all. Every tutorial is "insert your text, pick a font, pick
+        # a track". And the thing a machine cannot fake is exactly recitation —
+        # a TTS sher is the worst of both, neither a human voice nor clean
+        # type. Set as type it competes on craft we can actually control.
+        # Narration stays possible (Cartesia has four Hindi voices) but it is
+        # an opt-in, not what the format is.
+        "output_type": "visual",
         "style": "poetry",
         # What AI-generated scenes should look like for THIS format.
         "visual_style": "cinematic",
@@ -207,8 +216,9 @@ FORMATS: dict[str, dict] = {
             "FORMAT: shayari (Urdu-flavored Hindi poetry). Write an ORIGINAL shayari in Devanagari. "
             "Each segment is ONE complete sher: TWO lines, on two separate lines, 6-10 words each — "
             "about 12-20 words per segment. A one-line segment is wrong. Theme from the topic: love, "
-            "loss, ambition, or life. The narration breathes through SILENCE between the lines, not "
-            "through slow speech, so keep each line tight and never pad it. End with the strongest "
+            "loss, ambition, or life. Nothing is spoken aloud: the sher is SET ON SCREEN and the "
+            "viewer reads it while music plays, so duration_estimate is READING time — about 4 "
+            "seconds plus one per 4 words, and never pad a line to fill it. End with the strongest "
             "couplet. "
             "visual_prompt = the image the couplet itself carries, shot slow and still. A sher "
             "almost always names one — the rain, the cup, the road, the empty chair — so use "
@@ -247,6 +257,9 @@ FORMATS: dict[str, dict] = {
             # Shayari is read a LINE at a time. Three-word chunks cut a couplet
             # into pieces and destroy the shape the whole form depends on.
             "words_per_cue": 7,
+            # The sher appears whole, both misras at once on their own lines,
+            # and stays. This is the product now, not a caption.
+            "caption_hold": True,
         },
         "moods": {
             "sad": {
@@ -275,7 +288,9 @@ FORMATS: dict[str, dict] = {
                 "visual_style": "bold",
             },
         },
-        "controls": ["voice", "captions", "aspect", "scenes"],
+        # No "voice": the format does not speak. Music does the carrying, so
+        # offering a voice picker would be a control with nothing behind it.
+        "controls": ["captions", "aspect", "scenes", "music"],
     },
     "gaming_update": {
         "label": "Gaming Update",
@@ -399,6 +414,10 @@ EDITING_DEFAULT: dict = {
     "transition": "cut",
     "fade": 0.0,          # seconds, per edge; only used when transition="soft"
     "words_per_cue": 3,   # captions.MAX_WORDS_PER_CUE
+    # Hold the whole segment on screen exactly as written, line breaks kept.
+    # For a format with no narration the text is not a caption tracking a
+    # voice — it IS the video.
+    "caption_hold": False,
     # Silence, in seconds. line_pause sits between the lines of one segment
     # (the two misras of a sher); pause_after sits between segments. This is
     # where a poetic rhythm actually comes from — see tts.py.

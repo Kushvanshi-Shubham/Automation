@@ -240,9 +240,29 @@ def fallback_cues(text: str, duration: float, max_words: int = MAX_WORDS_PER_CUE
     return cues
 
 
+def held_cue(text: str, duration: float) -> list[dict]:
+    """One cue holding the whole segment for its full duration, as written.
+
+    For a format with no narration the text is not a caption tracking a
+    voice — it IS the video. A sher must appear whole, both misras at once
+    on their own lines, and stay there. Chunking it into three-word pieces
+    would be the same mistake as narrating poetry at news pace.
+    """
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    body = chr(10).join(lines) or text.strip()
+    if not body:
+        return []
+    return [{"text": body, "start": 0.0, "end": round(max(0.5, duration), 3), "words": []}]
+
+
 def _escape(text: str, uppercase: bool) -> str:
     out = text.replace("\\", "").replace("{", "(").replace("}", ")")
-    return out.upper() if uppercase else out
+    if uppercase:
+        out = out.upper()
+    # A real newline inside a cue is deliberate — the two misras of a sher
+    # must stay on two lines, because in a text-led format the typography IS
+    # the product. Converted AFTER the backslash strip above, or it is eaten.
+    return out.replace(chr(10), r"\N")
 
 
 def _karaoke_text(cue: dict, uppercase: bool) -> str:
@@ -425,11 +445,15 @@ def build_segment_captions(
     color: str | None = None,
     headline: str | None = None,
     words_per_cue: int = MAX_WORDS_PER_CUE,
+    hold: bool = False,
 ) -> Path:
     # Three words at a time is right for a punchy short and wrong for a
     # couplet — the format decides how much of a line is held on screen.
-    cues = (group_words(words, max_words=words_per_cue) if words
-            else fallback_cues(text, duration, max_words=words_per_cue))
+    if hold:
+        cues = held_cue(text, duration)
+    else:
+        cues = (group_words(words, max_words=words_per_cue) if words
+                else fallback_cues(text, duration, max_words=words_per_cue))
     return write_ass(
         cues, out_path, style=style, play_res=play_res,
         # +0.2s so the mark never flickers out between segments

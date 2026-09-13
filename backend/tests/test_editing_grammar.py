@@ -21,6 +21,7 @@ def test_a_format_that_says_nothing_renders_as_before():
     """Every format except the four given a recipe must be untouched."""
     assert editing_for(FORMATS["reddit_story"]) == {
         "motion": "kenburns", "transition": "cut", "fade": 0.0, "words_per_cue": 3,
+        "caption_hold": False,
         "line_pause": 0.0, "pause_after": 0.0, "speech_wps": None,
     }
 
