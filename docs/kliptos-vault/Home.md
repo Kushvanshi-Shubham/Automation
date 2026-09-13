@@ -17,6 +17,16 @@
 - [[Funding]] — programmes, competitions and accelerators Kliptos can actually enter, with deadlines and the incorporation gate (2026-09-08)
 - [[S1 Build Log]] — running log of the actual build
 - [[AI Content System]] — the video-inspired features: link→script, your footage, teach-a-style, feedback memory, studio voice
+- [[Editing Grammar]] — per-format motion, transitions and caption line length; why every format used to be cut identically (2026-09-11)
+- [[Format Launch Order]] — fake_text then shayari, gaming "coming soon"; why "easiest" is a trap; the music licensing wall (2026-09-11)
+
+## Status — 2026-09-11
+- **The renderer has a concept of editing style now.** Until this week every format went through the *identical* ffmpeg filtergraph — hard cuts, one Ken Burns speed, three-word captions — and only the palette changed. Shayari now drifts, breathes between couplets and holds a whole line; news and gaming punch in. See [[Editing Grammar]]. Defaults are byte-for-byte the old behaviour, so nothing already made changes.
+- **The next format is a dict entry plus taste, not new code.** That is the point of the change, and what makes one-format-at-a-time affordable on 4-5 evening hours.
+- **Launch order set: fake_text, then shayari; gaming montage "coming soon".** Ranked by exposure to the stock-footage lane, NOT by build effort — `reddit_story`/`viral_story` are the simplest to build and the most exposed to the exact chain that produced the rejected GTA render. See [[Format Launch Order]].
+- **Music: free/royalty-free only, licence applied for in parallel.** An ordinary Epidemic/Artlist subscription would NOT have made this legal — it covers your own channel, not rendering into customers' videos.
+- **Four silent bugs fixed** (`3688ffe`): pasted scripts ignored every creator setting; `premium_voice` and `ai_image` were tracked but priced at zero, so the economics panel could not report a loss; Whisper was auto-detecting language on every transcribe and dragging caption timings on Hinglish; deleting footage silently broke every video using it.
+- ⚠️ **No render has gone end to end through any of it.** The pipeline is correct in isolation and test-pinned on the production ffmpeg, but the first real shayari is still the thing that tells us whether this works.
 
 ## Status — 2026-09-09
 - **The always-on box is bought: Hostinger KVM 2, ₹799/month** (2 vCPU, 8 GB, 100 GB NVMe, 8 TB). Runbook rewritten as [[../DEPLOY-VPS|DEPLOY-VPS.md]]; the GCP one is superseded. Once it is up, renders no longer depend on the dev laptop being awake — which is the last thing blocking a stranger using the product.
