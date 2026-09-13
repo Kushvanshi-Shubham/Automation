@@ -85,10 +85,16 @@ def test_the_model_is_told_to_break_the_couplet():
     """utterances() can only place the pause if it can see the line break,
     so the prompt has to ask for one. Silent failure otherwise: the whole
     sher becomes one utterance and the rhythm quietly disappears."""
-    from app.services.script_gen import _POETIC_RULES
+    from app.services.script_gen import STYLE_PROMPTS, _POETIC_RULES
 
-    assert "SEPARATE LINES" in _POETIC_RULES
-    assert "newline" in _POETIC_RULES
+    poetry = STYLE_PROMPTS["poetry"]
+    assert "EXACTLY TWO lines" in poetry
+    assert "newline between them" in poetry
+    # It lives in the poetry style, NOT the rules poetry and lyrical share:
+    # a lyrical segment genuinely is one line, and demanding two there would
+    # quietly wreck the music-video format.
+    assert "EXACTLY TWO lines" not in _POETIC_RULES
+    assert "EXACTLY TWO lines" not in STYLE_PROMPTS["lyrical"]
 
 
 # ---- and it has to survive ffmpeg -----------------------------------------
