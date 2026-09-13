@@ -232,7 +232,12 @@ FORMATS: dict[str, dict] = {
             # picture that dipped to black, which reads as a glitch.
             "transition": "cut",
             "fade": 0.0,
-            "line_pause": 0.55,   # between the two misras of one sher
+            # Bases, not final values — services/rhythm.py varies each one by
+            # ending, line length, position and mood. The measured median of
+            # a real pause is 0.53s, and these are only the STRUCTURAL gaps
+            # (line and sher boundaries), so they sit near that median rather
+            # than at the p90 the long tail comes from.
+            "line_pause": 0.45,   # between the two misras of one sher
             "pause_after": 0.9,   # between one sher and the next
             # Spoken at a measured pace, NOT slowed. words_per_second stays
             # 1.2 so the couplets stay short; the silence fills the rest.

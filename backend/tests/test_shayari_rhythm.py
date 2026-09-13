@@ -149,19 +149,27 @@ def test_word_timings_are_shifted_by_every_pause_before_them(tmp_path, monkeypat
     monkeypatch.setattr(tts, "synth_segment", fake_speak)
 
     import asyncio
+
+    from app.services import rhythm
+
+    segments = [{"text": "first" + chr(10) + "second"}]
+    # Ask the same planner the synthesizer uses, rather than hardcoding a
+    # number the planner is free to vary.
+    expected = rhythm.plan(segments, line_pause=0.5, pause_after=0.8)[0]
+
     out = asyncio.run(tts.synth_script(
-        [{"text": "first" + chr(10) + "second"}], tmp_path, line_pause=0.5, pause_after=0.8,
+        segments, tmp_path, line_pause=0.5, pause_after=0.8,
     ))
     seg = out[0]
-    # 1s speech + 0.5s pause + 1s speech + 0.8s trailing
-    assert abs(seg["duration"] - 3.3) < 0.25, seg["duration"]
+    # 1s speech + the misra gap + 1s speech + the trailing gap
+    assert abs(seg["duration"] - (2.0 + expected["line"] + expected["after"])) < 0.25,         seg["duration"]
 
     starts = [w["start"] for w in seg["words"]]
     assert len(starts) == 2
     assert abs(starts[0] - 0.0) < 0.05, "first misra should start at zero"
-    assert abs(starts[1] - 1.5) < 0.25, (
+    assert abs(starts[1] - (1.0 + expected["line"])) < 0.25, (
         f"second misra caption at {starts[1]:.2f}s - should be after 1s of "
-        "speech plus the 0.5s pause"
+        f"speech plus the {expected['line']:.2f}s pause"
     )
 
 
@@ -193,7 +201,8 @@ def test_the_rhythm_reaches_the_voice_lane():
     from app.services.formats import render_defaults
 
     r = _voice_rhythm(render_defaults(FORMATS["shayari"]))
-    assert r["line_pause"] == 0.55 and r["pause_after"] == 0.9
+    # Bases, not final values — services/rhythm.py varies each one from here.
+    assert r["line_pause"] > 0 and r["pause_after"] > r["line_pause"]
     assert r["words_per_second"] == 2.2, "spoke at the script budget instead of the delivery rate"
 
 

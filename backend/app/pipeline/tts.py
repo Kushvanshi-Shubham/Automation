@@ -126,6 +126,7 @@ async def synth_script(
     words_per_second: float | None = None,
     line_pause: float = 0.0,
     pause_after: float = 0.0,
+    mood: str | None = None,
 ) -> list[dict]:
     """Synthesize all segments. Returns [{index, audio_path, duration, words}].
 
@@ -135,6 +136,12 @@ async def synth_script(
     """
     results = []
     rate = rate_for(words_per_second)
+    # Every silence its own length. A single fixed value has zero spread,
+    # which is the one property real recitation most obviously has.
+    from app.services import rhythm
+
+    silences = rhythm.plan(segments, line_pause=line_pause,
+                           pause_after=pause_after, mood=mood)
 
     async def _speak(text: str, path: Path) -> tuple[float, list[dict]]:
         """One utterance, through whichever voice lane is selected."""
@@ -148,9 +155,10 @@ async def synth_script(
 
     for i, seg in enumerate(segments):
         audio_path = workdir / f"seg_{i:02d}.mp3"
-        pieces = utterances(seg["text"], line_pause)
+        inside, trailing = silences[i]["line"], silences[i]["after"]
+        pieces = utterances(seg["text"], inside)
 
-        if len(pieces) == 1 and pause_after <= 0:
+        if len(pieces) == 1 and trailing <= 0:
             duration, words = await _speak(seg["text"], audio_path)
         else:
             # Speak each piece, pad it with the silence that follows it, then
@@ -161,7 +169,7 @@ async def synth_script(
             for j, piece in enumerate(pieces):
                 raw = workdir / f"seg_{i:02d}_p{j:02d}.mp3"
                 _, piece_words = await _speak(piece, raw)
-                gap = line_pause if j < len(pieces) - 1 else pause_after
+                gap = inside if j < len(pieces) - 1 else trailing
                 if gap > 0:
                     held = workdir / f"seg_{i:02d}_q{j:02d}.mp3"
                     _pad_audio(raw, gap, held)
@@ -178,6 +186,7 @@ async def synth_script(
             duration = probe_duration(audio_path)
 
         results.append({"index": i, "audio_path": str(audio_path), "duration": duration, "words": words})
-        logger.info("tts segment %d (%s): %.2fs, %d word events, %d piece(s)",
-                    i, provider or "edge", duration, len(words), len(pieces))
+        logger.info("tts segment %d (%s): %.2fs, %d word events, %d piece(s), "
+                    "pauses %.2f/%.2f", i, provider or "edge", duration,
+                    len(words), len(pieces), inside, trailing)
     return results

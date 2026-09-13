@@ -190,6 +190,9 @@ def _voice_rhythm(data: dict | None) -> dict:
         "words_per_second": edit.get("speech_wps") or (data or {}).get("words_per_second"),
         "line_pause": edit["line_pause"],
         "pause_after": edit["pause_after"],
+        # Dard is held longer than hausla. The mood the creator picked is
+        # already on the video; it just never reached the voice.
+        "mood": (data or {}).get("mood"),
     }
 
 
